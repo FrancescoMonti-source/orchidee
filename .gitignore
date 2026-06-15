@@ -1,6 +1,7 @@
 # Internal data and generated exports
 /data/
 /downloads/
+/outputs/
 
 # Local historical backups and quarantined generated material
 /archive/
@@ -36,6 +37,9 @@ Desktop.ini
 *credentials*
 *secret*
 *token*
+
+# Local scratch / build tooling (e.g. .tmp_spreadsheet: scratch .mjs + node_modules symlink)
+/.tmp_spreadsheet/
 
 # Temporary files
 *.tmp
