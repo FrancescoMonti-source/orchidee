@@ -1,0 +1,307 @@
+---
+editor_options:
+  markdown:
+    wrap: 80
+---
+
+# Cartographie du projet
+
+Ce document s'adresse aux mainteneurs. Il répond à deux questions :
+
+1.  où se trouve chaque partie du workflow Orchidee ?
+2.  où faut-il modifier le code ou la documentation quand on veut changer quelque chose ?
+
+## Chaîne de traitement de haut niveau
+
+1.  Normaliser les champs microbiologiques sources et construire
+    l'artefact S/I/R large.
+2.  Construire le périmètre analytique d'hospitalisation et les objets
+    annuels de dénominateur en nuits d'hospitalisation.
+3.  Construire les jeux de données de complétion selon plusieurs
+    stratégies.
+4.  Exécuter un dédoublonnage de type SPARES sur chaque jeu comparé.
+5.  Calculer les panels annuels d'indicateurs RATB.
+6.  Rendre le rapport produit et les documents méthodologiques de
+    support.
+
+## Notebooks principaux
+
+### `orchidee_dedup_workflow.qmd`
+
+Rôle :
+
+-   notebook socle du workflow
+-   comparaison des stratégies de complétion
+-   exécution du dédoublonnage et QA
+-   QA du périmètre d'hospitalisation et du dénominateur
+
+À utiliser quand on veut comprendre :
+
+-   comment les jeux de complétion sont produits
+-   comment le dédoublonnage est appliqué
+-   comment les artefacts de dénominateur sont construits et contrôlés
+
+### `orchidee_ratb_indicators.qmd`
+
+Rôle :
+
+-   rapport RATB orienté produit
+-   catalogue des indicateurs
+-   restitutions annuelles de proportions et d'incidence
+-   section de restitution des phénotypes
+
+À utiliser quand on veut modifier :
+
+-   la structure du rapport
+-   l'ordre des sections
+-   les réglages d'affichage
+-   la présentation des phénotypes
+
+### `documentation/ratb_implementation_decisions.qmd`
+
+Rôle :
+
+-   mémo méthodologique
+-   justification des choix d'implémentation
+
+### `documentation/ratb_meeting_prep_spf.qmd`
+
+Rôle :
+
+-   support de réunion
+-   questions pour SPF, points d'arbitrage, notes CONSORES
+
+À utiliser pour l'ordre de présentation et la préparation des échanges,
+pas comme source méthodologique de référence.
+
+## Fichiers R principaux
+
+Les notebooks chargent ces fichiers en deux temps : `R/setup.R` est sourcé
+en tête (librairies, sourcing du socle d'extraction, lecture de
+`config/pipeline.R`), puis chaque notebook source explicitement les scripts
+de logique dont il a besoin via `source_required_script`.
+
+### Bootstrap et extraction amont
+
+-   `R/setup.R`
+    -   bootstrap : chargement des librairies, sourcing du socle
+        d'extraction et lecture de la config ; sourcé en tête des
+        notebooks
+-   `R/helpers.R`
+    -   utilitaires généraux partagés
+-   `R/zzz.R`
+    -   déclarations `globalVariables`
+-   `R/get_edsan.R`
+    -   récupération des données EDSaN (batch par fenêtre temporelle ou
+        par liste d'ID)
+-   `R/biol.R`
+    -   traitement des examens microbiologiques bruts (BIOL)
+-   `R/pmsi.R`
+    -   traitement des séjours PMSI (parsing des dates d'entrée/sortie et
+        des heures)
+
+### Normalisation et artefact amont
+
+-   `R/normalisation_atb.R`
+    -   normalisation des antibiotiques
+-   `R/normalisation_bact.R`
+    -   normalisation des bactéries
+-   `R/build_sir_wide_artifact.R`
+    -   artefact microbiologique large (construit un artefact
+        microbiologique au format large à partir des données brutes de
+        l'entrepôt)
+    -   porte les flags phénotypiques en amont
+-   `R/phenotype_flag_helpers.R`
+    -   parsing et propagation des phénotypes BLSE / carbapénèmase
+    -   statuts internes à quatre états, flags publics binaires (positif
+        uniquement)
+
+### Complétion et dédoublonnage
+
+-   `R/completion_helpers.R`
+    -   logique de complétion et exécution des stratégies
+-   `R/completion_workflow_helpers.R`
+    -   plumbing d'orchestration, de validation et de journalisation de
+        la complétion/dédoublonnage, sorti du notebook socle
+-   `R/spares_shared_primitives.R`
+    -   primitives de conflit et d'ordonnancement
+-   `R/spares_dedup.R`
+    -   classes de compatibilité de type SPARES et sélection du
+        représentant
+
+### Contrôle qualité
+
+-   `R/ratb_plausibility_qc_helpers.R`
+    -   construction des flags de plausibilité (QC) sur l'artefact S/I/R
+    -   utilisés dans la QA du notebook socle
+
+### Dénominateur / périmètre
+
+-   `R/ratb_hospital_days_helpers.R`
+    -   périmètre analytique d'hospitalisation
+    -   logique annuelle des nuits d'hospitalisation
+    -   découpage inter-annuel
+
+### Indicateurs et couche rapport
+
+-   `R/ratb_indicator_helpers.R`
+    -   parsing et validation de la spec des indicateurs
+    -   calcul des panels annuels
+    -   exécution des indicateurs phénotypiques
+-   `R/ratb_report_helpers.R`
+    -   helpers d'affichage uniquement pour le rapport d'indicateurs
+    -   wrappers de tableaux et graphiques
+    -   builders de sorties par taxon
+    -   builders de la section phénotypes
+
+## Dictionnaires et contrat de publication
+
+-   `assets/`
+    -   feuilles de style et fragments HTML utilisés par les rendus
+        Quarto
+-   `config/pipeline.R`
+    -   point d'entrée des réglages opérationnels : chemins, fenêtres de
+        dates, flags de recompute et paramètres d'affichage
+-   `ref/consores_structure_intranet_maj_2025.xlsx`,
+    `ref/consores_codes_ta.csv`, `ref/consores_codes_de.csv`
+    -   référentiels CONSORES actifs pour l'éligibilité TA/DE du
+        périmètre RATB d'hospitalisation
+-   `rules/ratb_perimeter_rules.csv`
+    -   ancienne table de règles heuristiques du périmètre RATB,
+        conservée comme référence mais plus utilisée comme surface active
+-   `documentation/ratb_indicator_spec.csv`
+    -   contrat de publication des indicateurs
+    -   premier endroit à vérifier quand on ajoute ou retire des sorties
+-   `dictionaries/couples_species_atb.csv`
+    -   univers espèces/antibiotiques supporté
+-   `dictionaries/atb_regex_map.csv`
+    -   table de normalisation regex des antibiotiques
+-   `dictionaries/family.csv`
+    -   labels de familles et métadonnées de regroupement
+
+### Contrat externe et validation
+
+-   `R/external_bundle_validation_helpers.R`
+    -   helpers de validation réutilisables pour le contrat d'entrée
+        externe dormant
+-   `scripts/validate_external_bundle.R`
+    -   validateur CLI autonome pour les bundles externes
+-   `documentation/external_bundle/`
+    -   documentation du contrat pour `sir_wide` et le bundle de
+        dénominateur
+
+## Artefacts générés
+
+Les artefacts internes de travail vivent dans `data/`. Ils ne jouent pas
+tous le même rôle dans la chaîne de traitement ; les principaux sont les
+suivants.
+
+-   `sir_wide.rds`, `sir_wide_meta.rds`
+    -   artefact microbiologique canonique normalisé, utilisé comme point
+        de départ amont du workflow aval
+    -   le fichier `meta` porte les métadonnées de validation,
+        d'empreinte et de reproductibilité de cet artefact
+
+-   `ratb_scope_cache`, `ratb_scope_cache_meta`
+    -   payload du périmètre analytique d'hospitalisation et des objets
+        annuels de journées / nuits d'hospitalisation utilisés ensuite
+        dans le workflow et le rapport
+    -   le fichier `meta` permet de savoir si ce cache peut être rechargé
+        tel quel ou doit être recalculé
+
+-   `completion_datasets`, `completion_logs`, `raw_row_log`, `completion_cache_meta`
+    -   sortie de la phase de complétion : jeux de données comparés,
+        journaux de groupe et de ligne, et trace brute de référence
+    -   le fichier `meta` sert à vérifier la fraîcheur du cache de
+        complétion avant de le réutiliser
+
+-   `dedup_results`, `dedup_cache_meta`
+    -   sortie de la phase de dédoublonnage, structurée par jeu comparé
+        puis par scope (`global`, `by_type`)
+    -   le fichier `meta` sert à vérifier que ces résultats restent
+        cohérents avec les entrées amont et les scripts actifs
+
+-   `ratb_incidence_cache`, `ratb_incidence_cache_meta`
+    -   cache auxiliaire encore présent pour certains scripts annexes et
+        vérifications manuelles liées à l'incidence
+    -   ce n'est plus l'artefact central le mieux documenté dans le
+        chemin principal, contrairement à `sir_wide`, au scope, à la
+        complétion et au dédoublonnage
+
+Les artefacts d'export destinés au lecteur et générés par le rapport
+vivent dans `downloads/`.
+
+## Si vous devez changer X, commencez ici
+
+### Changer la définition d'un indicateur publié
+
+Commencer par :
+
+-   `documentation/ratb_indicator_spec.csv`
+-   puis vérifier si l'univers de molécules porté doit aussi changer
+    dans `dictionaries/couples_species_atb.csv`
+
+### Changer une composition de famille ou une règle de normalisation antibiotique
+
+Commencer par :
+
+-   `dictionaries/atb_regex_map.csv`
+-   `dictionaries/family.csv`
+-   `dictionaries/couples_species_atb.csv`
+-   puis vérifier la spec des indicateurs
+
+### Changer un réglage opérationnel du pipeline
+
+Commencer par :
+
+-   `config/pipeline.R`
+
+Exemples : chemins, fenêtre d'extraction attendue, flags de recompute,
+paramètres d'affichage et seuils de publication non biologiques.
+
+### Changer le comportement de dédoublonnage
+
+Commencer par :
+
+-   `R/spares_dedup.R`
+-   `R/spares_shared_primitives.R`
+-   puis rerendre `full`
+
+### Changer le comportement de complétion
+
+Commencer par :
+
+-   `R/completion_helpers.R`
+-   puis rerendre `full`
+
+### Changer la logique de périmètre d'hospitalisation ou de dénominateur d'incidence
+
+Commencer par :
+
+-   `R/ratb_hospital_days_helpers.R`
+-   puis rerendre `full`
+-   puis vérifier si le wording du mémo d'implémentation doit aussi être
+    mis à jour
+
+### Changer uniquement l'affichage du rapport
+
+Commencer par :
+
+-   `R/ratb_report_helpers.R`
+-   `orchidee_ratb_indicators.qmd`
+-   en général, rerendre `indicators`
+
+### Changer uniquement le wording méthodologique
+
+Commencer par :
+
+-   `documentation/ratb_implementation_decisions.qmd`
+-   rerendre `memo`
+
+### Changer uniquement la préparation de réunion
+
+Commencer par :
+
+-   `documentation/ratb_meeting_prep_spf.qmd`
+-   rerendre `meeting`
+

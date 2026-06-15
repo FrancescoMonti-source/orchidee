@@ -1,0 +1,11 @@
+rule_level;code_pattern;label_pattern;perimeter_status;reason;priority
+UF;;(^|[^A-Z])HJ([^A-Z]|$)|H[.]?JOUR|HOSP[.]?JOUR|HDJ;exclude;hdj_like_uf;10
+UF;;AMBULAT|UCA|ACCUEIL J0;exclude;ambulatory_like_uf;20
+UF;;CONSULT|\\bCS\\b;exclude;consultation_like_uf;30
+UF;;HEMODIALYSE|DIALYSE;exclude;dialysis_seance_uf;40
+UF;;TRANSFUS|CHIMIO|SEANCE;exclude;seance_like_uf;50
+UM;(^|\\|)AMBU(\\||$);;exclude;ambulatory_um;10
+UM;(^|\\|)COBG(\\||$);;exclude;consultation_um;20
+UM;(^|\\|)JLAB(\\||$);;exclude;laboratory_um;30
+UM;(^|\\|)JPOL(\\||$);;review;policlinique_um_review;40
+GHM;28Z;;exclude;seance_like_ghm_28z;10

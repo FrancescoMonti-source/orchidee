@@ -1,0 +1,1707 @@
+---
+title: "Rapport indicateurs RATB ORCHIDEE"
+lang: fr
+engine: knitr
+format:
+  html:
+    theme:
+      light: flatly
+      dark: darkly
+    css: assets/orchidee-theme.css
+    include-after-body: assets/quarto-toc-fix.html
+    toc: true
+    toc-depth: 4
+    toc-location: right
+    toc-expand: 4
+    number-sections: true
+    code-fold: true
+    page-layout: full
+    grid:
+      sidebar-width: 280px
+      body-width: 1450px
+      margin-width: 280px
+editor: 
+  markdown: 
+    wrap: 90
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- Operator-only setup section kept in source, not rendered. -->
+
+```{r}
+#| label: setup_source_bootstrap
+#| include: false
+#| echo: false
+#| warning: false
+#| message: false
+
+source_setup_candidates <- c("setup.R", file.path("R", "setup.R"))
+source_setup_path <- source_setup_candidates[file.exists(
+  source_setup_candidates
+)][1]
+if (is.na(source_setup_path)) {
+  stop(
+    "Missing setup script. Expected one of: ",
+    paste(source_setup_candidates, collapse = ", "),
+    call. = FALSE
+  )
+}
+source(source_setup_path)
+```
+
+```{r}
+#| label: setup_chunk_options
+#| include: false
+#| echo: false
+#| warning: false
+#| message: false
+
+# Chunk options
+knitr::opts_chunk$set(
+  echo = TRUE, # Should blocks with program code be shown in knitted documents?
+  eval = TRUE, # Should program code be evaluated?
+  warning = FALSE,
+  message = FALSE,
+  fig.height = 8, # Default height for plots.
+  fig.width = 14, # Default width for plots.
+  out.width = "100%", # Fill available body width.
+  fig.align = "center" # Default alignment for plots in knitted documents.
+)
+
+options(
+  scipen = 8,
+  digits = getOption("digits"),
+  OutDec = ".",
+  knitr.kable.NA = ""
+)
+
+```
+
+<!-- Report display helpers are sourced from R/ratb_report_helpers.R. -->
+
+
+<!-- Operator-only script sourcing section. -->
+
+```{r}
+#| label: source_project_scripts
+#| include: false
+#| echo: false
+#| warning: false
+#| message: false
+
+source_required_script <- function(script_name, what) {
+  candidates <- c(file.path("R", script_name), script_name)
+  existing <- candidates[file.exists(candidates)]
+
+  if (length(existing) == 0L) {
+    stop(
+      "Missing ",
+      what,
+      ". Expected one of: ",
+      paste(candidates, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  if (length(existing) > 1L) {
+    md5_vals <- tools::md5sum(existing)
+    if (length(unique(unname(md5_vals))) > 1L) {
+      warning_text <- paste0(
+        "Script shadowing detected for ",
+        script_name,
+        ": ",
+        existing[1],
+        " selected over ",
+        existing[2],
+        " and file contents differ."
+      )
+      cat("WARNING: ", warning_text, "\n", sep = "")
+      warning(
+        warning_text,
+        call. = FALSE
+      )
+    }
+  }
+
+  path <- existing[1]
+  source(path)
+  invisible(path)
+}
+
+source_required_script(
+  "normalisation_bact.R",
+  "normalisation_bact script"
+)
+source_required_script(
+  "normalisation_atb.R",
+  "normalisation_atb script"
+)
+source_required_script(
+  "spares_shared_primitives.R",
+  "spares_shared_primitives script"
+)
+source_required_script(
+  "spares_dedup.R",
+  "spares_dedup script"
+)
+source_required_script(
+  "completion_helpers.R",
+  "completion_helpers script"
+)
+source_required_script(
+  "completion_workflow_helpers.R",
+  "completion_workflow_helpers script"
+)
+source_required_script(
+  "ratb_indicator_helpers.R",
+  "ratb_indicator_helpers script"
+)
+source_required_script(
+  "ratb_hospital_days_helpers.R",
+  "ratb_hospital_days_helpers script"
+)
+source_required_script(
+  "ratb_report_helpers.R",
+  "ratb_report_helpers script"
+)
+```
+
+
+```{r}
+#| label: initialize_ratb_report_helpers
+#| include: false
+#| echo: false
+initialize_ratb_report_helpers(
+  download_dir = orchidee_config$paths$downloads_dir,
+  datatable_digits = orchidee_config$report$datatable_digits,
+  datatable_filter_default = orchidee_config$report$datatable_filter_default,
+  datatable_initial_zoom = orchidee_config$report$datatable_initial_zoom,
+  datatable_zoom_step = orchidee_config$report$datatable_zoom_step
+)
+```
+
+<!-- Operator-only artifact loading section kept in source, not rendered. -->
+
+
+```{r}
+#| label: load_sir_wide_artifact
+#| include: false
+#| echo: false
+
+source_required_script("helpers.R", "helpers script")
+
+data_dir <- orchidee_config$paths$data_dir
+dictionaries_dir <- orchidee_config$paths$dictionaries_dir
+
+sir_wide_artifact_path <- file.path(data_dir, "sir_wide.rds")
+sir_wide_meta_path <- file.path(data_dir, "sir_wide_meta.rds")
+required_artifacts <- c(sir_wide_artifact_path, sir_wide_meta_path)
+
+if (!all(file.exists(required_artifacts))) {
+  missing <- required_artifacts[!file.exists(required_artifacts)]
+  stop(
+    "Missing sir_wide artifact files: ",
+    paste(missing, collapse = ", "),
+    "\n",
+    "Run: Rscript R/build_sir_wide_artifact.R\n",
+    "Then rerun: quarto render orchidee_dedup_workflow.qmd",
+    call. = FALSE
+  )
+}
+
+sir_wide_meta <- readRDS(sir_wide_meta_path)
+
+pmsi_path <- NA_character_
+bact_path <- NA_character_
+current_upstream_signature <- tryCatch(
+  {
+    pmsi_path <- resolve_existing_path(
+      c("pmsi", file.path("data", "pmsi")),
+      what = "pmsi raw input"
+    )
+    bact_path <- resolve_existing_path(
+      c("bact22_24", file.path("data", "bact22_24")),
+      what = "bact22_24 raw input"
+    )
+    resolve_dictionary_path <- function(filename, what) {
+      resolve_existing_path(
+        c(
+          file.path(dictionaries_dir, filename),
+          filename,
+          file.path(data_dir, filename)
+        ),
+        what = what
+      )
+    }
+    atb_regex_map_path <- resolve_dictionary_path(
+      "atb_regex_map.csv",
+      what = "ATB regex mapping"
+    )
+    species_regex_map_path <- resolve_dictionary_path(
+      "species_regex_map.csv",
+      what = "species regex mapping"
+    )
+    naturepvt_regex_map_path <- resolve_dictionary_path(
+      "naturepvt_regex_map.csv",
+      what = "sample-site regex mapping"
+    )
+    couples_species_atb_path <- resolve_dictionary_path(
+      "couples_species_atb.csv",
+      what = "species-ATB couples mapping"
+    )
+    atb_expand_map_path <- resolve_dictionary_path(
+      "atb_expand_map.csv",
+      what = "ATB expansion mapping"
+    )
+
+    script_paths <- vapply(
+      c(
+        "helpers.R",
+        "normalisation_bact.R",
+        "normalisation_atb.R",
+        "spares_shared_primitives.R",
+        "phenotype_flag_helpers.R"
+      ),
+      function(x) {
+        resolve_existing_path(
+          c(file.path("R", x), x),
+          what = paste0("script ", x)
+        )
+      },
+      character(1)
+    )
+
+    compute_upstream_signature(
+      raw_input_paths = c(pmsi_path, bact_path),
+      hashed_paths = c(
+        script_paths,
+        atb_regex_map_path,
+        species_regex_map_path,
+        naturepvt_regex_map_path,
+        couples_species_atb_path,
+        atb_expand_map_path
+      )
+    )
+  },
+  error = function(e) {
+    stop(
+      "Cannot validate sir_wide artifact freshness: ",
+      conditionMessage(e),
+      "\n",
+      "Run: Rscript R/build_sir_wide_artifact.R",
+      call. = FALSE
+    )
+  }
+)
+
+artifact_validation <- validate_sir_wide_artifact(
+  meta = sir_wide_meta,
+  current_signature = current_upstream_signature
+)
+
+if (!isTRUE(artifact_validation$ok)) {
+  stop(
+    "sir_wide artifact is stale or invalid:\n - ",
+    paste(artifact_validation$reasons, collapse = "\n - "),
+    "\nRun: Rscript R/build_sir_wide_artifact.R",
+    call. = FALSE
+  )
+}
+
+sir_wide <- readRDS(sir_wide_artifact_path)
+stopifnot(
+  is.data.frame(sir_wide),
+  nrow(sir_wide) == sir_wide_meta$sir_wide_n_rows
+)
+stopifnot(dplyr::n_distinct(sir_wide$ELTID) == sir_wide_meta$sir_wide_n_eltid)
+
+if (!exists("filtre_atb") && !is.null(sir_wide_meta$filtre_atb)) {
+  filtre_atb <- sir_wide_meta$filtre_atb
+}
+```
+
+<!-- Operator-only cache-loading section kept in source, not rendered. -->
+
+```{r}
+#| label: indicators_cached_scope_and_dedup_artifacts
+#| include: false
+#| echo: false
+
+dedup_cache_candidates <- list(
+  list(
+    results = file.path(data_dir, "dedup_results"),
+    meta = file.path(data_dir, "dedup_cache_meta")
+  )
+)
+
+ratb_scope_cache_candidates <- list(
+  list(
+    payload = file.path(data_dir, "ratb_scope_cache"),
+    meta = file.path(data_dir, "ratb_scope_cache_meta")
+  )
+)
+
+dedup_cache_source <- NA_character_
+dedup_results <- NULL
+dedup_cache_meta <- NULL
+
+for (candidate in dedup_cache_candidates) {
+  cache_paths <- unlist(candidate, use.names = FALSE)
+  if (!all(file.exists(cache_paths))) {
+    next
+  }
+
+  loaded_results <- tryCatch(readRDS(candidate$results), error = function(e) {
+    NULL
+  })
+  loaded_meta <- tryCatch(readRDS(candidate$meta), error = function(e) NULL)
+  if (!is.list(loaded_results) || !is.list(loaded_meta)) {
+    next
+  }
+
+  dedup_results <- loaded_results
+  dedup_cache_meta <- loaded_meta
+  dedup_cache_source <- candidate$results
+  break
+}
+
+ratb_scope_cache_source <- NA_character_
+ratb_scope_cache_payload <- NULL
+ratb_scope_cache_meta <- NULL
+
+for (candidate in ratb_scope_cache_candidates) {
+  cache_paths <- unlist(candidate, use.names = FALSE)
+  if (!all(file.exists(cache_paths))) {
+    next
+  }
+
+  loaded_payload <- tryCatch(readRDS(candidate$payload), error = function(e) {
+    NULL
+  })
+  loaded_meta <- tryCatch(readRDS(candidate$meta), error = function(e) NULL)
+  if (!is.list(loaded_payload) || !is.list(loaded_meta)) {
+    next
+  }
+
+  ratb_scope_cache_payload <- loaded_payload
+  ratb_scope_cache_meta <- loaded_meta
+  ratb_scope_cache_source <- candidate$payload
+  break
+}
+
+if (is.null(dedup_results) || is.null(dedup_cache_meta)) {
+  stop(
+    "Missing dedup cache artifacts. Render orchidee_dedup_workflow.qmd first.",
+    call. = FALSE
+  )
+}
+
+if (is.null(ratb_scope_cache_payload) || is.null(ratb_scope_cache_meta)) {
+  stop(
+    "Missing RATB scope cache artifacts. Render orchidee_dedup_workflow.qmd first.",
+    call. = FALSE
+  )
+}
+
+invisible(list2env(ratb_scope_cache_payload, envir = environment()))
+
+stopifnot(
+  is.list(dedup_results),
+  length(dedup_results) > 0L,
+  all(vapply(
+    dedup_results,
+    function(x) is.list(x) && all(c("global", "by_type") %in% names(x)),
+    logical(1)
+  )),
+  exists("sir_wide_ratb_scope"),
+  exists("ratb_episode_scope_audit"),
+  exists("hospital_days_year_summary_provisional")
+)
+
+```
+
+# Rapport indicateurs RATB
+
+Ce document présente la version annuelle actuellement livrée des indicateurs
+RATB issus de `Expression_besoins_RATB_2-10-25.docx`. Il restitue les résultats
+publiés du noyau actuellement disponible et ne reprend pas les audits détaillés
+de qualité, de périmètre ou de validation, qui restent documentés dans
+`orchidee_dedup_workflow.qmd`.
+La méthode détaillée, les conventions ORCHIDEE et les choix d'implémentation
+sont décrits dans
+[`documentation/ratb_implementation_decisions.html`](documentation/ratb_implementation_decisions.html).
+
+## Comment lire ce rapport
+
+1. Commencer par le catalogue des indicateurs publiés pour voir quelles sorties sont actuellement livrées et selon quelle logique de lecture.
+2. Lire ensuite les sections taxonomiques dans l'ordre du document d'expression de besoins.
+3. Pour chaque taxon, commencer par les proportions globales de résistance.
+4. Lire ensuite la densité d'incidence globale.
+5. Terminer par les sorties par type, limitées ici à `hemoculture` et `urines`.
+6. Les indicateurs phénotypiques publiés couvrent désormais la grille canonique `2 taxons × 2 phénotypes × 2 métriques` pour `K. pneumoniae` et `Enterobacterales` ; une sortie additionnelle de compatibilité reste publiée pour respecter la demande actuelle : `K. pneumoniae` carbapénémase en proportion sur `hemoculture`.
+7. Ce rapport correspond à la livraison annuelle actuelle ; il ne couvre pas encore la déclinaison trimestrielle ni les autres stratifications demandées dans l'expression de besoins.
+8. Pour la méthode détaillée et les validations, se reporter au mémo d'implémentation et au notebook interne de validation.
+9. Les cartes thermiques utilisent une transformation de couleur réglée par `ratb_fill_transform` ; avec `"sqrt"`, les faibles écarts deviennent plus visibles (et le gros écarts moins visibles).
+10. Les cartes thermiques de densité d'incidence partagent une borne supérieure commune, réglée par `ratb_incidence_fill_limit_mode`, afin de rendre les taxons comparables entre eux. La borne supérieure actuelle est provisoire.
+
+## Périmètre de livraison
+
+- le même périmètre analytique hospitalisation éligible alimente la complétion, la déduplication, les proportions annuelles de résistance, la densité d'incidence et les nuits d'hospitalisation éligibles
+- la densité d'incidence annuelle est publiée en vue globale uniquement ; elle se distingue des proportions par sa métrique finale, avec un dénominateur en nuits d'hospitalisation éligibles
+- le même catalogue biologique pilote les deux familles de métriques, avec des contrôles explicites de publication pour respecter la matrice demandée ; les familles actuellement normées sont `Fluoroquinolones = ofloxacine + levofloxacine + moxifloxacine + ciprofloxacine`, `C3G = cefotaxime + ceftazidime + ceftriaxone` et `Carbapénèmes = ertapénème + imipénème + méropénème`
+- les vues par type restent limitées à `hemoculture` et `urines`
+- les sorties phénotypiques publiées couvrent huit sorties canoniques (`K. pneumoniae` et `Enterobacterales`, BLSE et carbapénémase, en proportion globale et en incidence globale), auxquelles s'ajoute une sortie additionnelle de compatibilité : `K. pneumoniae` carbapénémase en proportion sur `hemoculture`
+- pour les indicateurs phénotypiques, une souche n'est comptée positive que si son statut phénotypique final est positif ; les statuts non positifs alimentent le flag binaire `FALSE`
+- les journées d'hospitalisation sont comptées en nuits selon une convention d'implémentation retenue faute de précision explicite dans l'expression de besoins, en cohérence avec une logique DIM
+- la déclinaison trimestrielle et les autres stratifications demandées (âge, sexe, infection, site de prélèvement, service, établissement, etc.) **ne sont pas encore** publiées dans ce rapport
+- le catalogue de référence est `documentation/ratb_indicator_spec.csv`
+
+## Jeux comparés
+
+Les jeux comparés dans les tableaux et les cartes thermiques sont affichés sous des
+libellés courts :
+
+- `brut` : données sans complétion additionnelle ;
+- `compl. date` : complétion à la date de prélèvement au sein du séjour ;
+- `compl. séjour` : complétion au niveau du séjour ;
+- `compl. patient 30 j` : complétion au niveau du patient sur 30 jours ;
+- `compl. patient année` : complétion au niveau du patient sur l'année civile.
+
+Ces cinq jeux ne correspondent pas à cinq produits concurrents. Ils sont comparés en amont
+pour évaluer si la complétion modifie suffisamment les sorties dédupliquées pour justifier
+son maintien. La complétion doit donc être lue ici comme une analyse exploratoire, et non
+comme une exigence explicite de l'expression de besoins ni comme une logique SPARES stricte.
+```{r}
+#| label: ratb_indicator_controls_to_tweak
+#| #| echo: false
+ratb_indicator_datasets <- names(dedup_results)
+ratb_indicator_spec_path <- orchidee_config$paths$ratb_indicator_spec_path
+ratb_indicator_sample_types <- orchidee_config$ratb$indicator_sample_types
+ratb_indicator_show_full_spec <- orchidee_config$ratb$indicator_show_full_spec
+ratb_indicator_min_n <- orchidee_config$ratb$indicator_min_n
+recompute_incidence_pipeline <- orchidee_config$cache$recompute_incidence_pipeline
+ratb_incidence_excluded_years <- orchidee_config$ratb$incidence_excluded_years
+
+ratb_dataset_display_map <- c(
+  sir_wide_raw = "brut",
+  completion_date = "compl. date",
+  completion_evtid = "compl. séjour",
+  completion_patid_30d = "compl. patient 30 j",
+  completion_patid_year = "compl. patient année"
+)
+
+ratb_indicator_axis_text_x_size <- 9
+ratb_indicator_axis_text_y_size <- 9
+ratb_indicator_strip_text_size <- 10
+ratb_indicator_label_size_global <- 2.7
+ratb_indicator_label_size_by_type <- 2.7
+ratb_indicator_label_size_incidence <- 2.6
+
+ratb_fill_transform <- "sqrt"
+ratb_fill_breaks_proportion <- c(0, 5, 10, 25, 50, 75, 100)
+ratb_fill_palette_proportion <- c("#1A9850", "#FEE08B", "#D73027")
+ratb_fill_palette_incidence <- c("#F7FBFF", "#9ECAE1", "#3182BD", "#08519C")
+ratb_fill_breaks_incidence <- NULL
+ratb_incidence_fill_limit_mode <- "quantile"
+ratb_incidence_fill_limit_quantile <- 0.975
+ratb_incidence_fill_limit_manual <- NA_real_
+
+ratb_global_height_min_in <- 4.5
+ratb_global_height_per_indicator_in <- 0.45
+ratb_global_height_padding_in <- 1.2
+ratb_global_width_min_in <- 12
+ratb_global_width_per_dataset_in <- 3.0
+
+ratb_incidence_height_min_in <- 4.5
+ratb_incidence_height_per_indicator_in <- 0.45
+ratb_incidence_height_padding_in <- 1.2
+ratb_incidence_width_min_in <- 12
+ratb_incidence_width_per_dataset_in <- 3.0
+
+ratb_by_type_height_min_in <- 6
+ratb_by_type_height_per_indicator_and_type_in <- 0.28
+ratb_by_type_height_padding_in <- 1.8
+ratb_by_type_width_min_in <- 12
+ratb_by_type_width_per_dataset_in <- 3.0
+```
+
+```{r}
+#| label: ratb_indicator_build
+#| echo: false
+stopifnot(all(ratb_indicator_datasets %in% names(dedup_results)))
+stopifnot(
+  exists("load_ratb_indicator_spec", mode = "function"),
+  exists("build_species_taxonomy_map", mode = "function"),
+  exists("validate_ratb_indicator_spec", mode = "function"),
+  exists("build_ratb_indicator_coverage_audit", mode = "function"),
+  exists("build_ratb_indicator_panel_annual", mode = "function"),
+  exists("build_ratb_indicator_panel_incidence_annual", mode = "function")
+)
+
+lookup_ratb_dataset_label <- function(x, label_map) {
+  x_chr <- as.character(x)
+  mapped <- unname(label_map[x_chr])
+  mapped[is.na(mapped)] <- x_chr[is.na(mapped)]
+  mapped
+}
+
+localize_ratb_indicator_kind <- function(
+  x,
+  indicator_id = NA_character_,
+  notes = NA_character_
+) {
+  kind_chr <- as.character(x)
+  id_chr <- as.character(indicator_id)
+  notes_chr <- as.character(notes)
+
+  dplyr::case_when(
+    kind_chr == "molecule_direct" ~ "résistance lue sur une molécule unique",
+    kind_chr ==
+      "molecule_priority" ~ "résistance lue sur une molécule prioritaire",
+    kind_chr == "class_any_r" &
+      grepl(
+        "fosfomycine",
+        id_chr,
+        fixed = TRUE
+      ) ~ "résistance lue sur plusieurs formes d'une même molécule",
+    kind_chr == "class_any_r" &
+      grepl(
+        "Combines IV and trometamol forms",
+        notes_chr,
+        fixed = TRUE
+      ) ~ "résistance lue sur plusieurs formes d'une même molécule",
+    kind_chr ==
+      "class_any_r" ~ "résistance lue sur une classe (au moins une résistance)",
+    kind_chr == "phenotype_flag" ~ "phénotype dérivé",
+    TRUE ~ kind_chr
+  )
+}
+
+localize_ratb_denominator_kind <- function(x) {
+  dplyr::case_match(
+    as.character(x),
+    "tested_isolates" ~ "isolats testés",
+    "all_isolates" ~ "tous les isolats",
+    "hospital_days" ~ "nuits d'hospitalisation",
+    .default = as.character(x)
+  )
+}
+
+localize_ratb_publication_metric <- function(
+  publish_proportion,
+  publish_incidence
+) {
+  prop <- dplyr::coalesce(as.logical(publish_proportion), FALSE)
+  inc <- dplyr::coalesce(as.logical(publish_incidence), FALSE)
+
+  dplyr::case_when(
+    prop & inc ~ "proportion et densité d'incidence",
+    prop & !inc ~ "proportion",
+    !prop & inc ~ "densité d'incidence",
+    TRUE ~ "non publié"
+  )
+}
+
+localize_ratb_publication_view <- function(
+  sample_type_mode,
+  sample_type_values
+) {
+  mode_chr <- as.character(sample_type_mode)
+  values_chr <- ratb_trim_or_na(sample_type_values)
+  has_values <- !is.na(values_chr) & nzchar(values_chr)
+  values_label <- ifelse(
+    has_values,
+    paste0(" (`", gsub("\\|", "`, `", values_chr), "`)"),
+    ""
+  )
+
+  dplyr::case_when(
+    mode_chr == "global_and_by_type" ~ "globale et par type",
+    mode_chr == "global_only" ~ "globale",
+    mode_chr == "by_type_only" & has_values ~ paste0("par type", values_label),
+    mode_chr == "by_type_only" ~ "par type",
+    TRUE ~ mode_chr
+  )
+}
+
+localize_ratb_notes <- function(x) {
+  x_chr <- as.character(x)
+  dplyr::case_when(
+    is.na(x_chr) ~ NA_character_,
+    trimws(x_chr) == "" ~ "",
+    x_chr ==
+      "Uses oxacilline as the methicillin proxy." ~ "Utilise l'oxacilline comme proxy de la méticilline.",
+    x_chr ==
+      "Methicillin is derived from cefoxitine then oxacilline; cefoxitine is retained on discordance. Current data appears not to contain cefoxitine for S. aureus, so this is currently numerically equivalent to oxacilline alone." ~ "La méticilline est dérivée de la cefoxitine puis de l'oxacilline ; la cefoxitine est conservée en cas de discordance. Les données courantes ne semblent pas contenir de cefoxitine pour `S. aureus`, de sorte que cette règle est actuellement numériquement équivalente à l'oxacilline seule.",
+    x_chr ==
+      "Methicillin is derived from cefoxitine then oxacilline; cefoxitine is retained on discordance." ~ "La méticilline est dérivée de la cefoxitine puis de l'oxacilline ; la cefoxitine est conservée en cas de discordance.",
+    x_chr ==
+      "Combines IV and trometamol forms." ~ "Combine les formes IV et trométamol.",
+    x_chr ==
+      "Defined here as ofloxacine, levofloxacine, moxifloxacine and ciprofloxacine." ~ "Définies ici comme ofloxacine, lévofloxacine, moxifloxacine et ciprofloxacine.",
+    x_chr ==
+      "Defined here as cefotaxime, ceftazidime and ceftriaxone." ~ "Définies ici comme céfotaxime, ceftazidime et ceftriaxone.",
+    x_chr ==
+      "Defined here as ertapeneme, imipeneme and meropeneme." ~ "Définies ici comme ertapénème, imipénème et méropénème.",
+    x_chr ==
+      "Phenotype indicator. A strain is counted positive only when the final phenotype status is positive. Non-positive statuses map to FALSE." ~ "Indicateur phénotypique. Une souche n'est comptée positive que si le statut phénotypique final est positif. Les statuts non positifs alimentent tous le flag binaire `FALSE`.",
+    x_chr ==
+      "Requested phenotype indicator. Published as annual global incidence only. A strain is counted positive only when the final phenotype status is positive. Non-positive statuses map to FALSE." ~ "Indicateur phénotypique demandé. Publié uniquement en densité d'incidence annuelle globale. Une souche n'est comptée positive que si le statut phénotypique final est positif. Les statuts non positifs alimentent tous le flag binaire `FALSE`.",
+    x_chr ==
+      "Requested phenotype indicator. Published as annual hemoculture proportion only. A strain is counted positive only when the final phenotype status is positive. Non-positive statuses map to FALSE." ~ "Indicateur phénotypique demandé. Publié uniquement en proportion annuelle sur `hemoculture`. Une souche n'est comptée positive que si le statut phénotypique final est positif. Les statuts non positifs alimentent tous le flag binaire `FALSE`.",
+    x_chr ==
+      "Canonical phenotype indicator. Published as annual global proportion only. A strain is counted positive only when the final phenotype status is positive. Non-positive statuses map to FALSE." ~ "Indicateur phénotypique canonique. Publié uniquement en proportion annuelle globale. Une souche n'est comptée positive que si le statut phénotypique final est positif. Les statuts non positifs alimentent tous le flag binaire `FALSE`.",
+    x_chr ==
+      "Canonical phenotype indicator. Published as annual global incidence only. A strain contributes to the incidence numerator only when the final phenotype status is positive." ~ "Indicateur phénotypique canonique. Publié uniquement en densité d'incidence annuelle globale. Une souche contribue au numérateur seulement si son statut phénotypique final est positif.",
+    x_chr ==
+      "Compatibility phenotype indicator. Published as annual hemoculture proportion to preserve the currently requested output. A strain is counted positive only when the final phenotype status is positive. Non-positive statuses map to FALSE." ~ "Indicateur phénotypique de compatibilité. Publié en proportion annuelle sur `hemoculture` pour préserver la sortie actuellement demandée. Une souche n'est comptée positive que si le statut phénotypique final est positif. Les statuts non positifs alimentent tous le flag binaire `FALSE`.",
+    x_chr == "Published in incidence only." ~ "Publié uniquement en incidence.",
+    x_chr ==
+      "Published in proportion only." ~ "Publié uniquement en proportion.",
+    TRUE ~ x_chr
+  )
+}
+
+species_taxonomy_path <- file.path(dictionaries_dir, "species_regex_map.csv")
+bact_order_map <- build_species_taxonomy_map(species_taxonomy_path)
+
+reference_dataset_name <- names(dedup_results)[[1]]
+reference_global_dedup <- dedup_results[[reference_dataset_name]]$global$dedup
+reference_by_type_dedup <- dedup_results[[reference_dataset_name]]$by_type$dedup
+
+atb_cols <- intersect(sir_wide_meta$atb_cols, names(reference_global_dedup))
+stopifnot(length(atb_cols) > 0L)
+
+supported_atb_cols_meta <- sir_wide_meta$supported_atb_cols
+if (is.null(supported_atb_cols_meta)) {
+  supported_atb_cols_meta <- sir_wide_meta$filtre_atb
+}
+if (is.null(supported_atb_cols_meta)) {
+  supported_atb_cols_meta <- sir_wide_meta$atb_cols
+}
+supported_atb_cols <- intersect(
+  as.character(supported_atb_cols_meta),
+  names(reference_global_dedup)
+)
+stopifnot(length(supported_atb_cols) > 0L)
+
+available_phenotype_cols <- intersect(
+  c("blse_flag", "carbapenemase_flag"),
+  names(reference_global_dedup)
+)
+available_sample_types <- sort(unique(na.omit(as.character(
+  reference_by_type_dedup$naturepvt_norm
+))))
+
+ratb_indicator_selected_sample_types <- ratb_indicator_sample_types[
+  ratb_indicator_sample_types %in% available_sample_types
+]
+ratb_indicator_missing_sample_types <- setdiff(
+  ratb_indicator_sample_types,
+  ratb_indicator_selected_sample_types
+)
+if (length(ratb_indicator_selected_sample_types) == 0L) {
+  stop(
+    "None of the requested by-type sample types are available. Requested: ",
+    paste(ratb_indicator_sample_types, collapse = ", "),
+    ". Available: ",
+    paste(available_sample_types, collapse = ", "),
+    call. = FALSE
+  )
+}
+
+ratb_indicator_spec <- load_ratb_indicator_spec(ratb_indicator_spec_path)
+ratb_indicator_spec_validation <- validate_ratb_indicator_spec(
+  spec = ratb_indicator_spec,
+  atb_cols = atb_cols,
+  supported_atb_cols = supported_atb_cols,
+  phenotype_cols = available_phenotype_cols,
+  available_sample_types = available_sample_types
+)
+
+stopifnot(!any(ratb_indicator_spec_validation$duplicated_indicator_id))
+stopifnot(all(ratb_indicator_spec_validation$supported_indicator_kind))
+stopifnot(all(ratb_indicator_spec_validation$supported_sample_type_mode))
+stopifnot(all(ratb_indicator_spec_validation$supported_numerator_kind))
+stopifnot(all(ratb_indicator_spec_validation$supported_denominator_kind))
+stopifnot(all(ratb_indicator_spec_validation$has_scope_mode))
+stopifnot(all(ratb_indicator_spec_validation$has_filter_values))
+stopifnot(all(ratb_indicator_spec_validation$has_valid_indicator_payload))
+
+ratb_indicator_coverage_audit <- build_ratb_indicator_coverage_audit(
+  spec = ratb_indicator_spec,
+  validation = ratb_indicator_spec_validation
+)
+
+ratb_indicator_spec_proportion_exec <- ratb_indicator_spec %>%
+  semi_join(
+    ratb_indicator_coverage_audit %>%
+      filter(proportion_executable) %>%
+      select(indicator_id),
+    by = "indicator_id"
+  )
+
+ratb_indicator_spec_incidence_exec <- ratb_indicator_spec %>%
+  semi_join(
+    ratb_indicator_coverage_audit %>%
+      filter(incidence_executable) %>%
+      select(indicator_id),
+    by = "indicator_id"
+  )
+
+ratb_indicator_panel_annual <- build_ratb_indicator_panel_annual(
+  dedup_results = dedup_results,
+  spec = ratb_indicator_spec_proportion_exec,
+  atb_cols = atb_cols,
+  supported_atb_cols = supported_atb_cols,
+  bact_order_map = bact_order_map
+)
+
+stopifnot(nrow(ratb_indicator_panel_annual) > 0L)
+stopifnot(all(
+  ratb_indicator_panel_annual$n_tested ==
+    ratb_indicator_panel_annual$n_r + ratb_indicator_panel_annual$n_s
+))
+stopifnot(all(
+  ratb_indicator_panel_annual$n_isolates ==
+    ratb_indicator_panel_annual$n_tested + ratb_indicator_panel_annual$n_o
+))
+stopifnot(all(
+  is.na(ratb_indicator_panel_annual$pct_resistant) |
+    (ratb_indicator_panel_annual$pct_resistant >= 0 &
+      ratb_indicator_panel_annual$pct_resistant <= 100)
+))
+
+ratb_dataset_levels <- lookup_ratb_dataset_label(
+  ratb_indicator_datasets,
+  ratb_dataset_display_map
+)
+
+ratb_indicator_panel_global <- ratb_indicator_panel_annual %>%
+  filter(scope == "global")
+ratb_indicator_panel_by_type <- ratb_indicator_panel_annual %>%
+  filter(scope == "by_type")
+ratb_indicator_panel_by_type_report <- ratb_indicator_panel_by_type %>%
+  filter(sample_type %in% ratb_indicator_selected_sample_types)
+
+collapse_ratb_spec_values <- function(x, sep = " ; ", empty = "") {
+  x_chr <- trimws(as.character(x))
+  x_chr <- x_chr[!is.na(x_chr) & nzchar(x_chr)]
+  x_chr <- unique(x_chr)
+  if (length(x_chr) == 0L) {
+    return(empty)
+  }
+  paste(x_chr, collapse = sep)
+}
+
+ratb_indicator_spec_display_source <- ratb_indicator_spec %>%
+  mutate(
+    signal_label = localize_ratb_indicator_kind(
+      indicator_kind,
+      indicator_id,
+      notes
+    ),
+    publication_metric_label = localize_ratb_publication_metric(
+      publish_proportion,
+      publish_incidence
+    ),
+    publication_view_label = localize_ratb_publication_view(
+      sample_type_mode,
+      sample_type_values
+    ),
+    calculation_base_label = localize_ratb_denominator_kind(denominator_kind),
+    notes_label = localize_ratb_notes(notes),
+    summary_indicator_key = if_else(
+      indicator_kind == "phenotype_flag",
+      indicator_id,
+      NA_character_
+    )
+  ) %>%
+  arrange(display_order)
+
+ratb_indicator_spec_display_summary <- ratb_indicator_spec_display_source %>%
+  group_by(
+    report_taxon_label,
+    signal_label,
+    publication_metric_label,
+    publication_view_label,
+    calculation_base_label,
+    summary_indicator_key
+  ) %>%
+  summarise(
+    display_order = min(display_order, na.rm = TRUE),
+    organism_label = collapse_ratb_spec_values(organism_label),
+    indicators_label = collapse_ratb_spec_values(indicator_label, sep = ", "),
+    notes_label = collapse_ratb_spec_values(notes_label),
+    .groups = "drop"
+  ) %>%
+  arrange(display_order, report_taxon_label, signal_label)
+
+ratb_indicator_spec_display <- if (isTRUE(ratb_indicator_show_full_spec)) {
+  ratb_indicator_spec_display_summary %>%
+    select(
+      organism_label,
+      report_taxon_label,
+      indicators_label,
+      signal_label,
+      publication_metric_label,
+      publication_view_label,
+      calculation_base_label,
+      notes_label
+    ) %>%
+    rename(
+      `Section micro-organisme` = organism_label,
+      `Taxon rapporté` = report_taxon_label,
+      `Indicateurs publiés` = indicators_label,
+      `Signal utilisé` = signal_label,
+      `Métrique publiée` = publication_metric_label,
+      `Vue publiée` = publication_view_label,
+      `Base de calcul` = calculation_base_label,
+      `Notes` = notes_label
+    )
+} else {
+  ratb_indicator_spec_display_summary %>%
+    select(
+      report_taxon_label,
+      indicators_label,
+      signal_label,
+      publication_metric_label,
+      publication_view_label,
+      calculation_base_label,
+      notes_label
+    ) %>%
+    rename(
+      `Taxon rapporté` = report_taxon_label,
+      `Indicateurs publiés` = indicators_label,
+      `Signal utilisé` = signal_label,
+      `Métrique publiée` = publication_metric_label,
+      `Vue publiée` = publication_view_label,
+      `Base de calcul` = calculation_base_label,
+      `Notes` = notes_label
+    )
+}
+```
+
+```{r}
+#| label: ratb_incidence_pipeline_cache
+#| echo: false
+stopifnot(
+  exists("build_ratb_indicator_panel_incidence_annual", mode = "function"),
+  is.list(dedup_results),
+  all(ratb_indicator_datasets %in% names(dedup_results)),
+  is.data.frame(hospital_days_year_summary_provisional)
+)
+
+ratb_indicator_panel_incidence_annual <- build_ratb_indicator_panel_incidence_annual(
+  dedup_results = dedup_results,
+  spec = ratb_indicator_spec_incidence_exec,
+  atb_cols = atb_cols,
+  supported_atb_cols = supported_atb_cols,
+  bact_order_map = bact_order_map,
+  hospital_days_year_summary_provisional = hospital_days_year_summary_provisional
+)
+
+ratb_indicator_panel_incidence_annual <- ratb_indicator_panel_incidence_annual %>%
+  filter(!(dedup_year %in% ratb_incidence_excluded_years))
+
+stopifnot(nrow(ratb_indicator_panel_incidence_annual) > 0L)
+stopifnot(all(ratb_indicator_panel_incidence_annual$scope == "global"))
+stopifnot(all(!is.na(ratb_indicator_panel_incidence_annual$hospital_nights)))
+stopifnot(all(ratb_indicator_panel_incidence_annual$hospital_nights > 0))
+stopifnot(all(
+  ratb_indicator_panel_incidence_annual$incidence_density_per_1000 >= 0
+))
+stopifnot(all(
+  ratb_indicator_panel_incidence_annual$n_resistant <=
+    ratb_indicator_panel_incidence_annual$n_isolates
+))
+
+ratb_indicator_panel_incidence_global <- ratb_indicator_panel_incidence_annual %>%
+  filter(scope == "global")
+
+ratb_incidence_values_report <- ratb_indicator_panel_incidence_global$incidence_density_per_1000
+ratb_incidence_values_report <- ratb_incidence_values_report[
+  is.finite(ratb_incidence_values_report) & ratb_incidence_values_report >= 0
+]
+if (length(ratb_incidence_values_report) == 0L) {
+  ratb_incidence_fill_limit <- 1
+} else if (
+  identical(ratb_incidence_fill_limit_mode, "manual") &&
+    is.finite(ratb_incidence_fill_limit_manual) &&
+    ratb_incidence_fill_limit_manual > 0
+) {
+  ratb_incidence_fill_limit <- ratb_incidence_fill_limit_manual
+} else {
+  ratb_incidence_fill_limit <- as.numeric(stats::quantile(
+    ratb_incidence_values_report,
+    probs = ratb_incidence_fill_limit_quantile,
+    na.rm = TRUE,
+    names = FALSE,
+    type = 7
+  ))
+}
+if (!is.finite(ratb_incidence_fill_limit) || ratb_incidence_fill_limit <= 0) {
+  ratb_incidence_fill_limit <- max(ratb_incidence_values_report, na.rm = TRUE)
+}
+if (!is.finite(ratb_incidence_fill_limit) || ratb_incidence_fill_limit <= 0) {
+  ratb_incidence_fill_limit <- 1
+}
+if (is.null(ratb_fill_breaks_incidence)) {
+  ratb_fill_breaks_incidence <- scales::extended_breaks(n = 5)(c(
+    0,
+    ratb_incidence_fill_limit
+  ))
+}
+```
+
+## Catalogue synthétique des indicateurs publiés
+
+```{r}
+#| label: ratb_indicator_spec_table
+#| echo: false
+show_audit_table(
+  data = ratb_indicator_spec_display,
+  file_stem = "ratb_indicator_spec",
+  caption = "Catalogue synthétique des indicateurs RATB publiés",
+  page_length = 20,
+  scroll_y = "460px"
+)
+```
+
+Les résultats ci-dessous suivent l'ordre du document métier. Pour chaque taxon, lire d'abord les proportions globales de résistance, puis la densité d'incidence  globale, puis les proportions par type. Les sorties phénotypiques dérivées sont regroupées dans une section dédiée en fin de rapport.  
+
+
+```{r}
+#| label: ratb_report_settings
+#| include: false
+#| echo: false
+ratb_report_settings <- list(
+  datatable_digits = 3L,
+  indicator_min_n = ratb_indicator_min_n,
+  axis_text_x_size = ratb_indicator_axis_text_x_size,
+  axis_text_y_size = ratb_indicator_axis_text_y_size,
+  strip_text_size = ratb_indicator_strip_text_size,
+  label_size_global = ratb_indicator_label_size_global,
+  label_size_by_type = ratb_indicator_label_size_by_type,
+  label_size_incidence = ratb_indicator_label_size_incidence,
+  fill_transform = ratb_fill_transform,
+  fill_breaks_proportion = ratb_fill_breaks_proportion,
+  fill_palette_proportion = ratb_fill_palette_proportion,
+  fill_palette_incidence = ratb_fill_palette_incidence,
+  fill_breaks_incidence = ratb_fill_breaks_incidence,
+  incidence_fill_limit = ratb_incidence_fill_limit,
+  global_height_min_in = ratb_global_height_min_in,
+  global_height_per_indicator_in = ratb_global_height_per_indicator_in,
+  global_height_padding_in = ratb_global_height_padding_in,
+  global_width_min_in = ratb_global_width_min_in,
+  global_width_per_dataset_in = ratb_global_width_per_dataset_in,
+  incidence_height_min_in = ratb_incidence_height_min_in,
+  incidence_height_per_indicator_in = ratb_incidence_height_per_indicator_in,
+  incidence_height_padding_in = ratb_incidence_height_padding_in,
+  incidence_width_min_in = ratb_incidence_width_min_in,
+  incidence_width_per_dataset_in = ratb_incidence_width_per_dataset_in,
+  by_type_height_min_in = ratb_by_type_height_min_in,
+  by_type_height_per_indicator_and_type_in = ratb_by_type_height_per_indicator_and_type_in,
+  by_type_height_padding_in = ratb_by_type_height_padding_in,
+  by_type_width_min_in = ratb_by_type_width_min_in,
+  by_type_width_per_dataset_in = ratb_by_type_width_per_dataset_in
+)
+```
+
+```{r}
+#| label: ratb_report_context
+#| include: false
+#| echo: false
+ratb_report_context <- build_ratb_report_context(
+  panel_global = ratb_indicator_panel_global,
+  panel_incidence_global = ratb_indicator_panel_incidence_global,
+  panel_by_type_report = ratb_indicator_panel_by_type_report,
+  indicator_spec = ratb_indicator_spec,
+  dataset_display_map = ratb_dataset_display_map,
+  dataset_levels = ratb_dataset_levels,
+  selected_sample_types = ratb_indicator_selected_sample_types,
+  report_settings = ratb_report_settings
+)
+```
+
+
+## Staphylococcus aureus
+
+```{r}
+#| label: ratb_staphylococcus_aureus_outputs
+#| include: false
+#| echo: false
+ratb_taxon_outputs <- build_ratb_taxon_outputs(
+  "Staphylococcus aureus",
+  ratb_report_context
+)
+```
+
+#### Global
+
+```{r}
+#| label: ratb_staphylococcus_aureus_global_display
+#| echo: false
+ratb_taxon_outputs$global$table
+ratb_taxon_outputs$global$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$global$plot,
+  ratb_taxon_outputs$global$plot_width,
+  ratb_taxon_outputs$global$plot_height
+)
+ratb_taxon_outputs$global$pdf_button
+```
+
+#### Incidence
+
+```{r}
+#| label: ratb_staphylococcus_aureus_incidence_display
+#| echo: false
+ratb_taxon_outputs$incidence$table
+ratb_taxon_outputs$incidence$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$incidence$plot,
+  ratb_taxon_outputs$incidence$plot_width,
+  ratb_taxon_outputs$incidence$plot_height
+)
+ratb_taxon_outputs$incidence$pdf_button
+```
+
+#### Par type
+
+```{r}
+#| label: ratb_staphylococcus_aureus_by_type_display
+#| echo: false
+ratb_taxon_outputs$by_type$table
+ratb_taxon_outputs$by_type$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$by_type$plot,
+  ratb_taxon_outputs$by_type$plot_width,
+  ratb_taxon_outputs$by_type$plot_height
+)
+ratb_taxon_outputs$by_type$pdf_button
+```
+
+## Enterobacterales
+
+Cette section regroupe la sortie Enterobacterales agrégée et les sorties spécifiques aux espèces demandées dans le document métier.
+
+### Enterobacterales agrégés
+
+```{r}
+#| label: ratb_enterobacterales_pooled_outputs
+#| include: false
+#| echo: false
+ratb_taxon_outputs <- build_ratb_taxon_outputs(
+  "Enterobacterales",
+  ratb_report_context
+)
+```
+
+#### Global
+
+```{r}
+#| label: ratb_enterobacterales_pooled_global_display
+#| echo: false
+ratb_taxon_outputs$global$table
+ratb_taxon_outputs$global$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$global$plot,
+  ratb_taxon_outputs$global$plot_width,
+  ratb_taxon_outputs$global$plot_height
+)
+ratb_taxon_outputs$global$pdf_button
+```
+
+#### Incidence
+
+```{r}
+#| label: ratb_enterobacterales_pooled_incidence_display
+#| echo: false
+ratb_taxon_outputs$incidence$table
+ratb_taxon_outputs$incidence$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$incidence$plot,
+  ratb_taxon_outputs$incidence$plot_width,
+  ratb_taxon_outputs$incidence$plot_height
+)
+ratb_taxon_outputs$incidence$pdf_button
+```
+
+#### Par type
+
+```{r}
+#| label: ratb_enterobacterales_pooled_by_type_display
+#| echo: false
+ratb_taxon_outputs$by_type$table
+ratb_taxon_outputs$by_type$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$by_type$plot,
+  ratb_taxon_outputs$by_type$plot_width,
+  ratb_taxon_outputs$by_type$plot_height
+)
+ratb_taxon_outputs$by_type$pdf_button
+```
+
+### Escherichia coli
+
+```{r}
+#| label: ratb_escherichia_coli_outputs
+#| include: false
+#| echo: false
+ratb_taxon_outputs <- build_ratb_taxon_outputs(
+  "Escherichia coli",
+  ratb_report_context
+)
+```
+
+#### Global
+
+```{r}
+#| label: ratb_escherichia_coli_global_display
+#| echo: false
+ratb_taxon_outputs$global$table
+ratb_taxon_outputs$global$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$global$plot,
+  ratb_taxon_outputs$global$plot_width,
+  ratb_taxon_outputs$global$plot_height
+)
+ratb_taxon_outputs$global$pdf_button
+```
+
+#### Incidence
+
+```{r}
+#| label: ratb_escherichia_coli_incidence_display
+#| echo: false
+ratb_taxon_outputs$incidence$table
+ratb_taxon_outputs$incidence$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$incidence$plot,
+  ratb_taxon_outputs$incidence$plot_width,
+  ratb_taxon_outputs$incidence$plot_height
+)
+ratb_taxon_outputs$incidence$pdf_button
+```
+
+#### Par type
+
+```{r}
+#| label: ratb_escherichia_coli_by_type_display
+#| echo: false
+ratb_taxon_outputs$by_type$table
+ratb_taxon_outputs$by_type$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$by_type$plot,
+  ratb_taxon_outputs$by_type$plot_width,
+  ratb_taxon_outputs$by_type$plot_height
+)
+ratb_taxon_outputs$by_type$pdf_button
+```
+
+### Klebsiella pneumoniae
+
+```{r}
+#| label: ratb_klebsiella_pneumoniae_outputs
+#| include: false
+#| echo: false
+ratb_taxon_outputs <- build_ratb_taxon_outputs(
+  "Klebsiella pneumoniae",
+  ratb_report_context
+)
+```
+
+#### Global
+
+```{r}
+#| label: ratb_klebsiella_pneumoniae_global_display
+#| echo: false
+ratb_taxon_outputs$global$table
+ratb_taxon_outputs$global$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$global$plot,
+  ratb_taxon_outputs$global$plot_width,
+  ratb_taxon_outputs$global$plot_height
+)
+ratb_taxon_outputs$global$pdf_button
+```
+
+#### Incidence
+
+```{r}
+#| label: ratb_klebsiella_pneumoniae_incidence_display
+#| echo: false
+ratb_taxon_outputs$incidence$table
+ratb_taxon_outputs$incidence$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$incidence$plot,
+  ratb_taxon_outputs$incidence$plot_width,
+  ratb_taxon_outputs$incidence$plot_height
+)
+ratb_taxon_outputs$incidence$pdf_button
+```
+
+#### Par type
+
+```{r}
+#| label: ratb_klebsiella_pneumoniae_by_type_display
+#| echo: false
+ratb_taxon_outputs$by_type$table
+ratb_taxon_outputs$by_type$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$by_type$plot,
+  ratb_taxon_outputs$by_type$plot_width,
+  ratb_taxon_outputs$by_type$plot_height
+)
+ratb_taxon_outputs$by_type$pdf_button
+```
+
+### Enterobacter cloacae complex
+
+```{r}
+#| label: ratb_enterobacter_cloacae_complex_outputs
+#| include: false
+#| echo: false
+ratb_taxon_outputs <- build_ratb_taxon_outputs(
+  "Enterobacter cloacae complex",
+  ratb_report_context
+)
+```
+
+#### Global
+
+```{r}
+#| label: ratb_enterobacter_cloacae_complex_global_display
+#| echo: false
+ratb_taxon_outputs$global$table
+ratb_taxon_outputs$global$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$global$plot,
+  ratb_taxon_outputs$global$plot_width,
+  ratb_taxon_outputs$global$plot_height
+)
+ratb_taxon_outputs$global$pdf_button
+```
+
+#### Incidence
+
+```{r}
+#| label: ratb_enterobacter_cloacae_complex_incidence_display
+#| echo: false
+ratb_taxon_outputs$incidence$table
+ratb_taxon_outputs$incidence$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$incidence$plot,
+  ratb_taxon_outputs$incidence$plot_width,
+  ratb_taxon_outputs$incidence$plot_height
+)
+ratb_taxon_outputs$incidence$pdf_button
+```
+
+#### Par type
+
+```{r}
+#| label: ratb_enterobacter_cloacae_complex_by_type_display
+#| echo: false
+ratb_taxon_outputs$by_type$table
+ratb_taxon_outputs$by_type$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$by_type$plot,
+  ratb_taxon_outputs$by_type$plot_width,
+  ratb_taxon_outputs$by_type$plot_height
+)
+ratb_taxon_outputs$by_type$pdf_button
+```
+
+### Autres Enterobacterales
+
+```{r}
+#| label: ratb_autres_enterobacterales_outputs
+#| include: false
+#| echo: false
+ratb_taxon_outputs <- build_ratb_taxon_outputs(
+  "Autres Enterobacterales",
+  ratb_report_context
+)
+```
+
+#### Global
+
+```{r}
+#| label: ratb_autres_enterobacterales_global_display
+#| echo: false
+ratb_taxon_outputs$global$table
+ratb_taxon_outputs$global$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$global$plot,
+  ratb_taxon_outputs$global$plot_width,
+  ratb_taxon_outputs$global$plot_height
+)
+ratb_taxon_outputs$global$pdf_button
+```
+
+#### Incidence
+
+```{r}
+#| label: ratb_autres_enterobacterales_incidence_display
+#| echo: false
+ratb_taxon_outputs$incidence$table
+ratb_taxon_outputs$incidence$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$incidence$plot,
+  ratb_taxon_outputs$incidence$plot_width,
+  ratb_taxon_outputs$incidence$plot_height
+)
+ratb_taxon_outputs$incidence$pdf_button
+```
+
+#### Par type
+
+```{r}
+#| label: ratb_autres_enterobacterales_by_type_display
+#| echo: false
+ratb_taxon_outputs$by_type$table
+ratb_taxon_outputs$by_type$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$by_type$plot,
+  ratb_taxon_outputs$by_type$plot_width,
+  ratb_taxon_outputs$by_type$plot_height
+)
+ratb_taxon_outputs$by_type$pdf_button
+```
+
+## Enterococcus faecium
+
+```{r}
+#| label: ratb_enterococcus_faecium_outputs
+#| include: false
+#| echo: false
+ratb_taxon_outputs <- build_ratb_taxon_outputs(
+  "Enterococcus faecium",
+  ratb_report_context
+)
+```
+
+#### Global
+
+```{r}
+#| label: ratb_enterococcus_faecium_global_display
+#| echo: false
+ratb_taxon_outputs$global$table
+ratb_taxon_outputs$global$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$global$plot,
+  ratb_taxon_outputs$global$plot_width,
+  ratb_taxon_outputs$global$plot_height
+)
+ratb_taxon_outputs$global$pdf_button
+```
+
+#### Incidence
+
+```{r}
+#| label: ratb_enterococcus_faecium_incidence_display
+#| echo: false
+ratb_taxon_outputs$incidence$table
+ratb_taxon_outputs$incidence$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$incidence$plot,
+  ratb_taxon_outputs$incidence$plot_width,
+  ratb_taxon_outputs$incidence$plot_height
+)
+ratb_taxon_outputs$incidence$pdf_button
+```
+
+#### Par type
+
+```{r}
+#| label: ratb_enterococcus_faecium_by_type_display
+#| echo: false
+ratb_taxon_outputs$by_type$table
+ratb_taxon_outputs$by_type$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$by_type$plot,
+  ratb_taxon_outputs$by_type$plot_width,
+  ratb_taxon_outputs$by_type$plot_height
+)
+ratb_taxon_outputs$by_type$pdf_button
+```
+
+## Enterococcus faecalis
+
+```{r}
+#| label: ratb_enterococcus_faecalis_outputs
+#| include: false
+#| echo: false
+ratb_taxon_outputs <- build_ratb_taxon_outputs(
+  "Enterococcus faecalis",
+  ratb_report_context
+)
+```
+
+#### Global
+
+```{r}
+#| label: ratb_enterococcus_faecalis_global_display
+#| echo: false
+ratb_taxon_outputs$global$table
+ratb_taxon_outputs$global$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$global$plot,
+  ratb_taxon_outputs$global$plot_width,
+  ratb_taxon_outputs$global$plot_height
+)
+ratb_taxon_outputs$global$pdf_button
+```
+
+#### Incidence
+
+```{r}
+#| label: ratb_enterococcus_faecalis_incidence_display
+#| echo: false
+ratb_taxon_outputs$incidence$table
+ratb_taxon_outputs$incidence$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$incidence$plot,
+  ratb_taxon_outputs$incidence$plot_width,
+  ratb_taxon_outputs$incidence$plot_height
+)
+ratb_taxon_outputs$incidence$pdf_button
+```
+
+#### Par type
+
+```{r}
+#| label: ratb_enterococcus_faecalis_by_type_display
+#| echo: false
+ratb_taxon_outputs$by_type$table
+ratb_taxon_outputs$by_type$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$by_type$plot,
+  ratb_taxon_outputs$by_type$plot_width,
+  ratb_taxon_outputs$by_type$plot_height
+)
+ratb_taxon_outputs$by_type$pdf_button
+```
+
+## Acinetobacter baumannii
+
+```{r}
+#| label: ratb_acinetobacter_baumannii_outputs
+#| include: false
+#| echo: false
+ratb_taxon_outputs <- build_ratb_taxon_outputs(
+  "Acinetobacter baumannii",
+  ratb_report_context
+)
+```
+
+#### Global
+
+```{r}
+#| label: ratb_acinetobacter_baumannii_global_display
+#| echo: false
+ratb_taxon_outputs$global$table
+ratb_taxon_outputs$global$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$global$plot,
+  ratb_taxon_outputs$global$plot_width,
+  ratb_taxon_outputs$global$plot_height
+)
+ratb_taxon_outputs$global$pdf_button
+```
+
+#### Incidence
+
+```{r}
+#| label: ratb_acinetobacter_baumannii_incidence_display
+#| echo: false
+ratb_taxon_outputs$incidence$table
+ratb_taxon_outputs$incidence$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$incidence$plot,
+  ratb_taxon_outputs$incidence$plot_width,
+  ratb_taxon_outputs$incidence$plot_height
+)
+ratb_taxon_outputs$incidence$pdf_button
+```
+
+#### Par type
+
+```{r}
+#| label: ratb_acinetobacter_baumannii_by_type_display
+#| echo: false
+ratb_taxon_outputs$by_type$table
+ratb_taxon_outputs$by_type$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$by_type$plot,
+  ratb_taxon_outputs$by_type$plot_width,
+  ratb_taxon_outputs$by_type$plot_height
+)
+ratb_taxon_outputs$by_type$pdf_button
+```
+
+## Pseudomonas aeruginosa
+
+```{r}
+#| label: ratb_pseudomonas_aeruginosa_outputs
+#| include: false
+#| echo: false
+ratb_taxon_outputs <- build_ratb_taxon_outputs(
+  "Pseudomonas aeruginosa",
+  ratb_report_context
+)
+```
+
+#### Global
+
+```{r}
+#| label: ratb_pseudomonas_aeruginosa_global_display
+#| echo: false
+ratb_taxon_outputs$global$table
+ratb_taxon_outputs$global$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$global$plot,
+  ratb_taxon_outputs$global$plot_width,
+  ratb_taxon_outputs$global$plot_height
+)
+ratb_taxon_outputs$global$pdf_button
+```
+
+#### Incidence
+
+```{r}
+#| label: ratb_pseudomonas_aeruginosa_incidence_display
+#| echo: false
+ratb_taxon_outputs$incidence$table
+ratb_taxon_outputs$incidence$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$incidence$plot,
+  ratb_taxon_outputs$incidence$plot_width,
+  ratb_taxon_outputs$incidence$plot_height
+)
+ratb_taxon_outputs$incidence$pdf_button
+```
+
+#### Par type
+
+```{r}
+#| label: ratb_pseudomonas_aeruginosa_by_type_display
+#| echo: false
+ratb_taxon_outputs$by_type$table
+ratb_taxon_outputs$by_type$plot_heading
+prepare_plot_for_print(
+  ratb_taxon_outputs$by_type$plot,
+  ratb_taxon_outputs$by_type$plot_width,
+  ratb_taxon_outputs$by_type$plot_height
+)
+ratb_taxon_outputs$by_type$pdf_button
+```
+
+## Phénotypes dérivés
+
+Cette section regroupe les sorties phénotypiques dérivées. Elles sont présentées sous forme de tableaux pour garder visibles les numérateurs et les dénominateurs. Pour les proportions, le dénominateur est l'ensemble des isolats du périmètre concerné et les non positifs regroupent toutes les souches sans phénotype positif. Pour l'incidence, le numérateur reste le nombre de souches positives et le dénominateur le nombre de nuits d'hospitalisation éligibles.
+
+```{r}
+#| label: ratb_phenotype_output_sets
+#| include: false
+#| echo: false
+ratb_phenotype_output_sets <- list(
+  kpneumo = list(
+    proportion_global = build_ratb_phenotype_proportion_table_block(
+      indicator_ids = c(
+        "kpneumo_blse_prop_global",
+        "kpneumo_carbapenemase_prop_global"
+      ),
+      file_stem = "ratb_phenotype_kpneumo_prop_global",
+      caption = "Klebsiella pneumoniae - tableau annuel des proportions phénotypiques (vue globale)",
+      context = ratb_report_context
+    ),
+    incidence_global = build_ratb_phenotype_incidence_table_block(
+      indicator_ids = c(
+        "kpneumo_blse_inc_global",
+        "kpneumo_carbapenemase_inc_global"
+      ),
+      file_stem = "ratb_phenotype_kpneumo_inc_global",
+      caption = "Klebsiella pneumoniae - tableau annuel des densités d'incidence phénotypiques (vue globale)",
+      context = ratb_report_context
+    ),
+    proportion_hemo = build_ratb_phenotype_proportion_table_block(
+      indicator_ids = c("kpneumo_carbapenemase_prop_hemo"),
+      file_stem = "ratb_phenotype_kpneumo_prop_hemo",
+      caption = "Klebsiella pneumoniae - tableau annuel de la sortie phénotypique de compatibilité sur hemoculture",
+      sample_type_filter = "hemoculture",
+      context = ratb_report_context
+    )
+  ),
+  enterobacterales = list(
+    proportion_global = build_ratb_phenotype_proportion_table_block(
+      indicator_ids = c(
+        "enterobacterales_blse_prop_global",
+        "enterobacterales_carbapenemase_prop_global"
+      ),
+      file_stem = "ratb_phenotype_enterobacterales_prop_global",
+      caption = "Enterobacterales - tableau annuel des proportions phénotypiques (vue globale)",
+      context = ratb_report_context
+    ),
+    incidence_global = build_ratb_phenotype_incidence_table_block(
+      indicator_ids = c(
+        "enterobacterales_blse_inc_global",
+        "enterobacterales_carbapenemase_inc_global"
+      ),
+      file_stem = "ratb_phenotype_enterobacterales_inc_global",
+      caption = "Enterobacterales - tableau annuel des densités d'incidence phénotypiques (vue globale)",
+      context = ratb_report_context
+    )
+  )
+)
+```
+
+### Klebsiella pneumoniae
+
+#### Proportions globales
+
+```{r}
+#| label: ratb_phenotype_kpneumo_prop_global_display
+#| echo: false
+ratb_phenotype_output_sets$kpneumo$proportion_global
+```
+
+#### Densités d'incidence globales
+
+```{r}
+#| label: ratb_phenotype_kpneumo_incidence_global_display
+#| echo: false
+ratb_phenotype_output_sets$kpneumo$incidence_global
+```
+
+#### Sortie additionnelle de compatibilité : hemoculture
+
+```{r}
+#| label: ratb_phenotype_kpneumo_prop_hemo_display
+#| echo: false
+ratb_phenotype_output_sets$kpneumo$proportion_hemo
+```
+
+### Enterobacterales
+
+#### Proportions globales
+
+```{r}
+#| label: ratb_phenotype_enterobacterales_prop_global_display
+#| echo: false
+ratb_phenotype_output_sets$enterobacterales$proportion_global
+```
+
+#### Densités d'incidence globales
+
+```{r}
+#| label: ratb_phenotype_enterobacterales_incidence_global_display
+#| echo: false
+ratb_phenotype_output_sets$enterobacterales$incidence_global
+```
+
+
+

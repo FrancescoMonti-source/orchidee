@@ -1,0 +1,12 @@
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const toc = document.querySelector("#TOC");
+  if (!toc) return;
+
+  const links = toc.querySelectorAll("a.nav-link");
+  links.forEach(function (link) {
+    const text = link.textContent || "";
+    link.setAttribute("title", text.trim());
+  });
+});
+</script>

@@ -1,0 +1,246 @@
+---
+title: "Préparation réunion SPF - support unique"
+format:
+  html:
+    toc: true
+    toc-title: "Sommaire"
+    toc-location: right
+    toc-depth: 2
+    toc-expand: 2
+    smooth-scroll: true
+    number-sections: true
+    theme:
+      light: flatly
+      dark: darkly
+    css: ../assets/orchidee-theme.css
+    page-layout: full
+lang: fr
+---
+
+```{=html}
+<style>
+#TOC > ul,
+#TOC ul.collapse {
+  display: block;
+}
+
+#quarto-margin-sidebar #TOC {
+  font-size: 0.95rem;
+}
+</style>
+```
+
+# Objet
+
+Cette note sert de support unique pour la réunion avec Santé publique France.
+
+Elle a trois fonctions :
+
+-   présenter ce qui est déjà produit dans ORCHIDEE,
+-   expliquer les principaux choix d'implémentation retenus à ce stade,
+-   identifier les arbitrages SPF nécessaires pour la suite.
+
+Ce document n'est pas le mémo méthodologique canonique. Pour le détail des choix déjà stabilisés, se reporter à `documentation/ratb_implementation_decisions.qmd`. Pour les sorties produites, se reporter à `orchidee_ratb_indicators.qmd`.
+
+# Ordre du jour proposé
+
+1.  Cadrage rapide du livrable actuel.
+
+-   rappeler le noyau annuel déjà produit,
+-   rappeler le périmètre TA/DE appliqué au niveau du prélèvement et au niveau de l'activité PMSI,
+-   rappeler les 8 sorties phénotypiques canoniques et la sortie de compatibilité `K. pneumoniae` carbapénémase sur `hemoculture`,
+-   rappeler le statut exploratoire de la complétion.
+
+2.  Arbitrage sur la complétion.
+
+-   SPF accepte-t-il d'en discuter comme convention opérationnelle,
+-   ou demande-t-il un recentrage sur une logique sans complétion ?
+
+3.  Arbitrage central sur les stratifications.
+
+-   une stratification change-t-elle seulement la restitution,
+-   ou aussi la complétion, le dédoublonnage et les dénominateurs ?
+
+4.  Focus trimestre et temporalité.
+
+-   vrai trimestre analytique ou simple axe de restitution,
+-   statut du mois,
+-   priorité entre trimestre et mois.
+
+5.  Priorisation des autres stratifications.
+
+-   âge,
+-   sexe,
+-   infection,
+-   site / type de prélèvement,
+-   service,
+-   établissement,
+-   type d'établissement,
+-   département de l'établissement.
+
+6.  Nomenclatures et règles de publication.
+
+-   classes d'âge,
+-   traitement des valeurs manquantes,
+-   définition de l'infection,
+-   petits effectifs,
+-   modalités à publier ou non,
+-   clarification des règles CONSORES : périmètre JH, périmètre microbiologique, dénominateurs par indicateur, avec focus `S. aureus` / `Fluoroquinolones`.
+
+# Ce qui est déjà solide
+
+À ce stade, ORCHIDEE produit un noyau annuel cohérent et documenté :
+
+-   proportions annuelles de résistance,
+-   densités d'incidence annuelles,
+-   jeux comparés de complétion / dédoublonnage,
+-   intégration des phénotypes BLSE et carbapénémase,
+-   règle méticilline de *S. aureus* gérée par priorité à la cefoxitine puis repli sur l'oxacilline.
+
+# Choix méthodologiques déjà retenus
+
+L'expression de besoins précise les sorties attendues, mais pas toujours toutes les règles opérationnelles nécessaires pour les calculer. Plusieurs conventions d'implémentation ont donc été introduites pour rendre le calcul possible avec les données disponibles.
+
+Les principales sont les suivantes :
+
+-   périmètre TA/DE appliqué à deux niveaux : `SEJUF` du prélèvement pour les souches retenues, et activité PMSI pour les nuits d'hospitalisation,
+-   comptage des journées d'hospitalisation en nuits, selon une logique compatible avec un raisonnement DIM,
+-   complétion maintenue comme convention ORCHIDEE exploratoire pour mesurer l'impact de l'incomplétude des antibiogrammes sur les sorties dédoublonnées,
+-   phénotypes BLSE / carbapénémase intégrés en amont dans le pipeline, puis publiés sous forme de flags binaires pour les indicateurs,
+-   méticilline *S. aureus* dérivée de la cefoxitine puis de l'oxacilline, avec priorité à la cefoxitine en cas de discordance.
+
+Points à rappeler en réunion :
+
+-   la complétion n'est pas demandée explicitement par SPF,
+-   elle ne relève pas d'une logique SPARES stricte,
+-   les données courantes ne semblent pas contenir de cefoxitine pour *S. aureus*, donc la règle méticilline est actuellement numériquement équivalente à l'oxacilline seule,
+-   les sorties phénotypiques publiées couvrent désormais la matrice canonique complète `2 taxons × 2 phénotypes × 2 métriques`, à laquelle s'ajoute une sortie de compatibilité : `K. pneumoniae` carbapénémase en proportion sur `hemoculture`.
+
+# Points à arbitrer avec SPF
+
+Les arbitrages prioritaires restent :
+
+-   le statut final de la complétion : convention ORCHIDEE utile à conserver, ou recentrage sur une logique sans complétion,
+-   le trimestre : simple axe de restitution, ou vraie maille analytique qui redéfinit complétion, dédoublonnage et dénominateurs,
+-   la temporalité fine : faut-il viser le trimestre seulement, ou aussi le mois,
+-   l'infection : quelle définition opérationnelle retenir, et à partir de quelles sources,
+-   le service : variable attendue, niveau organisationnel visé, et reproductibilité inter-établissements,
+-   l'établissement, le type d'établissement et le département de l'établissement : sens métier exact et source de vérité commune,
+-   les règles de publication : petits effectifs, valeurs manquantes, modalités à publier ou non.
+
+Le point central est le suivant :
+
+**une stratification demandée par SPF change-t-elle seulement la restitution, ou bien aussi les frontières de complétion, de dédoublonnage et de calcul des dénominateurs ?**
+
+C'est cet arbitrage qui détermine le vrai impact d'implémentation.
+
+# Questions prioritaires à poser
+
+Les questions ci-dessous visent à faire trancher les arbitrages ci-dessus avant d'ouvrir un chantier de stratification plus large.
+
+## Questions transversales
+
+1.  La complétion doit-elle rester une convention ORCHIDEE exploratoire, ou faut-il revenir à une logique strictement SPARES-like ?
+2.  Quelle définition opérationnelle SPF veut-il retenir pour les journées d'hospitalisation utilisées dans l'incidence (`nuits` ou `jours`, règle `entrée = sortie`, séjours à cheval sur l'année, périmètre éligible) ?
+3.  Le trimestre change-t-il complétion, dédoublonnage et nuits d'hospitalisation, ou seulement la restitution ?
+4.  Faut-il viser d'abord le trimestre, ou bien le mois a-t-il aussi une valeur de publication ?
+5.  Quelles 2 ou 3 stratifications SPF veut-il en priorité absolue après le noyau annuel ?
+6.  Quelle définition opérationnelle faut-il retenir pour l'infection ?
+7.  Quelle variable métier est attendue pour `service`, `type d'établissement` et `département de l'établissement` ?
+8.  Quelles règles SPF veut-il pour les petits effectifs et les valeurs manquantes ?
+9.  Comment classer une hospitalisation dont le statut est un mélange de `E` (externe) et `H` (hospitalisation) ? Exclure ou inclure dans le périmètre ?
+
+# Points méthodologiques à clarifier sur les stratifications demandées
+
+Les éléments ci-dessous servent de support aux arbitrages et aux questions ci-dessus. Ils explicitent l'impact d'implémentation probable si SPF attend de vraies mailles analytiques, et pas seulement des axes de restitution.
+
+## Trimestre et temporalité
+
+Le trimestre est la stratification la plus structurante.
+
+Si SPF veut un vrai trimestre analytique :
+
+-   il faudra introduire des clés trimestrielles en parallèle des clés annuelles,
+-   la complétion par patient / période ne pourra plus se faire à l'année,
+-   le dédoublonnage devra être réexécuté à l'échelle du trimestre,
+-   les nuits d'hospitalisation devront aussi être calculées au trimestre.
+
+Points d'attention :
+
+-   séjours qui chevauchent deux trimestres,
+-   fractionnement des nuits d'hospitalisation,
+-   divergence possible entre trimestre de prélèvement et trimestre de séjour,
+-   cellules très faibles si SPF veut aussi une maille mensuelle.
+
+## Infection
+
+C'est probablement la stratification la plus coûteuse après la temporalité.
+
+Le point de départ n'est pas clair : un antibiogramme seul ne suffit pas à définir la notion clinique d'infection.
+
+La question utile pour SPF est donc : quelle définition opérationnelle attend-on, et jusqu'où faut-il viser une reproductibilité inter-entrepôts ?
+
+## Site / type de prélèvement
+
+Cette stratification est déjà relativement mature dans ORCHIDEE.
+
+Le risque principal reste la variabilité locale des libellés et la charge de normalisation si SPF souhaite une nomenclature plus fine ou plus harmonisée.
+
+## Service
+
+Le sens de la variable attendue n'est pas encore assez explicite.
+
+Questions pratiques :
+
+-   parle-t-on d'un service demandeur,
+-   d'une unité médicale,
+-   d'une unité fonctionnelle,
+-   ou d'une autre structure de séjour ?
+
+Hypothèse locale actuelle à confirmer : la variable attendue pourrait correspondre à `SEJUF`, mais cela n'est pas explicite aujourd'hui.
+
+## Établissement / type / département
+
+Ces variables semblent simples à lire, mais pas à opérationnaliser si chaque participant travaille d'abord sur ses propres données locales.
+
+Questions à clarifier :
+
+-   que veut-on dire exactement par "établissement" dans un contexte multi-sites ou multi-entités,
+-   quelle source commune permettrait de coder le type d'établissement de façon reproductible,
+-   que recouvre exactement "département de l'établissement" dans le besoin métier.
+
+# Point CONSORES
+
+Le rapport standard CONSORES 2024 constitue un point de comparaison utile, mais sa lecture suggère à ce stade des règles non homogènes entre dénominateurs hospitaliers et dénominateurs microbiologiques.
+
+Le premier constat porte sur les journées d'hospitalisation. Le rapport déclare un périmètre `Sanitaire SPARES (hospitalisation complète, de semaine et bloc)` et `589397` journées d'hospitalisation en 2024. Ce total est beaucoup plus proche d'un calcul PMSI large par séjour `EVTID` (`618316` nuits si l'on somme les séjours d'entrée 2024) que du dénominateur incidence actuellement retenu dans ORCHIDEE après application du périmètre TA/DE (`~364k`).
+
+Le second constat porte sur les tableaux de résistance. Pour plusieurs espèces et indicateurs, les dénominateurs microbiologiques CONSORES sont au contraire plus faibles que ceux d'ORCHIDEE, ce qui suggère un périmètre microbiologique plus restreint.
+
+Les lectures provisoires sont les suivantes :
+
+-   pour *S. aureus* en 2024, la plupart des indicateurs paraissent globalement comparables entre CONSORES et ORCHIDEE ; l'écart semble surtout localisé à `Fluoroquinolones`, ce qui évoque un problème de construction d'indicateur ou de dénominateur ;
+-   pour *E. coli*, *K. pneumoniae* et *E. cloacae complex* en 2024, les dénominateurs CONSORES sont plus faibles sur de nombreuses lignes, ce qui évoque plutôt un écart plus global de périmètre microbiologique, de testabilité ou de dédoublonnage ;
+-   *E. faecium* et *E. faecalis* paraissent plus proches d'ORCHIDEE sur les dénominateurs visibles ;
+-   *A. baumannii* paraît relativement proche aussi ;
+-   *Pseudomonas aeruginosa* semble cohérent pour certaines molécules, mais très difficile à interpréter pour d'autres.
+
+Les éléments transmis ne permettent toutefois pas de documenter complètement les règles CONSORES, d'autant que le document reçu précise que certaines corrections ont été faites dans la base et ne peuvent pas être extraites ensuite.
+
+Hypothèse de travail :
+
+-   CONSORES semble combiner un dénominateur JH large avec des dénominateurs microbiologiques plus restreints, et potentiellement non homogènes selon les espèces, les indicateurs, voire les molécules d'un même indicateur.
+
+Questions spécifiques à en tirer :
+
+10.  Sur *S. aureus* en 2024, pour l'indicateur `Fluoroquinolones`, pouvez-vous préciser exactement quelles molécules composent votre indicateur, ce que représente le dénominateur `99`, quels filtres, recodages ou corrections ont été appliqués avant calcul côté CONSORES, et si les résultats sensibles aux fluoroquinolones sont bien conservés dans ce calcul ?
+11.  Plus généralement, pouvez-vous distinguer explicitement le périmètre utilisé pour les journées d'hospitalisation, le périmètre des isolats retenus par espèce, et le dénominateur effectivement utilisé pour chaque indicateur de résistance ?
+
+# Message de sortie attendu
+
+En fin de réunion, il faudrait pouvoir reformuler clairement :
+
+-   ce que SPF considère déjà publiable dans le noyau annuel,
+-   ce qu'ORCHIDEE peut garder comme convention opérationnelle documentée,
+-   ce qui doit être implémenté en priorité ensuite,
+-   ce qui reste suspendu à un arbitrage méthodologique ou à une clarification métier.

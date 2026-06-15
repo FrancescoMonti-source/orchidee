@@ -1,0 +1,101 @@
+/* ORCHIDEE report theme */
+
+:root {
+  --orchidee-font-sans: "Segoe UI", Arial, sans-serif;
+  --orchidee-bg: #f7f8fa;
+  --orchidee-panel: #ffffff;
+  --orchidee-border: #d9dee7;
+  --orchidee-text: #1f2933;
+  --orchidee-muted: #5d6978;
+  --orchidee-accent: #245a8d;
+  --orchidee-accent-soft: #e8f1fa;
+  --orchidee-table-stripe: #f3f6fa;
+}
+
+body {
+  background: var(--orchidee-bg);
+  color: var(--orchidee-text);
+  font-family: var(--orchidee-font-sans);
+}
+
+body.quarto-light main.content {
+  background: var(--orchidee-panel);
+  border: 1px solid var(--orchidee-border);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--orchidee-text);
+}
+
+h1.title {
+  color: var(--orchidee-accent);
+  font-weight: 700;
+}
+
+h2 {
+  border-bottom: 2px solid var(--orchidee-accent-soft);
+  padding-bottom: 0.35rem;
+}
+
+a {
+  color: var(--orchidee-accent);
+}
+
+.orchidee-download-btn {
+  border-color: var(--orchidee-accent);
+  color: var(--orchidee-accent);
+}
+
+.orchidee-download-btn:hover {
+  background-color: var(--orchidee-accent);
+  color: #ffffff;
+}
+
+.orchidee-table-header {
+  margin: 1rem 0 0.35rem;
+}
+
+.orchidee-table-title {
+  color: var(--orchidee-text);
+  font-weight: 650;
+}
+
+.orchidee-table-note {
+  color: var(--orchidee-muted);
+  font-size: 0.92rem;
+  line-height: 1.35;
+  margin-top: 0.25rem;
+}
+
+.orchidee-table-note p {
+  margin: 0.15rem 0;
+}
+
+table.dataTable tbody tr:nth-child(even) {
+  background-color: var(--orchidee-table-stripe);
+}
+
+.dataTables_wrapper {
+  margin-bottom: 1.4rem;
+}
+
+.plotly,
+.html-widget {
+  max-width: 100%;
+}
+
+.cell-output-display {
+  overflow-x: auto;
+}
+
+code {
+  color: #8a3d18;
+}
+
+pre code {
+  color: inherit;
+}

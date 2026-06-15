@@ -1,0 +1,297 @@
+DOMAINE;CODE_DE;LIBELLE_DE
+MÉDECINE;38;Radiothérapie de contact 
+MÉDECINE;39;Radiothérapie externe (césium, cobalt) 
+MÉDECINE;40;Curiethérapie 
+MÉDECINE;41;Radiothérapie haute énergie (bétatron, accélérateur linéaire) 
+MÉDECINE;44;Autre radiothérapie spécialisée 
+MÉDECINE;102;Maladies infectieuses et parasitaires 
+MÉDECINE;103;Centre antipoison 
+MÉDECINE;106;Surveillance continue médicale 
+MÉDECINE;107;Surveillance continue polyvalente (médicale + chirurgicale, non compris soins intensifs) 
+MÉDECINE;113;Médecine gériatrique 
+MÉDECINE;114;Spécialités médicales indifférenciées 
+MÉDECINE;115;Allergologie 
+MÉDECINE;116;Dermatologie et vénérologie indifférenciées 
+MÉDECINE;117;Dermatologie, vénérologie 
+MÉDECINE;118;Vénérologie 
+MÉDECINE;119;Endocrinologie, diabétologie 
+MÉDECINE;120;Endocrinologie 
+MÉDECINE;121;Diabétologie 
+MÉDECINE;122;Maladies métaboliques et nutrition 
+MÉDECINE;123;Hématologie et maladies du sang 
+MÉDECINE;124;Hépato-gastro-entérologie 
+MÉDECINE;125;Maladies tropicales et exotiques 
+MÉDECINE;126;Médecine carcinologique 
+MÉDECINE;127;Médecine cardiovasculaire 
+MÉDECINE;129;Neurologie 
+MÉDECINE;130;Pneumologie 
+MÉDECINE;131;Pneumologie non tuberculeuse 
+MÉDECINE;132;Phtisiologie 
+MÉDECINE;133;Rhumatologie 
+MÉDECINE;134;Radiothérapie et médecine nucléaire indifférenciées 
+MÉDECINE;135;Radiothérapie 
+MÉDECINE;136;Médecine nucléaire 
+MÉDECINE;174;Médecine générale et spécialités médicales indifférenciées 
+MÉDECINE;195A;Soins aux toxicomanes (prise en charge par l'UF de médecine) 
+MÉDECINE;196A;Alcoologie (lutte contre l'alcoolisme) (prise en charge par UF de médecine) 
+MÉDECINE;198;Oncologie 
+MÉDECINE;223;Médecine générale ou polyvalente 
+MÉDECINE;225;Médecine interne et spécialités médicales 
+MÉDECINE;263;Placement familial sanitaire 
+MÉDECINE;302;Chimiothérapie en hématologie et cancérologie 
+MÉDECINE;310;Examens de santé et bilans 
+MÉDECINE;312;Néphrologie 
+MÉDECINE;471;Médecine générale et spécialités médicales 
+MÉDECINE;472;Médecine de la reproduction 
+MÉDECINE;554;Entraînement à la dialyse péritonéale continue 
+MÉDECINE;555;Dialyse péritonéale 
+MÉDECINE;556;Dialyse péritonéale continue 
+MÉDECINE;637;Surveillance continue en cardiologie 
+MÉDECINE;639;Surveillance continue en néphrologie 
+MÉDECINE;640;Surveillance continue en urologie 
+MÉDECINE;641;Réanimation en cardiologie 
+MÉDECINE;644;Neutronthérapie 
+MÉDECINE;663;Nutrition parentérale pour enfants 
+MÉDECINE;664;Nutrition parentérale pour adultes 
+MÉDECINE;715;Surveillance par monitorage en vue de prévenir la mort subite et inexpliquée du nourrisson 
+MÉDECINE;717;Soins hautement spécialisés en médecine 
+MÉDECINE;721;Radiothérapie métabolique (ingestion de source) 
+MÉDECINE;722;Maladies infectieuses, tropicales et exotiques indifférenciées 
+MÉDECINE;723;Autodialyse 
+MÉDECINE;725;Suivi pré- ou postopératoire 
+MÉDECINE;732;Hépatologie 
+MÉDECINE;733;Gastro-entérologie 
+MÉDECINE;801;Insulinothérapie 
+MÉDECINE;825;Soins et accompagnement des malades en phase terminale- Soins palliatifs 
+MÉDECINE;826;Traitement spécialisé contre la douleur 
+MÉDECINE;999;COVID-19 
+CHIRURGIE;137;Chirurgie générale 
+CHIRURGIE;138;Chirurgie infantile indifférenciée 
+CHIRURGIE;139;Chirurgie enfants et adolescents 
+CHIRURGIE;140;Chirurgie nouveau-nés et nourrissons 
+CHIRURGIE;142;Surveillance continue chirurgicale 
+CHIRURGIE;143;Spécialités chirurgicales indifférenciées 
+CHIRURGIE;144;Chirurgie carcinologique 
+CHIRURGIE;145;Traitement des grands brûlés 
+CHIRURGIE;146;Chirurgie digestive 
+CHIRURGIE;147;Chirurgie thoracique et cardio-vasculaire 
+CHIRURGIE;148;Chirurgie thoraco-pulmonaire 
+CHIRURGIE;149;Chirurgie vasculaire 
+CHIRURGIE;150;Chirurgie cardiovasculaire 
+CHIRURGIE;151;Neurochirurgie 
+CHIRURGIE;152;Orthopédie traumatologie 
+CHIRURGIE;154;Chirurgie plastique et reconstructrice 
+CHIRURGIE;155;ORL et ophtalmologie indifférenciées 
+CHIRURGIE;156;Oto-Rhino-Laryngologie 
+CHIRURGIE;157;Ophtalmologie 
+CHIRURGIE;158;Stomatologie et chirurgie maxillo-faciale 
+CHIRURGIE;159;Stomatologie 
+CHIRURGIE;160;Chirurgie maxillo-faciale 
+CHIRURGIE;161;Urologie 
+CHIRURGIE;162;ORL, ophtalmologie et stomatologie indifférenciées 
+CHIRURGIE;181;Chirurgie générale et spécialités chirurgicales indifférenciées 
+CHIRURGIE;304;Transplantation du foie 
+CHIRURGIE;305;Transplantations rénales 
+CHIRURGIE;306;Transplantations cardiaques 
+CHIRURGIE;311;Transplantation cœur-poumon 
+CHIRURGIE;314;Allogreffe de moelle osseuse 
+CHIRURGIE;316;Autre transplantation d’organe (grêle, poumons, pancréas, multigreffe…) 
+CHIRURGIE;362;Chirurgie et obstétrique indifférenciées 
+CHIRURGIE;557;ORL et stomatologie indifférenciées 
+CHIRURGIE;628;Orthopédie 
+CHIRURGIE;718;Soins hautement spécialisés en chirurgie 
+CHIRURGIE;736;Traumatologie 
+CHIRURGIE;760;Salle de réveil 
+CHIRURGIE;761;Anesthésiologie et salle de réveil 
+CHIRURGIE;762;Bloc opératoire et stérilisation indifférenciés 
+CHIRURGIE;999;COVID-19 
+RÉANIMATION;104;Réanimation médicale pour adultes 
+RÉANIMATION;105;Réanimation polyvalente 
+RÉANIMATION;141;Réanimation chirurgicale pour adultes 
+RÉANIMATION;735;Réanimation chirurgicale adulte 
+RÉANIMATION;999;COVID-19 
+GYNÉCOLOGIE-OBSTÉTRIQUE;163;Gynécologie et obstétrique indifférenciées 
+GYNÉCOLOGIE-OBSTÉTRIQUE;164;Gynécologie 
+GYNÉCOLOGIE-OBSTÉTRIQUE;165;Obstétrique 
+GYNÉCOLOGIE-OBSTÉTRIQUE;183;Obstétrique sans possibilités chirurgicales 
+GYNÉCOLOGIE-OBSTÉTRIQUE;309;Interruption volontaire de grossesse 
+GYNÉCOLOGIE-OBSTÉTRIQUE;389;Lutte contre la stérilité 
+GYNÉCOLOGIE-OBSTÉTRIQUE;631;Gynécologie chirurgicale 
+GYNÉCOLOGIE-OBSTÉTRIQUE;719;Soins hautement spécialisés en gynécologie-obstétrique 
+GYNÉCOLOGIE-OBSTÉTRIQUE;724;Suivi de grossesse 
+GYNÉCOLOGIE-OBSTÉTRIQUE;999;COVID-19 
+PÉDIATRIE;108;Pédiatrie 
+PÉDIATRIE;109;Médecine de l'adolescent 
+PÉDIATRIE;110;Pédiatrie nouveaux-nés et nourrissons indifférenciée 
+PÉDIATRIE;111;Pédiatrie nourrissons 
+PÉDIATRIE;112;Néonatologie 
+PÉDIATRIE;235;Soins intensifs en néonatologie 
+PÉDIATRIE;246;Hébergement en établissement d'accueil mère-enfant 
+PÉDIATRIE;635;Réanimation néonatale 
+PÉDIATRIE;636;Réanimation pédiatrique polyvalente 
+PÉDIATRIE;638;Surveillance continue pédiatrique 
+PÉDIATRIE;720;Réanimation néonatale et pédiatrique indifférenciée 
+PÉDIATRIE;728;Cardiologie infantile 
+PÉDIATRIE;729;Néphrologie infantile 
+PÉDIATRIE;730;Carcinologie infantile 
+PÉDIATRIE;731;Spécialités pédiatriques 
+PÉDIATRIE;734;Réanimation chirurgicale pédiatrique 
+PÉDIATRIE;809;Hématologie pédiatrique 
+PÉDIATRIE;999;COVID-19 
+PSYCHIATRIE;195B;Soins aux toxicomanes (prise en charge par UF de psychiatrie) 
+PSYCHIATRIE;196B;Alcoologie (lutte contre l'alcoolisme) (prise en charge par UF de psychiatrie) 
+PSYCHIATRIE;230;Psychiatrie générale 
+PSYCHIATRIE;236;Psychiatrie infanto-juvénile 
+PSYCHIATRIE;313;Psychiatrie – sorties modifiant la tarification 
+PSYCHIATRIE;803;Psychiatrie pour arriérés profonds 
+PSYCHIATRIE;808;Sectorisation psychiatrique en milieu pénitentiaire 
+PSYCHIATRIE;999;COVID-19 
+SOINS MÉDICAUX ET DE RÉADAPTATION;55;Réadaptation-réeducation fonctionnelle polyvalente 
+SOINS MÉDICAUX ET DE RÉADAPTATION;166;Chroniques et convalescents indifférenciés 
+SOINS MÉDICAUX ET DE RÉADAPTATION;167;Chroniques 
+SOINS MÉDICAUX ET DE RÉADAPTATION;168;Repos, convalescence, régime indifférenciés 
+SOINS MÉDICAUX ET DE RÉADAPTATION;169;Repos 
+SOINS MÉDICAUX ET DE RÉADAPTATION;170;Convalescence 
+SOINS MÉDICAUX ET DE RÉADAPTATION;171;Régime (y compris diététique) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;172;Rééducation fonctionnelle et réadaptation polyvalente (ASA) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;173;Cure thermale indifférenciée 
+SOINS MÉDICAUX ET DE RÉADAPTATION;178;Rééducation fonctionnelle et réadaptation motrice indifférenciée (ASA) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;179;Rééducation fonctionnelle et réadaptation neurologique (ASA) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;180;Rééducation des affections respiratoires 
+SOINS MÉDICAUX ET DE RÉADAPTATION;182;Rééducation des maladies cardiovasculaires 
+SOINS MÉDICAUX ET DE RÉADAPTATION;184;Rééducation des affections hépato-digestives 
+SOINS MÉDICAUX ET DE RÉADAPTATION;185;Repos, convalescence indifférenciés 
+SOINS MÉDICAUX ET DE RÉADAPTATION;187;Autre rééducation fonctionnelle et réadaptation (ASA) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;189;Cure thermale des voies respiratoires 
+SOINS MÉDICAUX ET DE RÉADAPTATION;193;Cure thermale en rhumatologie et séquelles de traumatismes ostéo-articulaires 
+SOINS MÉDICAUX ET DE RÉADAPTATION;194;Cure thermale en dermatologie 
+SOINS MÉDICAUX ET DE RÉADAPTATION;206;Lutte anti-lèpre 
+SOINS MÉDICAUX ET DE RÉADAPTATION;214;Postcure pour alcooliques 
+SOINS MÉDICAUX ET DE RÉADAPTATION;217;Lutte contre la tuberculose indifférenciée 
+SOINS MÉDICAUX ET DE RÉADAPTATION;219;Lutte contre la tuberculose pulmonaire (sanatorium pulmonaire, hôtel de cure) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;220;Lutte contre la tuberculose extra-pulmonaire 
+SOINS MÉDICAUX ET DE RÉADAPTATION;221;Cure et repos en préventorium 
+SOINS MÉDICAUX ET DE RÉADAPTATION;222;Traitements préventifs de la tuberculose (Aérium) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;224;Observation et traitement pneumoconioses 
+SOINS MÉDICAUX ET DE RÉADAPTATION;226;Accueil et orientation des malades atteints ou suspects de tuberculose pulmonaire 
+SOINS MÉDICAUX ET DE RÉADAPTATION;227;Postcure pour tuberculeux 
+SOINS MÉDICAUX ET DE RÉADAPTATION;252;Pouponnière à caractère sanitaire (hébergement et soins) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;457;Cure médicale spécialisée contre la tuberculose indifférenciée 
+SOINS MÉDICAUX ET DE RÉADAPTATION;458;Cure médicale spécialisée contre la tuberculose pulmonaire 
+SOINS MÉDICAUX ET DE RÉADAPTATION;459;Cure médicale spécialisée contre la tuberculose extra-pulmonaire 
+SOINS MÉDICAUX ET DE RÉADAPTATION;460;Cure médicale spécialisée contre la tuberculose (préventorium) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;462;Autre cure médicale spécialisée pour enfants (notamment aérium reclassé) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;463;Autre cure médicale spécialisée pour tous âges 
+SOINS MÉDICAUX ET DE RÉADAPTATION;464;Cure médicale spécialisée pneumologique pour enfants 
+SOINS MÉDICAUX ET DE RÉADAPTATION;465;Cure médicale spécialisée pneumologique pour tous âges 
+SOINS MÉDICAUX ET DE RÉADAPTATION;466;Convalescence et réadaptation pour personnes âgées 
+SOINS MÉDICAUX ET DE RÉADAPTATION;467;Cure médicale spécialisée cardiologique pour enfants 
+SOINS MÉDICAUX ET DE RÉADAPTATION;468;Cure médicale spécialisée cardiologique pour tous âges 
+SOINS MÉDICAUX ET DE RÉADAPTATION;593;Accueil de l'enfant accompagnant la mère convalescente 
+SOINS MÉDICAUX ET DE RÉADAPTATION;594;Repos prénatal 
+SOINS MÉDICAUX ET DE RÉADAPTATION;595;Convalescence postnatale 
+SOINS MÉDICAUX ET DE RÉADAPTATION;604;Cure médicale non spécialisée pour enfants (MECS ouverte en permanence) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;605;Cure médicale non spécialisée pour enfants (MECS ouverte temporairement) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;606;Cure thermale pour enfants (MECS ouverte en permanence) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;607;Cure thermale pour enfants (MECS ouverte de façon temporaire) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;608;Cure médicale pour enfants atteints d'affections chroniques non tuberculeuses des voies respiratoires (MECS ouverte en permanence) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;609;Cure médicale pour enfants atteints d'affections chroniques non tuberculeuses des voies respiratoires (MECS ouverte de façon temporaire) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;610;Cure médicale pour enfants convalescents de rhumatismes aigus 
+SOINS MÉDICAUX ET DE RÉADAPTATION;612;Cure médicale pour enfants diabétiques (MECS ouverte en permanence) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;613;Cure médicale pour enfants diabétiques (MECS ouverte de façon temporaire) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;614;Cure médicale pour enfants épileptiques (MECS ouverte en permanence) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;615;Cure médicale pour enfants épileptiques (MECS ouverte de façon temporaire) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;616;Cure médicale pour enfants atteints de déficiences temporaires somato psychologiques 
+SOINS MÉDICAUX ET DE RÉADAPTATION;618;Cure médicale pour enfants hémophiles (MECS ouverte en permanence) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;619;Cure médicale pour enfants hémophiles (MECS ouverte de façon temporaire) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;620;Cure médicale pour enfants atteints d'infirmités orthopédiques 
+SOINS MÉDICAUX ET DE RÉADAPTATION;621;Cure médicale pour enfants atteints d'infirmités orthopédiques 
+SOINS MÉDICAUX ET DE RÉADAPTATION;622;Cure médicale pour enfants énurétiques (MECS ouverte en permanence) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;623;Cure médicale pour enfants énurétiques (MECS ouverte de façon temporaire) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;624;Autre cure médicale spécialisée pour enfants (MECS ouverte en permanence) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;625;Autre cure médicale spécialisée pour enfants (MECS ouverte de façon temporaire) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;627;Soins de suite et de réadaptation indifférenciés 
+SOINS MÉDICAUX ET DE RÉADAPTATION;651;Cure thermale des affections des muqueuses buccolinguales 
+SOINS MÉDICAUX ET DE RÉADAPTATION;737;Convalescence et réadaptation 
+SOINS MÉDICAUX ET DE RÉADAPTATION;738;Rééducation fonctionnelle et réadaptation motrice orientation rhumatologie (ASA) 
+SOINS MÉDICAUX ET DE RÉADAPTATION;739;Rééducation fonctionnelle et réadaptation motrice orientation traumatologie (ASA)  
+SOINS MÉDICAUX ET DE RÉADAPTATION;828;Cure thermale pour maladies cardio-artérielles 
+SOINS MÉDICAUX ET DE RÉADAPTATION;829;Cure thermale en neurologie 
+SOINS MÉDICAUX ET DE RÉADAPTATION;830;Cure thermale pour affections psychosomatiques 
+SOINS MÉDICAUX ET DE RÉADAPTATION;831;Cure thermale en phlébologie 
+SOINS MÉDICAUX ET DE RÉADAPTATION;832;Cure thermale pour troubles du développement chez l'enfant 
+SOINS MÉDICAUX ET DE RÉADAPTATION;833;Cure thermale en gynécologie 
+SOINS MÉDICAUX ET DE RÉADAPTATION;834;Cure thermale pour maladies de l'appareil digestif et maladies métaboliques 
+SOINS MÉDICAUX ET DE RÉADAPTATION;835;Cure thermale pour maladies de l'appareil urinaire et maladies métaboliques 
+SOINS MÉDICAUX ET DE RÉADAPTATION;999;COVID-19 
+SOINS DE LONGUE DURÉE;176;Soins de longue durée pour personnes ayant perdu leur autonomie de vie 
+SOINS DE LONGUE DURÉE;999;COVID-19 
+ÉTABLISSEMENT D'HÉBERGEMENT POUR PERSONNES ÂGÉES DÉPENDANTES;177;Cure médicale en établissement d'hébergements pour personnes âgées 
+ÉTABLISSEMENT D'HÉBERGEMENT POUR PERSONNES ÂGÉES DÉPENDANTES;924;Hébergement en maison de retraite 
+ÉTABLISSEMENT D'HÉBERGEMENT POUR PERSONNES ÂGÉES DÉPENDANTES;925;Hébergement en logement-foyer pour personnes âgées seules F1 
+ÉTABLISSEMENT D'HÉBERGEMENT POUR PERSONNES ÂGÉES DÉPENDANTES;926;Hébergement en logement-foyer pour personnes âgées couples F2 
+ÉTABLISSEMENT D'HÉBERGEMENT POUR PERSONNES ÂGÉES DÉPENDANTES;927;Hébergement en logement-foyer pour personnes âgées  F1bis 
+ÉTABLISSEMENT D'HÉBERGEMENT POUR PERSONNES ÂGÉES DÉPENDANTES;938;Hébergement en hospice 
+ÉTABLISSEMENT D'HÉBERGEMENT POUR PERSONNES ÂGÉES DÉPENDANTES;999;COVID-19  
+URGENCES;211;Accueil et traitement des urgences médico-chirurgicales 
+URGENCES;303;Urgence médicale 
+URGENCES;307;Urgence chirurgicale 
+URGENCES;308;Urgence indifférenciée 
+URGENCES;402;Service d'accueil et de traitement des urgences (SAU) 
+URGENCES;740;Accueil et traitement des urgences médicales 
+URGENCES;741;Accueil et traitement des urgences chirurgicales 
+URGENCES;742;Accueil et traitement des urgences spécialisées 
+MÉDICO-TECHNIQUE;23;Stérilisation 
+MÉDICO-TECHNIQUE;31;Stockage et distribution, gestion des magasins (sauf pharmacie) 
+MÉDICO-TECHNIQUE;34;Radiostandard 
+MÉDICO-TECHNIQUE;35;Scanographie X 
+MÉDICO-TECHNIQUE;36;Neuroradiologie 
+MÉDICO-TECHNIQUE;37;Hémodynamique 
+MÉDICO-TECHNIQUE;45;Explorations fonctionnelles cardiovasculaires 
+MÉDICO-TECHNIQUE;46;Explorations fonctionnelles néphrologiques 
+MÉDICO-TECHNIQUE;47;Explorations fonctionnelles pneumologiques 
+MÉDICO-TECHNIQUE;48;Explorations fonctionnelles neurologiques 
+MÉDICO-TECHNIQUE;49;Explorations fonctionnelles du tube digestif 
+MÉDICO-TECHNIQUE;50;Autres explorations fonctionnelles spécialisées 
+MÉDICO-TECHNIQUE;51;Explorations fonctionnelles cardiovasculaires et néphrologiques 
+MÉDICO-TECHNIQUE;52;Explorations fonctionnelles cardiovasculaires et pneumologiques 
+MÉDICO-TECHNIQUE;53;Autres explorations fonctionnelles polyvalentes 
+MÉDICO-TECHNIQUE;56;Ergothérapie 
+MÉDICO-TECHNIQUE;57;Hydrothérapie 
+MÉDICO-TECHNIQUE;58;Kinésithérapie 
+MÉDICO-TECHNIQUE;59;Orthophonie 
+MÉDICO-TECHNIQUE;60;Orthoptie 
+MÉDICO-TECHNIQUE;61;Autres rééducations spécialisées 
+MÉDICO-TECHNIQUE;92;Distribution de produits pharmaceutiques  
+MÉDICO-TECHNIQUE;93;Distribution d'autres biens médicaux 
+MÉDICO-TECHNIQUE;97;Anesthésiologie (consultation) 
+MÉDICO-TECHNIQUE;99;Activité de pharmacotoxico-vigilance 
+MÉDICO-TECHNIQUE;452;Aide aux insuffisants respiratoires 
+MÉDICO-TECHNIQUE;634;Laboratoire de radio-isotopes (Médecine nucléaire in vivo) 
+MÉDICO-TECHNIQUE;645;Oxygénothérapie isolée (insuffisants respiratoires) 
+MÉDICO-TECHNIQUE;646;Assistance ventilatoire sans trachéotomie (insuffisants respiratoires) 
+MÉDICO-TECHNIQUE;647;Assistance ventilatoire endotrachéale (insuffisants respiratoires) 
+MÉDICO-TECHNIQUE;648;Trachéotomie isolée (insuffisants respiratoires) 
+MÉDICO-TECHNIQUE;750;Tomographie 
+MÉDICO-TECHNIQUE;751;Radiologie vasculaire 
+MÉDICO-TECHNIQUE;752;Echographie sans autre indication (sai) 
+MÉDICO-TECHNIQUE;753;Imagerie par résonance magnétique (IRM) 
+MÉDICO-TECHNIQUE;754;Autres activités spécialisées d'imagerie médicale 
+MÉDICO-TECHNIQUE;755;Explorations fonctionnelles en ORL 
+MÉDICO-TECHNIQUE;756;Explorations fonctionnelles en ophtalmologie 
+MÉDICO-TECHNIQUE;757;Recherche et expérimentation dans les services médico-techniques 
+MÉDICO-TECHNIQUE;799;Assistance ventilatoire avec prothèse extrathoracique(insuffisants respiratoires) 
+MÉDICO-TECHNIQUE;800;Assistance ventilatoire par pression positive continue ou autres techniques particulières agréées (insuffisants respiratoires) 
+MÉDICO-TECHNIQUE;815;Echocardiologie 
+MÉDICO-TECHNIQUE;816;Echographie abdominale 
+MÉDICO-TECHNIQUE;817;Echographie en obstétrique 
+MÉDICO-TECHNIQUE;818;Echographie vasculaire   
+MAISON D’ACCUEIL SPÉCIALISÉE;913;Accueil temporaire d'urgence pour enfants et adolescents 
+MAISON D’ACCUEIL SPÉCIALISÉE;917;Hébergement de type maison d'accueil spécialisé pour adultes handicapés 
+HOSPITALISATION À DOMICILE;319;Soins et éducation specialisés à domicile pour enfants handicapés 
+HOSPITALISATION À DOMICILE;358;Soins à domicile 
+HOSPITALISATION À DOMICILE;552;Entraînement à l'hémodialyse à domicile et à l'autodialyse 
+HOSPITALISATION À DOMICILE;553;Entraînement à la dialyse péritonéale à domicile 
+HOSPITALISATION À DOMICILE;802;Autres traitements spécialisés à domicile 
+TRAITEMENT ET CURE AMBULATOIRE;797;Hémodialyse et hémofiltration pour chroniques adultes 
+TRAITEMENT ET CURE AMBULATOIRE;798;Hémodialyse et hémofiltration pour chroniques enfants 

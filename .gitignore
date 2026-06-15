@@ -1,0 +1,45 @@
+# Internal data and generated exports
+/data/
+/downloads/
+
+# Local historical backups and quarantined generated material
+/archive/
+
+# Quarto rendered outputs
+/*.html
+/**/*.html
+!assets/**/*.html
+**/*_files/
+/.quarto/
+
+# R local state
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+
+# Editor and operating-system state
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local secrets and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*credentials*
+*secret*
+*token*
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.bak
+~$*
