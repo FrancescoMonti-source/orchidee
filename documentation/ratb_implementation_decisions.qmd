@@ -1,0 +1,351 @@
+---
+title: "Décisions d'implémentation RATB ORCHIDEE"
+lang: fr
+engine: knitr
+format:
+  html:
+    theme:
+      light: flatly
+      dark: darkly
+    css: ../assets/orchidee-theme.css
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    float: true
+    page-layout: full
+    grid:
+      sidebar-width: 280px
+      body-width: 1450px
+      margin-width: 220px
+editor:
+  markdown:
+    wrap: 90
+editor_options:
+  chunk_output_type: console
+---
+
+# Résumé exécutif
+
+Le volet RATB d'ORCHIDEE produit un noyau annuel de résultats à partir d'un même catalogue
+biologique : les proportions annuelles de résistance et la densité d'incidence annuelle.
+Le même périmètre TA/DE est appliqué à deux niveaux distincts : aux prélèvements
+microbiologiques pour les numérateurs, et à l'activité PMSI pour les nuits
+d'hospitalisation utilisées comme dénominateurs d'incidence.
+
+L'expression de besoins fixe les résultats attendus, mais pas toujours toutes les règles
+opérationnelles nécessaires pour les calculer. Leur mise en œuvre a donc conduit à
+expliciter plusieurs conventions d'implémentation, en particulier pour le périmètre
+analytique hospitalisation, le calcul des nuits d'hospitalisation et l'évaluation
+exploratoire de l'impact de la complétion sur les sorties dédupliquées.
+
+Ce document décrit ce qui est déjà livré et interprétable, l'architecture générale de la
+chaîne, les principales conventions d'implémentation retenues, puis les limites qui restent
+à confirmer ou à stabiliser avec SPF.
+
+# Objet et positionnement du document
+
+Ce document complète `Expression_besoins_RATB_2-10-25.docx`. Il ne remplace ni le document
+d'expression de besoins, ni le rapport indicateurs lui-même.
+
+Son rôle est de décrire, dans un langage métier, les conventions d'implémentation retenues
+pour produire les résultats actuellement publiés, ainsi que les principales limites de la
+chaîne actuelle de traitement.
+
+Il constitue le mémo méthodologique canonique pour le volet RATB. La logique de réunion et
+les arbitrages à porter avec SPF sont documentés séparément dans
+`documentation/ratb_meeting_prep_spf.qmd`.
+
+Le catalogue des indicateurs biologiques de référence est maintenu dans
+`documentation/ratb_indicator_spec.csv`. Les audits détaillés de qualité, de périmètre et
+de validation restent documentés dans `orchidee_dedup_workflow.qmd`.
+
+# Ce qui est livré à ce stade
+
+À ce stade, ORCHIDEE publie :
+
+- les proportions annuelles de résistance ;
+- la densité d'incidence annuelle comme deuxième famille de résultats pour le même
+  catalogue d'indicateurs, en vue globale uniquement et sur le même périmètre analytique ;
+- des vues par type limitées à `hemoculture` et `urines` dans le rapport produit ;
+- huit sorties phénotypiques canoniques couvrant la matrice complète `2 taxons × 2 phénotypes × 2 métriques` pour `Klebsiella pneumoniae` et `Enterobacterales` ;
+- une sortie phénotypique additionnelle de compatibilité : `Klebsiella pneumoniae` carbapénémase en proportion sur `hemoculture`.
+
+Ces indicateurs phénotypiques restent dédiés à ces phénotypes et distincts des indicateurs
+fondés sur des panels d'antibiotiques ; ils combinent désormais une matrice canonique
+complète et une exception explicite conservée pour compatibilité avec la demande actuelle.
+
+Ne sont pas publiés à ce stade :
+
+- les indicateurs qui nécessitent encore des précisions indisponibles ou non suffisamment
+  stabilisées ;
+- la déclinaison trimestrielle ;
+- les autres stratifications demandées dans l'expression de besoins (âge, sexe, infection,
+  site de prélèvement, service, établissement, etc.).
+
+# Architecture générale de la chaîne
+
+La chaîne RATB suit aujourd'hui la séquence générale suivante :
+
+1. Le jeu microbiologique large `sir_wide` est construit une fois, sans filtrage
+   hospitalisation appliqué d'emblée.
+2. Le référentiel TA/DE est ensuite mobilisé pour dériver le périmètre microbiologique
+   au niveau du prélèvement et le périmètre des nuits d'hospitalisation au niveau PMSI.
+3. À partir de cette base analytique, plusieurs jeux d'analyse sont produits : `raw`,
+   `completion_date`, `completion_evtid`, `completion_patid_30d` et
+   `completion_patid_year`.
+4. Chacun de ces jeux est soumis à la même logique de déduplication.
+5. Les proportions annuelles de résistance et la densité d'incidence globale sont ensuite
+   calculées à partir de ces sorties dédupliquées ; la densité d'incidence utilise en plus
+   un dénominateur en nuits d'hospitalisation éligibles dérivé indépendamment du PMSI.
+
+Dans le rapport indicateurs, ces jeux sont affichés sous des libellés courts : `brut`,
+`compl. date`, `compl. séjour`, `compl. patient 30 j` et `compl. patient année`. Ces
+libellés servent uniquement à rendre la lecture des tableaux et des cartes thermiques plus
+directe ; ils renvoient aux mêmes stratégies que les noms internes.
+
+Les recalculs automatiques dépendent non seulement des données, mais aussi des scripts de
+calcul retenus dans les fingerprints de cache. Une modification de logique peut donc
+déclencher volontairement un recalcul, même sans changement des fichiers source
+hospitaliers ou microbiologiques.
+
+# Choix d'implémentation structurants
+
+L'expression de besoins précise les sorties attendues, mais pas toujours toutes les règles
+opérationnelles nécessaires pour les calculer. Plusieurs conventions d'implémentation ont
+donc été introduites pour rendre le calcul possible avec les données disponibles.
+
+## Complétion exploratoire
+
+La complétion a été introduite pour répondre à un problème précis : les antibiogrammes
+présents dans l'entrepôt peuvent être incomplets au regard des analyses réellement
+produites au cours de la prise en charge.
+
+Le rationnel porté par le CHU de Rouen est la crainte d'un effet tiroirs : un premier
+résultat peut déclencher des analyses supplémentaires, ensuite rendues sur un second
+document. L'état final de test / résistance observable dans l'entrepôt peut donc dépendre
+du moment et du document consultés.
+
+L'hypothèse de travail est que cette incomplétude peut modifier matériellement les sorties
+dédupliquées. Pour tester cette hypothèse, cinq jeux d'analyse sont comparés : `raw`,
+`completion_date`, `completion_evtid`, `completion_patid_30d` et `completion_patid_year`.
+Chacun de ces jeux est ensuite soumis à la même logique de déduplication.
+
+La stratégie `completion_patid_30d` ignore explicitement `EVTID` : elle raisonne au niveau `PATID, naturepvt_norm, bact_norm`, avec un garde-fou temporel de `30` jours sur `DATEPRELEV`, sans reconstituer pour autant un séjour PMSI autonome.
+
+La complétion doit être lue comme une convention ORCHIDEE exploratoire. Elle ne constitue
+ni une exigence explicite de SPF, ni une règle SPARES stricte. Sa fonction n'est pas de
+produire cinq livrables concurrents, mais de déterminer si son impact sur les sorties
+ dédupliquées est suffisamment important pour justifier son maintien.
+
+## Périmètre TA/DE appliqué à deux niveaux
+
+Le périmètre RATB repose désormais sur une règle positive d'éligibilité des unités
+fonctionnelles. Chaque `SEJUF` est rapprochée du référentiel CONSORES de structure
+portant `CODE_TA` et `CODE_DE`. Une UF est éligible lorsque `CODE_TA` vaut `03`
+ou `20` et que son domaine `CODE_DE` appartient aux secteurs SPARES inclus.
+
+Pour les données microbiologiques, la règle est appliquée au niveau du prélèvement :
+une ligne de `sir_wide` est retenue lorsque le `SEJUF` associé au prélèvement est
+éligible par TA/DE. Cette base alimente la complétion, la déduplication, les proportions
+et les numérateurs d'incidence.
+
+Pour les densités d'incidence, les nuits d'hospitalisation sont calculées séparément à
+partir de l'activité PMSI. Un épisode PMSI contribue au dénominateur lorsqu'il contient
+au moins une UF éligible par TA/DE, indépendamment de la présence d'un prélèvement
+microbiologique dans cet épisode.
+
+`PMSISTATUT` n'est plus une porte d'entrée scientifique du périmètre ; il reste conservé
+comme information d'audit. Ainsi, un épisode à statut mixte `E|H` peut contribuer au
+dénominateur si ses UF démontrent une activité éligible. À l'inverse, une ligne dont le
+statut PMSI vaut `H` n'est pas retenue si aucune UF ne satisfait la règle TA/DE.
+
+Pour le dénominateur, la règle reste formulée au niveau de l'épisode : les UF non
+éligibles présentes dans un épisode par ailleurs éligible ne l'excluent pas. En
+particulier, les passages aux urgences ne sont pas retenus seuls, mais les UHCD / lits
+porte codés en
+hospitalisation complète et dans le domaine `URGENCES` sont inclus.
+
+## Journées d'hospitalisation comptées en nuits
+
+La convention d'implémentation actuellement retenue pour les journées d'hospitalisation est
+la suivante :
+
+- l'unité de comptage est le nombre de nuits ;
+- la règle de calcul est `as.Date(DATSORT) - as.Date(DATENT)` ;
+- une entrée et une sortie le même jour comptent pour `0` nuit.
+
+Lorsqu'un séjour chevauche deux années civiles, les nuits sont ensuite ventilées par chevauchement réel : une partie est affectée à l'année `X`, l'autre à l'année `X+1`, plutôt que de rattacher tout le séjour à sa seule année d'entrée.
+
+Cette définition reprend une logique DIM de journée d'hospitalisation. Elle a été retenue
+parce qu'elle est calculable de façon reproductible pour n'importe quel établissement, et
+parce que les cas d'entrée-sortie le même jour devraient déjà être largement réduits par
+l'exclusion des épisodes exclusivement HDJ, ambulatoires ou urgences du périmètre
+analytique.
+
+## Catalogue unique et vues publiées
+
+Un seul catalogue biologique pilote les proportions annuelles de résistance et la densité
+d'incidence. Des contrôles explicites de publication permettent ensuite de respecter la
+matrice de publication retenue, notamment pour les huit sorties phénotypiques canoniques et la sortie additionnelle de compatibilité.
+
+Les familles actuellement normées sont fixées comme suit :
+
+- `Fluoroquinolones = ofloxacine + levofloxacine + moxifloxacine + ciprofloxacine` ;
+- `C3G = cefotaxime + ceftazidime + ceftriaxone` ;
+- `Carbapénèmes = ertapénème + imipénème + méropénème`.
+
+Une molécule supportée mais absente de l'extrait courant reste traitée comme non testée,
+et non comme indicateur non supporté.
+
+Les vues par type sont volontairement restreintes à `hemoculture` et `urines` dans le
+rapport produit, car ce sont actuellement les libellés de prélèvement les plus fiables et
+les plus directement interprétables.
+
+# Traitements biologiques spécifiques
+
+## Phénotypes BLSE / carbapénémase
+
+Les prélèvements à visée de dépistage sont exclus en amont du jeu microbiologique
+analytique lorsque leur `ELTID` porte l'un des trois codes `TYPEANA` verrouillés :
+`BGBLSE_R.BGBLSE_R2`, `BGCARBA_R.BGCARBA_R2`, `BGABMR_R.BGABMR_R2`. Cette exclusion
+porte sur tout l'`ELTID`, donc sur les phénotypes comme sur les indicateurs classiques
+de résistance et les numérateurs d'incidence.
+
+L'information diagnostique concernant les phénotypes BLSE et carbapénémase est, à
+Rouen, étalée sur plusieurs colonnes qui mélangent libellés structurés et texte libre.
+La logique implémentée pour les lignes restantes s'appuie donc sur le triplet
+`(LBLANA, LBLRES, STRRES)`.
+
+L'extraction est réalisée dès la construction du jeu de données au format large `sir_wide`,
+avant le filtrage `LBLRES == "SIR"`, qui restreint ensuite les lignes aux seules lignes des
+couples bact-atb des antibiogrammes.
+
+La première résolution se fait au niveau souche sur une clé alignée sur la granularité
+future de l'artefact : `(PATID, EVTID, ELTID, DATEPRELEV, souche_id, bact_norm,
+naturepvt_norm)`. Cette clé permet de rapprocher les lignes phénotypiques et la ligne
+antibiotique qui représentera ensuite la même souche dans `sir_wide`.
+
+La logique appliquée est la suivante :
+
+- les familles de lignes les plus structurées sont traitées par règles explicites en exact
+  match ;
+- un second niveau de règles couvre une petite queue de formulations proches, par détection
+  textuelle ciblée ;
+- les formulations ambiguës de type `cote blse` ou `cote carba` restent volontairement
+  ambiguës en interne ; elles ne sont pas forcées en positif ;
+- les mentions typées de carbapénémase (`oxa-48`, `vim`, `ndm`, `oxa-23`, etc.) sont
+  traitées comme positives ;
+- l'état interne d'une souche distingue `positive`, `negative`, `unknown` et `no_signal` ;
+- le flag public utilisé par les indicateurs reste binaire : `TRUE` uniquement pour
+  `positive`, `FALSE` sinon.
+
+Dans `sir_wide`, cette étape produit d'abord `blse_status_row` et
+`carbapenemase_status_row`, puis les flags binaires `blse_flag` et `carbapenemase_flag`.
+
+La complétion et la déduplication utilisent ensuite les statuts internes, pas seulement le
+flag public. En pratique, les statuts sont projetés temporairement dans des colonnes de
+travail de type S/R : `positive -> R`, `negative`, `unknown` et `no_signal -> S`.
+Cette règle suit la logique SPARES appliquée aux phénotypes : une absence de résultat
+phénotypique est interprétée comme une absence de ce phénotype chez la bactérie étudiée.
+
+Cette projection a deux effets :
+
+- une information phénotypique positive peut être propagée par complétion uniquement à
+  l'intérieur d'une classe compatible ;
+- une opposition entre `positive` et tout statut non positif crée une incompatibilité de
+  classe, au même titre qu'un conflit `S/R` sur un antibiotique, et interdit donc la
+  propagation entre ces lignes.
+
+Après complétion puis déduplication, les sorties finales recalculent un statut au niveau de
+la classe retenue (`blse_status_final`, `carbapenemase_status_final`) avant de dériver les
+flags publics. Cette étape est nécessaire, car la ligne représentative conservée n'est pas
+toujours celle qui portait explicitement la mention phénotypique dans les données brutes.
+
+Dans les indicateurs publiés, une souche n'est donc comptée productrice que si son statut
+final est `positive`. Les statuts non positifs alimentent tous le flag public `FALSE`.
+
+Cette famille d'indicateurs continue de s'appuyer sur le même catalogue biologique que les
+proportions classiques, mais avec des contrôles explicites de publication : une ligne du
+catalogue peut publier une proportion, une densité d'incidence, ou les deux selon ce qui a
+été demandé. Cette explicitation est surtout utile pour la matrice phénotypique canonique
+complète, tout en conservant l'exception `hemoculture` demandée pour `K. pneumoniae` carbapénémase en proportion.
+
+Ce découplage permet de garder de l'information pour la complétion et la déduplication,
+sans exposer dans les indicateurs une stratification phénotypique générale qui n'est pas
+demandée par l'expression de besoins.
+
+Le suivi de cette implémentation repose sur trois niveaux de contrôle :
+
+- à l'extraction, les comptes par statut (`positive`, `negative`, `unknown`, `no_signal`)
+  et la queue résiduelle par `(LBLANA, LBLRES, STRRES)` doivent rester auditables ;
+- en complétion / déduplication, un conflit `positive` / `negative` ne doit jamais rester
+  dans la même classe retenue ;
+- côté indicateurs, les lignes phénotypiques du catalogue ne doivent plus être renvoyées
+  comme `pending_phenotype_flag` et doivent produire des sorties publiables.
+
+``` text
+Pseudo-code décisionnel
+
+Entrée
+  Données microbiologiques brutes avant réduction aux seules lignes LBLRES == "SIR".
+
+Règles
+  1. Interpréter le signal phénotypique à partir du triplet (LBLANA, LBLRES, STRRES), et non de STRRES seul.
+  2. Résoudre d'abord BLSE et carbapénémase au niveau souche sur la clé documentée.
+  3. Produire un statut interne parmi positive, negative, unknown et no_signal.
+  4. Projeter temporairement ces statuts en R, S ou NA pour la complétion et la déduplication.
+  5. Autoriser la propagation à l'intérieur des classes compatibles, mais interdire toute fusion entre un signal positive et negative.
+  6. Recalculer après déduplication un statut final de classe, puis en dériver le flag public.
+  7. Publier huit sorties phénotypiques canoniques, et maintenir en plus la sortie de compatibilité `K. pneumoniae` carbapénémase en proportion sur `hemoculture`.
+
+Sortie
+  Des statuts internes utiles pour la complétion et la déduplication, puis des flags publics finalisés pour neuf sorties phénotypiques publiées : huit canoniques et une de compatibilité.
+
+Référence code
+  R/phenotype_flag_helpers.R
+  R/build_sir_wide_artifact.R
+  R/ratb_indicator_helpers.R
+```
+
+## Méthicilline de *Staphylococcus aureus*
+
+Pour `Staphylococcus aureus`, l'indicateur `méticilline` n'est plus traité comme un simple
+proxy `oxacilline`.
+
+Après prise en compte d'un commentaire présent dans le document Word de l'expression de
+besoins, la règle implémentée retient d'abord la `cefoxitine`, puis l'`oxacilline` en
+repli si la `cefoxitine` est absente. En cas de discordance, le résultat `cefoxitine` est
+donc conservé.
+
+Sur le jeu courant, les données brutes ne semblent pas contenir de `cefoxitine` pour
+`S. aureus`, de sorte que cette règle reste actuellement sans effet numérique observable
+malgré sa prise en charge.
+
+# Limites actuelles et points encore ouverts
+
+- la densité d'incidence est publiée uniquement en global à ce stade ; elle n'est pas
+  encore déclinée par type de prélèvement ;
+- les vues par type restent volontairement limitées à `hemoculture` et `urines` dans le
+  rapport produit ;
+- certaines lignes phénotypiques restent volontairement classées comme ambiguës
+  (`unknown`), en particulier lorsqu'elles reposent sur des formulations libres de type
+  `cote blse` ou `cote carba` ;
+- la déclinaison trimestrielle et les autres stratifications demandées dans l'expression de
+  besoins ne sont pas encore publiées dans le produit actuel ;
+- le statut de la complétion doit encore être discuté avec SPF : ORCHIDEE la documente
+  aujourd'hui comme une convention exploratoire, et non comme une règle métier
+  définitivement stabilisée.
+
+# Conclusion opérationnelle
+
+À ce stade, SPF peut interpréter les proportions annuelles de résistance et la densité
+d'incidence globale comme les sorties opérationnelles annuelles du noyau actuellement
+publié par la chaîne ORCHIDEE.
+
+En revanche, certaines conventions doivent encore être lues comme des choix
+ d'implémentation documentés : en particulier la formalisation du périmètre analytique
+hospitalisation, la traduction opérationnelle des journées d'hospitalisation en nuits
+éligibles et le statut exploratoire de la complétion. Ces choix sont désormais explicites,
+ce qui permet une discussion méthodologique transparente plutôt qu'une interprétation
+implicite des résultats.
+
