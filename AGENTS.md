@@ -32,6 +32,29 @@ For analytical or methodological changes, also consult
 - Update the corresponding methodological documentation when analytical
   behavior changes.
 
+## Multi-Agent Collaboration
+
+Several agents (and tools) may work on this repository. Coordination is
+deliberately lightweight and Git-native:
+
+- `main` contains accepted work only.
+- For a meaningful change, create a `task/<slug>` branch.
+- One agent implements the coherent change and commits it with a clear,
+  ordinary commit message. No commit-message template or co-author
+  attribution is required; the diff and the review carry the signal.
+- Another agent reviews the branch diff (`git diff main..task/<slug>`).
+- Run the relevant verification (see Rendering And Verification).
+- Merge into `main` after maintainer approval.
+
+Notes:
+
+- Worktrees: a fresh worktree does not contain `data/` (gitignored but
+  required for renders). Use worktrees only for genuinely parallel tasks
+  that do not need `sir_wide.rds`, PMSI inputs, or caches; otherwise use a
+  normal `task/<slug>` branch and work sequentially.
+- Changes to `AGENTS.md` itself go on their own branch and merge before
+  other branches rebase, so the shared contract does not fork.
+
 ## Rendering And Verification
 
 - Use `scripts/render_orchidee.ps1` for routine renders.
