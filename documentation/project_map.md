@@ -152,7 +152,8 @@ de logique dont il a besoin via `source_required_script`.
     -   calcul des panels annuels
     -   exécution des indicateurs phénotypiques
 -   `R/ratb_report_helpers.R`
-    -   helpers d'affichage uniquement pour le rapport d'indicateurs
+    -   helpers d'affichage partagés par le notebook socle et le rapport
+        d'indicateurs
     -   wrappers de tableaux et graphiques
     -   builders de sorties par taxon
     -   builders de la section phénotypes
