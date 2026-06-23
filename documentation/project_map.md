@@ -87,6 +87,9 @@ de logique dont il a besoin via `source_required_script`.
     -   bootstrap : chargement des librairies, sourcing du socle
         d'extraction et lecture de la config ; sourcé en tête des
         notebooks
+-   `R/bootstrap.R`
+    -   helpers légers de résolution de chemins et de sourcing partagés
+        entre notebooks, scripts CLI et helpers R
 -   `R/helpers.R`
     -   utilitaires généraux partagés
 -   `R/zzz.R`

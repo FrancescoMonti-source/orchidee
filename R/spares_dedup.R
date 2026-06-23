@@ -13,12 +13,16 @@
 #' class assignment is greedy first-fit, so stable ordering is part of the
 #' algorithm definition (not only a display concern).
 
+bootstrap_path <- c(file.path("R", "bootstrap.R"), "bootstrap.R")
+bootstrap_path <- bootstrap_path[file.exists(bootstrap_path)][1]
+if (is.na(bootstrap_path)) {
+  stop("Missing bootstrap helper script.", call. = FALSE)
+}
+source(bootstrap_path)
+
 # Load shared primitives used by both SPARES and completion.
-spares_helper_candidates <- c(
+orchidee_source_script_if_missing(
   "spares_shared_primitives.R",
-  file.path("R", "spares_shared_primitives.R")
-)
-if (!all(vapply(
   c(
     ".spares_normalize_noninformative",
     ".spares_sr_conflict_pair",
@@ -27,53 +31,19 @@ if (!all(vapply(
     ".spares_derive_evt_order_sort",
     ".spares_derive_elt_order_sort"
   ),
-  exists,
-  logical(1),
-  mode = "function"
-))) {
-  spares_helper_path <- spares_helper_candidates[file.exists(spares_helper_candidates)][1]
-  if (is.na(spares_helper_path)) {
-    stop(
-      "Missing shared helper script. Expected one of: ",
-      paste(spares_helper_candidates, collapse = ", "),
-      call. = FALSE
-    )
-  }
-  source(spares_helper_path)
-}
-stopifnot(
-  exists(".spares_normalize_noninformative", mode = "function"),
-  exists(".spares_sr_conflict_pair", mode = "function"),
-  exists(".spares_discord_matrix", mode = "function"),
-  exists(".spares_time_sort_key", mode = "function"),
-  exists(".spares_derive_evt_order_sort", mode = "function"),
-  exists(".spares_derive_elt_order_sort", mode = "function")
+  "shared helper script"
 )
 
 ensure_spares_phenotype_helpers_available <- function() {
-  helper_candidates <- c(
-    "phenotype_flag_helpers.R",
-    file.path("R", "phenotype_flag_helpers.R")
-  )
   required_funs <- c(
     "prepare_phenotype_sr_columns",
     "summarise_class_phenotype_status"
   )
-  if (!all(vapply(required_funs, exists, logical(1), mode = "function"))) {
-    helper_path <- helper_candidates[file.exists(helper_candidates)][1]
-    if (is.na(helper_path)) {
-      stop(
-        "Missing phenotype helper script. Expected one of: ",
-        paste(helper_candidates, collapse = ", "),
-        call. = FALSE
-      )
-    }
-    source(helper_path)
-  }
-  if (!all(vapply(required_funs, exists, logical(1), mode = "function"))) {
-    stop("Phenotype helper functions are not available after sourcing.", call. = FALSE)
-  }
-  invisible(TRUE)
+  orchidee_source_script_if_missing(
+    "phenotype_flag_helpers.R",
+    required_funs,
+    "phenotype helper script"
+  )
 }
 
 ensure_spares_phenotype_helpers_available()

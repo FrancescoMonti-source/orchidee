@@ -36,19 +36,7 @@ find_repo_root <- function() {
 
 repo_root <- find_repo_root()
 setwd(repo_root)
-
-source_required <- function(script_name) {
-  candidates <- c(script_name, file.path("R", script_name))
-  path <- candidates[file.exists(candidates)][1]
-  if (is.na(path)) {
-    stop(
-      "Missing required script: ", script_name, ". Checked: ",
-      paste(candidates, collapse = ", "),
-      call. = FALSE
-    )
-  }
-  source(path)
-}
+source("R/bootstrap.R")
 
 require_file <- function(path) {
   if (!file.exists(path)) {
@@ -128,7 +116,7 @@ read_rds_artifact <- function(path) {
 }
 
 build_indicator_panels <- function(sir_wide_meta, dedup_results, scope_cache) {
-  source_required("ratb_indicator_helpers.R")
+  orchidee_source_required_script("ratb_indicator_helpers.R", "RATB indicator helpers")
 
   paths <- orchidee_config$paths
   ratb_cfg <- orchidee_config$ratb

@@ -2,6 +2,13 @@
 # These helpers keep orchestration, validation, and reporting plumbing
 # out of the qmd so the report can focus on interpretation.
 
+bootstrap_path <- c(file.path("R", "bootstrap.R"), "bootstrap.R")
+bootstrap_path <- bootstrap_path[file.exists(bootstrap_path)][1]
+if (is.na(bootstrap_path)) {
+  stop("Missing bootstrap helper script.", call. = FALSE)
+}
+source(bootstrap_path)
+
 build_raw_group_log <- function(raw_df) {
   tibble(
     strategy = "raw",
@@ -160,16 +167,10 @@ resolve_completion_fingerprint_cols <- function(df, atb_cols) {
 }
 
 resolve_completion_script_path <- function(script_name) {
-  candidates <- c(file.path("R", script_name), script_name)
-  path <- candidates[file.exists(candidates)][1]
-  if (is.na(path)) {
-    stop(
-      "Missing completion cache dependency: ", script_name,
-      ". Checked: ", paste(candidates, collapse = ", "),
-      call. = FALSE
-    )
-  }
-  path
+  orchidee_resolve_script_path(
+    script_name,
+    what = paste0("completion cache dependency ", script_name)
+  )
 }
 
 compute_completion_fingerprint <- function(df, atb_cols) {
