@@ -69,6 +69,8 @@ canonicalize_df <- function(df) {
         character(1)
       )
     }
+    df[[col]] <- unname(df[[col]])
+    attributes(df[[col]]) <- NULL
   }
 
   row.names(df) <- NULL
