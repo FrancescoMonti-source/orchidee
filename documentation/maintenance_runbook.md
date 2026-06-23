@@ -38,6 +38,31 @@ Les fichiers de présentation Quarto restent dans `assets/`.
 
 ## Matrice de rendu
 
+## Snapshot de caractérisation avant refactor
+
+Avant un nettoyage structurel censé ne pas changer les résultats, créer un
+snapshot local des artefacts et panels courants :
+
+```powershell
+Rscript scripts/characterize_current_outputs.R write
+```
+
+Le snapshot est écrit dans `data/characterization_baseline.rds`, donc il
+reste local et n'est pas versionné. Après le refactor et le rendu adapté,
+vérifier que les signatures n'ont pas changé :
+
+```powershell
+Rscript scripts/characterize_current_outputs.R check
+```
+
+Si `Rscript` n'est pas disponible dans le `PATH`, utiliser le chemin complet
+de l'installation R locale.
+
+Cette vérification compare des signatures agrégées des artefacts
+canoniques, des jeux de complétion, des sorties de dédoublonnage et des
+panels d'indicateurs recalculés depuis les caches. Elle sert à détecter
+un changement non intentionnel ; elle ne remplace pas le rendu Quarto.
+
 ### Si seul le mémo a changé
 
 Commande :

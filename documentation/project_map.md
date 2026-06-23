@@ -190,6 +190,13 @@ de logique dont il a besoin via `source_required_script`.
     -   documentation du contrat pour `sir_wide` et le bundle de
         dénominateur
 
+### Scripts de contrôle local
+
+-   `scripts/characterize_current_outputs.R`
+    -   crée ou vérifie un snapshot local de signatures agrégées des
+        artefacts et panels courants avant un refactor sans changement
+        attendu de résultats
+
 ## Artefacts générés
 
 Les artefacts internes de travail vivent dans `data/`. Ils ne jouent pas
@@ -304,4 +311,3 @@ Commencer par :
 
 -   `documentation/ratb_meeting_prep_spf.qmd`
 -   rerendre `meeting`
-
