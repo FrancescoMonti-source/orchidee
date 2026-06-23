@@ -25,34 +25,10 @@ source("R/biol.R")
 source("R/get_edsan.R")
 source("R/pmsi.R")
 source("R/zzz.R")
-setup_source <- function(script_name) {
-  candidates <- c(script_name, file.path("R", script_name))
-  path <- candidates[file.exists(candidates)][1]
-  if (is.na(path)) {
-    stop(
-      "Missing setup dependency: ", script_name, ". Checked: ",
-      paste(candidates, collapse = ", "),
-      call. = FALSE
-    )
-  }
-  source(path)
-}
+source("R/bootstrap.R")
 
-setup_source_config <- function(config_name) {
-  candidates <- c(file.path("config", config_name), config_name)
-  path <- candidates[file.exists(candidates)][1]
-  if (is.na(path)) {
-    stop(
-      "Missing setup config: ", config_name, ". Checked: ",
-      paste(candidates, collapse = ", "),
-      call. = FALSE
-    )
-  }
-  source(path)
-}
-
-setup_source_config("pipeline.R")
-setup_source("helpers.R")
+orchidee_source_required_config("pipeline.R", "setup config")
+orchidee_source_required_script("helpers.R", "setup dependency helpers.R")
 
 
 options(

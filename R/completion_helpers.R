@@ -8,12 +8,15 @@
 # - Completion is class-aware and never crosses phenotype class boundaries.
 # - Processing order is deterministic to keep first-fit behavior reproducible.
 
+bootstrap_path <- c(file.path("R", "bootstrap.R"), "bootstrap.R")
+bootstrap_path <- bootstrap_path[file.exists(bootstrap_path)][1]
+if (is.na(bootstrap_path)) {
+  stop("Missing bootstrap helper script.", call. = FALSE)
+}
+source(bootstrap_path)
+
 # Load shared primitives used by both completion and SPARES.
 ensure_shared_primitives_available <- function() {
-  shared_candidates <- c(
-    "spares_shared_primitives.R",
-    file.path("R", "spares_shared_primitives.R")
-  )
   required_funs <- c(
     ".spares_normalize_noninformative",
     ".spares_sr_conflict_pair",
@@ -22,49 +25,25 @@ ensure_shared_primitives_available <- function() {
     ".spares_derive_evt_order_sort",
     ".spares_derive_elt_order_sort"
   )
-  if (!all(vapply(required_funs, exists, logical(1), mode = "function"))) {
-    shared_path <- shared_candidates[file.exists(shared_candidates)][1]
-    if (is.na(shared_path)) {
-      stop(
-        "Missing shared helper script. Expected one of: ",
-        paste(shared_candidates, collapse = ", "),
-        call. = FALSE
-      )
-    }
-    source(shared_path)
-  }
-  if (!all(vapply(required_funs, exists, logical(1), mode = "function"))) {
-    stop("Shared helper primitives are not available after sourcing.", call. = FALSE)
-  }
-  invisible(TRUE)
+  orchidee_source_script_if_missing(
+    "spares_shared_primitives.R",
+    required_funs,
+    "shared helper script"
+  )
 }
 
 ensure_shared_primitives_available()
 
 ensure_phenotype_helpers_available <- function() {
-  helper_candidates <- c(
-    "phenotype_flag_helpers.R",
-    file.path("R", "phenotype_flag_helpers.R")
-  )
   required_funs <- c(
     "prepare_phenotype_sr_columns",
     "finalize_phenotype_completion"
   )
-  if (!all(vapply(required_funs, exists, logical(1), mode = "function"))) {
-    helper_path <- helper_candidates[file.exists(helper_candidates)][1]
-    if (is.na(helper_path)) {
-      stop(
-        "Missing phenotype helper script. Expected one of: ",
-        paste(helper_candidates, collapse = ", "),
-        call. = FALSE
-      )
-    }
-    source(helper_path)
-  }
-  if (!all(vapply(required_funs, exists, logical(1), mode = "function"))) {
-    stop("Phenotype helper functions are not available after sourcing.", call. = FALSE)
-  }
-  invisible(TRUE)
+  orchidee_source_script_if_missing(
+    "phenotype_flag_helpers.R",
+    required_funs,
+    "phenotype helper script"
+  )
 }
 
 ensure_phenotype_helpers_available()
@@ -135,25 +114,11 @@ completeness_sort_key <- function(g, atb_cols) {
 #'
 #' @return Invisible TRUE if `spares_define_classes()` is available.
 ensure_spares_dedup_available <- function() {
-  if (!exists("spares_define_classes", mode = "function")) {
-    spares_candidates <- c(
-      "spares_dedup.R",
-      file.path("R", "spares_dedup.R")
-    )
-    spares_path <- spares_candidates[file.exists(spares_candidates)][1]
-    if (is.na(spares_path)) {
-      stop(
-        "Missing spares_dedup script. Expected one of: ",
-        paste(spares_candidates, collapse = ", "),
-        call. = FALSE
-      )
-    }
-    source(spares_path)
-  }
-  if (!exists("spares_define_classes", mode = "function")) {
-    stop("spares_define_classes() not available after sourcing.", call. = FALSE)
-  }
-  invisible(TRUE)
+  orchidee_source_script_if_missing(
+    "spares_dedup.R",
+    "spares_define_classes",
+    "spares_dedup script"
+  )
 }
 
 #' Complete one group, constrained to provisional phenotype classes

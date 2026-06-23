@@ -23,37 +23,10 @@ resolve_project_root <- function() {
   normalizePath(getwd(), winslash = "/", mustWork = TRUE)
 }
 
-source_required_script <- function(script_name, what) {
-  candidates <- c(file.path("R", script_name), script_name)
-  existing <- candidates[file.exists(candidates)]
-  if (length(existing) == 0L) {
-    stop(
-      "Missing ", what, ". Expected one of: ",
-      paste(candidates, collapse = ", "),
-      call. = FALSE
-    )
-  }
-  source(existing[[1]])
-  invisible(normalizePath(existing[[1]], winslash = "/", mustWork = TRUE))
-}
-
-source_required_config <- function(config_name, what) {
-  candidates <- c(file.path("config", config_name), config_name)
-  existing <- candidates[file.exists(candidates)]
-  if (length(existing) == 0L) {
-    stop(
-      "Missing ", what, ". Expected one of: ",
-      paste(candidates, collapse = ", "),
-      call. = FALSE
-    )
-  }
-  source(existing[[1]])
-  invisible(normalizePath(existing[[1]], winslash = "/", mustWork = TRUE))
-}
-
 project_root <- resolve_project_root()
 setwd(project_root)
-source_required_config("pipeline.R", "pipeline config")
+source("R/bootstrap.R")
+orchidee_source_required_config("pipeline.R", "pipeline config")
 
 # -----------------------------------------------------------------------------
 # Build configuration
@@ -84,11 +57,11 @@ strip_accents <- function(x) {
   iconv(x, from = "", to = "ASCII//TRANSLIT")
 }
 
-source_required_script("helpers.R", "helpers script")
-source_required_script("normalisation_bact.R", "normalisation_bact script")
-source_required_script("normalisation_atb.R", "normalisation_atb script")
-source_required_script("spares_shared_primitives.R", "spares_shared_primitives script")
-source_required_script("phenotype_flag_helpers.R", "phenotype_flag_helpers script")
+orchidee_source_required_script("helpers.R", "helpers script")
+orchidee_source_required_script("normalisation_bact.R", "normalisation_bact script")
+orchidee_source_required_script("normalisation_atb.R", "normalisation_atb script")
+orchidee_source_required_script("spares_shared_primitives.R", "spares_shared_primitives script")
+orchidee_source_required_script("phenotype_flag_helpers.R", "phenotype_flag_helpers script")
 
 # -----------------------------------------------------------------------------
 # Resolve all required inputs (raw extracts + dictionaries)

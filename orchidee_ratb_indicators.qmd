@@ -90,78 +90,39 @@ options(
 #| warning: false
 #| message: false
 
-source_required_script <- function(script_name, what) {
-  candidates <- c(file.path("R", script_name), script_name)
-  existing <- candidates[file.exists(candidates)]
-
-  if (length(existing) == 0L) {
-    stop(
-      "Missing ",
-      what,
-      ". Expected one of: ",
-      paste(candidates, collapse = ", "),
-      call. = FALSE
-    )
-  }
-
-  if (length(existing) > 1L) {
-    md5_vals <- tools::md5sum(existing)
-    if (length(unique(unname(md5_vals))) > 1L) {
-      warning_text <- paste0(
-        "Script shadowing detected for ",
-        script_name,
-        ": ",
-        existing[1],
-        " selected over ",
-        existing[2],
-        " and file contents differ."
-      )
-      cat("WARNING: ", warning_text, "\n", sep = "")
-      warning(
-        warning_text,
-        call. = FALSE
-      )
-    }
-  }
-
-  path <- existing[1]
-  source(path)
-  invisible(path)
-}
-
-source_required_script(
+orchidee_source_required_script(
   "normalisation_bact.R",
   "normalisation_bact script"
 )
-source_required_script(
+orchidee_source_required_script(
   "normalisation_atb.R",
   "normalisation_atb script"
 )
-source_required_script(
+orchidee_source_required_script(
   "spares_shared_primitives.R",
   "spares_shared_primitives script"
 )
-source_required_script(
+orchidee_source_required_script(
   "spares_dedup.R",
   "spares_dedup script"
 )
-source_required_script(
+orchidee_source_required_script(
   "completion_helpers.R",
   "completion_helpers script"
 )
-source_required_script(
+orchidee_source_required_script(
   "completion_workflow_helpers.R",
   "completion_workflow_helpers script"
 )
-source_required_script(
+orchidee_source_required_script(
   "ratb_indicator_helpers.R",
   "ratb_indicator_helpers script"
 )
-source_required_script(
+orchidee_source_required_script(
   "ratb_hospital_days_helpers.R",
   "ratb_hospital_days_helpers script"
 )
-source_required_script(
+orchidee_source_required_script(
   "ratb_report_helpers.R",
   "ratb_report_helpers script"
 )
@@ -189,7 +150,7 @@ initialize_ratb_report_helpers(
 #| include: false
 #| echo: false
 
-source_required_script("helpers.R", "helpers script")
+orchidee_source_required_script("helpers.R", "helpers script")
 
 data_dir <- orchidee_config$paths$data_dir
 dictionaries_dir <- orchidee_config$paths$dictionaries_dir
