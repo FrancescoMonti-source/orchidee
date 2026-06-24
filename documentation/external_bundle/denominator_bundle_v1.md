@@ -14,6 +14,11 @@ uses a provisional annual nights table, while the repo also produces a
 more generic annual audit table that is useful for traceability and later
 evolution.
 
+Naming note: `provisional` is retained in v1 object and column names for
+compatibility with the current runtime. It marks the current incidence
+denominator object whose night-count convention remains reviewable; it is
+not a second denominator running alongside the PMSI TA/DE denominator.
+
 ## Preferred file
 
 The preferred external file is:
@@ -59,7 +64,7 @@ Invariants:
 
 Purpose:
 - runtime-relevant annual denominator currently consumed by incidence
-- based on provisional hospital nights
+- based on current PMSI TA/DE eligible hospital nights
 
 Required columns:
 - `calendar_year`

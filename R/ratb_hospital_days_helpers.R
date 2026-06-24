@@ -8,6 +8,11 @@
 ##    convention
 ## 3. build a PMSI-based ORCHIDEE incidence denominator using the same TA/DE
 ##    perimeter independently from microbiology rows
+##
+## Naming note: objects with `provisional` in their name are the current
+## runtime-compatible incidence denominator artifacts. The name is kept for
+## cache and external-contract compatibility while the night-count convention
+## remains reviewable.
 
 ratb_normalize_pmsi_status <- function(x) {
   x <- toupper(trimws(as.character(x)))
