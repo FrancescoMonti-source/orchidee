@@ -175,7 +175,8 @@ chargés hors notebook.
     -   référentiels CONSORES actifs pour l'éligibilité TA/DE du
         périmètre RATB d'hospitalisation
 -   `rules/`
-    -   tables de règles analytiques maintenues par le projet
+    -   emplacement réservé aux tables de règles analytiques maintenues
+        par le projet
     -   ne contient plus de table active pour le périmètre RATB ; ce
         périmètre repose sur les référentiels CONSORES TA/DE dans `ref/`
         et sur `R/ratb_hospital_days_helpers.R`

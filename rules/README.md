@@ -1,6 +1,6 @@
 # Rules
 
-This folder contains Orchidee analytical rule tables.
+This folder is reserved for Orchidee analytical rule tables.
 
 Use it for project-authored decisions that are neither runtime config nor
 imported institutional references.
