@@ -27,6 +27,8 @@ For analytical or methodological changes, also consult
 - Keep operational settings in `config/pipeline.R`.
 - Keep internal generated artifacts and caches in `data/`.
 - Keep reader-facing report exports in `downloads/`.
+- Keep local drafts, inspections, and temporary artifacts in `outputs/`;
+  do not treat `outputs/` as a canonical source.
 - Keep biological mappings in `dictionaries/`, institutional references in
   `ref/`, and maintained analytical rules in `rules/`.
 - Update the corresponding methodological documentation when analytical
