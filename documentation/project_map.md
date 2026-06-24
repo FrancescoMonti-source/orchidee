@@ -258,6 +258,9 @@ suivants.
 Les artefacts d'export destinés au lecteur et générés par le rapport
 vivent dans `downloads/`.
 
+Les brouillons, inspections et artefacts temporaires locaux vivent dans
+`outputs/`, ignoré par Git. Ne pas l'utiliser comme source canonique.
+
 ## Si vous devez changer X, commencez ici
 
 ### Changer la définition d'un indicateur publié
