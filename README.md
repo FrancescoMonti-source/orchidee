@@ -85,6 +85,9 @@ Pour une réutilisation future par d'autres établissements, un contrat externe 
         et le rapport
 -   `downloads/`
     -   tableaux et figures exportés par le rapport d'indicateurs
+-   `outputs/`
+    -   espace local ignoré par Git pour brouillons, inspections et
+        artefacts temporaires ; ne pas l'utiliser comme source canonique
 -   `documentation/`
     -   mémo, note de réunion, documentation du contrat externe,
         documents d'entrée et de référence

@@ -135,6 +135,8 @@ Commande :
 -   Garder `data/` pour les artefacts internes générés.
 -   Garder `downloads/` pour les artefacts d'export produits par les
     rapports.
+-   Garder `outputs/` comme espace local ignoré par Git pour brouillons,
+    inspections et artefacts temporaires.
 -   Modifier `config/pipeline.R` pour les réglages de run avant de
     modifier un notebook.
 -   Préférer de petits diffs.
