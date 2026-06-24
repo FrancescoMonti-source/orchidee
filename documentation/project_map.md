@@ -79,7 +79,11 @@ pas comme source méthodologique de référence.
 Les notebooks chargent ces fichiers en deux temps : `R/setup.R` est sourcé
 en tête (librairies, sourcing du socle d'extraction, lecture de
 `config/pipeline.R`), puis chaque notebook source explicitement les scripts
-de logique dont il a besoin via `source_required_script`.
+de logique dont il a besoin via `orchidee_source_required_script()`.
+
+Quelques helpers R autonomes sourcent aussi `R/bootstrap.R` directement
+pour accéder aux mêmes fonctions de résolution de chemins lorsqu'ils sont
+chargés hors notebook.
 
 ### Bootstrap et extraction amont
 
