@@ -36,8 +36,6 @@ référentiels institutionnels importés restent dans `ref/`, y compris les
 référentiels CONSORES TA/DE actifs du périmètre RATB.
 Les fichiers de présentation Quarto restent dans `assets/`.
 
-## Matrice de rendu
-
 ## Snapshot de caractérisation avant refactor
 
 Avant un nettoyage structurel censé ne pas changer les résultats, créer un
@@ -62,6 +60,8 @@ Cette vérification compare des signatures agrégées des artefacts
 canoniques, des jeux de complétion, des sorties de dédoublonnage et des
 panels d'indicateurs recalculés depuis les caches. Elle sert à détecter
 un changement non intentionnel ; elle ne remplace pas le rendu Quarto.
+
+## Matrice de rendu
 
 ### Si seul le mémo a changé
 
