@@ -53,6 +53,25 @@ The intended split is:
 - `denominator_bundle_v1.md`
   - v1 contract for the annual denominator bundle
 
+## Contract ownership map
+
+The v1 contract has two surfaces:
+
+- human-facing contract:
+  - `documentation/external_bundle/sir_wide_v1.md`
+  - `documentation/external_bundle/denominator_bundle_v1.md`
+- executable contract and validation rules:
+  - `R/external_bundle_validation_helpers.R`
+  - specifically `orchidee_external_contract_v1()`
+
+When the v1 schema changes, update both surfaces in the same change.
+
+The current internal producer, `R/build_sir_wide_artifact.R`, is a useful
+reference implementation for the CHU artifact, but it is not the external
+adapter contract. A future hospital adapter should produce artifacts that
+match the external contract; it should not be required to reproduce the CHU
+raw extraction path.
+
 ## Validator
 
 Use the standalone validator:

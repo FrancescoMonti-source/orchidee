@@ -50,6 +50,14 @@ The validator still requires the other row-grain fields to be non-missing.
 - `nb_resultats`
 - `naturepvt_norm`
 - `bact_norm`
+- `SEJUF`
+- `SEJUM`
+- `TYPEANA`
+
+`SEJUF` is required because the current RATB microbiology perimeter is
+derived at sample level from the sample UF and the CONSORES TA/DE
+reference. `SEJUM` and `TYPEANA` are kept as sample-level context and
+audit fields used by the current downstream workflow.
 
 ### Supported antibiotic columns
 
@@ -101,8 +109,8 @@ The validator ignores them after warning.
 
 ## Expected types
 
-- `PATID`, `EVTID`, `ELTID`, `souche_id`, `naturepvt_norm`, `bact_norm`:
-  character
+- `PATID`, `EVTID`, `ELTID`, `souche_id`, `naturepvt_norm`, `bact_norm`,
+  `SEJUF`, `SEJUM`, `TYPEANA`: character
 - all supported antibiotic columns: character
 - `blse_status_row`, `carbapenemase_status_row`: character
 - `DATEPRELEV`: `Date`

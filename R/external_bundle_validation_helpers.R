@@ -60,6 +60,9 @@ orchidee_external_contract_v1 <- function() {
         "nb_resultats",
         "naturepvt_norm",
         "bact_norm",
+        "SEJUF",
+        "SEJUM",
+        "TYPEANA",
         atb_cols,
         "blse_status_row",
         "carbapenemase_status_row",
@@ -258,6 +261,7 @@ external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract 
   if (length(missing_cols) == 0L) {
     character_cols <- c(
       "PATID", "EVTID", "ELTID", "souche_id", "naturepvt_norm", "bact_norm",
+      "SEJUF", "SEJUM", "TYPEANA",
       spec$atb_cols,
       spec$phenotype_status_cols
     )

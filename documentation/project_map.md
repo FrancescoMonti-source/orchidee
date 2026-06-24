@@ -188,11 +188,21 @@ de logique dont il a besoin via `source_required_script`.
 -   `R/external_bundle_validation_helpers.R`
     -   helpers de validation réutilisables pour le contrat d'entrée
         externe dormant
+    -   porte la version exécutable du contrat v1 via
+        `orchidee_external_contract_v1()`
 -   `scripts/validate_external_bundle.R`
     -   validateur CLI autonome pour les bundles externes
 -   `documentation/external_bundle/`
     -   documentation du contrat pour `sir_wide` et le bundle de
         dénominateur
+    -   à maintenir en cohérence avec
+        `R/external_bundle_validation_helpers.R` quand le schéma v1
+        change
+-   `R/build_sir_wide_artifact.R`
+    -   producteur interne de l'artefact CHU actuel
+    -   sert d'exemple de construction de l'artefact canonique, mais ne
+        constitue pas le contrat d'adaptation externe pour un autre
+        établissement
 
 ### Scripts de contrôle local
 
