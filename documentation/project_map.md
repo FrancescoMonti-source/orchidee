@@ -174,9 +174,11 @@ chargés hors notebook.
     `ref/consores_codes_ta.csv`, `ref/consores_codes_de.csv`
     -   référentiels CONSORES actifs pour l'éligibilité TA/DE du
         périmètre RATB d'hospitalisation
--   `rules/ratb_perimeter_rules.csv`
-    -   ancienne table de règles heuristiques du périmètre RATB,
-        conservée comme référence mais plus utilisée comme surface active
+-   `rules/`
+    -   tables de règles analytiques maintenues par le projet
+    -   ne contient plus de table active pour le périmètre RATB ; ce
+        périmètre repose sur les référentiels CONSORES TA/DE dans `ref/`
+        et sur `R/ratb_hospital_days_helpers.R`
 -   `documentation/ratb_indicator_spec.csv`
     -   contrat de publication des indicateurs
     -   premier endroit à vérifier quand on ajoute ou retire des sorties
