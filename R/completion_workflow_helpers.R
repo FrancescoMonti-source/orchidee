@@ -2,12 +2,7 @@
 # These helpers keep orchestration, validation, and reporting plumbing
 # out of the qmd so the report can focus on interpretation.
 
-bootstrap_path <- c(file.path("R", "bootstrap.R"), "bootstrap.R")
-bootstrap_path <- bootstrap_path[file.exists(bootstrap_path)][1]
-if (is.na(bootstrap_path)) {
-  stop("Missing bootstrap helper script.", call. = FALSE)
-}
-source(bootstrap_path)
+source("R/bootstrap.R")
 
 build_raw_group_log <- function(raw_df) {
   tibble(

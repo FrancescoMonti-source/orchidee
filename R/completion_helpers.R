@@ -8,12 +8,7 @@
 # - Completion is class-aware and never crosses phenotype class boundaries.
 # - Processing order is deterministic to keep first-fit behavior reproducible.
 
-bootstrap_path <- c(file.path("R", "bootstrap.R"), "bootstrap.R")
-bootstrap_path <- bootstrap_path[file.exists(bootstrap_path)][1]
-if (is.na(bootstrap_path)) {
-  stop("Missing bootstrap helper script.", call. = FALSE)
-}
-source(bootstrap_path)
+source("R/bootstrap.R")
 
 # Load shared primitives used by both completion and SPARES.
 ensure_shared_primitives_available <- function() {
