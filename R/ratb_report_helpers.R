@@ -329,7 +329,7 @@ resolve_table_note_lines <- function(file_stem, caption = NULL) {
       "Use it as an impact audit for the perimeter correction before interpreting changes in proportions or incidence."
     ),
     ratb_episode_scope_audit = c(
-      "This table lists episode-level cases that are excluded, zero-night, or cross-year under the provisional incidence perimeter.",
+      "This table lists episode-level cases that are excluded, zero-night, or cross-year under the current TA/DE incidence perimeter.",
       "Use it as a review queue for perimeter rules and edge cases rather than as a summary metric."
     ),
     hospital_stay_validation_summary = c(
