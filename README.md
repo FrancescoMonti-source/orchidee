@@ -74,7 +74,8 @@ Pour une réutilisation future par d'autres établissements, un contrat externe 
 -   `assets/`
     -   fichiers de présentation utilisés par les rendus Quarto
 -   `rules/`
-    -   tables de règles analytiques maintenues par le projet
+    -   emplacement réservé aux tables de règles analytiques maintenues
+        par le projet ; aucune table active n'y est actuellement requise
 -   `dictionaries/`
     -   dictionnaires de normalisation et de taxonomie / antibiotiques
 -   `ref/`

@@ -30,7 +30,8 @@ Les réglages opérationnels vivent dans `config/pipeline.R` : chemins,
 fenêtre d'extraction attendue, flags de recompute et paramètres
 d'affichage.
 
-Les règles analytiques maintenues par le projet restent dans `rules/`.
+Les tables de règles analytiques maintenues par le projet doivent rester
+dans `rules/` lorsqu'elles existent.
 Les dictionnaires biologiques restent dans `dictionaries/` et les
 référentiels institutionnels importés restent dans `ref/`, y compris les
 référentiels CONSORES TA/DE actifs du périmètre RATB.
