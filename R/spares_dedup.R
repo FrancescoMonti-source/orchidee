@@ -13,12 +13,7 @@
 #' class assignment is greedy first-fit, so stable ordering is part of the
 #' algorithm definition (not only a display concern).
 
-bootstrap_path <- c(file.path("R", "bootstrap.R"), "bootstrap.R")
-bootstrap_path <- bootstrap_path[file.exists(bootstrap_path)][1]
-if (is.na(bootstrap_path)) {
-  stop("Missing bootstrap helper script.", call. = FALSE)
-}
-source(bootstrap_path)
+source("R/bootstrap.R")
 
 # Load shared primitives used by both SPARES and completion.
 orchidee_source_script_if_missing(
