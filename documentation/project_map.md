@@ -200,8 +200,8 @@ chargés hors notebook.
 -   `scripts/validate_external_bundle.R`
     -   validateur CLI autonome pour les bundles externes
 -   `documentation/external_bundle/`
-    -   documentation du contrat pour `sir_wide` et le bundle de
-        dénominateur
+    -   documentation du contrat pour les entrées canoniques,
+        `sir_wide` et le bundle de dénominateur
     -   à maintenir en cohérence avec
         `R/external_bundle_validation_helpers.R` quand le schéma v1
         change
