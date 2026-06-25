@@ -99,13 +99,27 @@ Default behavior:
 
 The validator is additive only. It is not called by the main notebooks.
 
+## Materialize a preferred bundle
+
+Current CHU artifacts still validate through compatibility sources such as
+`ratb_scope_cache`. To write the preferred four-file bundle shape, run:
+
+```powershell
+& 'C:\Program Files\R\R-4.5.2\bin\Rscript.exe' scripts/materialize_external_bundle.R data outputs/external_bundle_v1 --force
+```
+
+This writes `sir_wide.rds`, `sir_wide_meta.rds`,
+`sample_scope_reference.rds`, and `denominator_bundle.rds` to the output
+directory, then validates that output directory against the external
+contract.
+
 ## Runtime smoke test
 
 Use the runtime smoke test to check that a validated bundle can be converted
 into the downstream ORCHIDEE inputs expected by the RATB method:
 
 ```powershell
-& 'C:\Program Files\R\R-4.5.2\bin\Rscript.exe' scripts/smoke_external_runtime_inputs.R data
+& 'C:\Program Files\R\R-4.5.2\bin\Rscript.exe' scripts/smoke_external_runtime_inputs.R outputs/external_bundle_v1
 ```
 
 This test validates the bundle, applies the sample-scope reference to

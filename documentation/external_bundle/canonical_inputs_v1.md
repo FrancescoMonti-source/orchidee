@@ -83,6 +83,13 @@ For a command-line check of that same boundary, run:
 Rscript scripts/smoke_external_runtime_inputs.R <bundle_dir>
 ```
 
+To convert current compatible artifacts into the preferred four-file bundle
+layout, run:
+
+```powershell
+Rscript scripts/materialize_external_bundle.R <source_bundle_dir> <output_bundle_dir>
+```
+
 ## What is not canonical input
 
 These objects are CHU/local implementation details, not portable ORCHIDEE
