@@ -77,6 +77,12 @@ canonical files and `build_ratb_downstream_scope_from_canonical_inputs()`
 can build the minimal downstream scope and denominator objects used by the
 RATB method.
 
+For a command-line check of that same boundary, run:
+
+```powershell
+Rscript scripts/smoke_external_runtime_inputs.R <bundle_dir>
+```
+
 ## What is not canonical input
 
 These objects are CHU/local implementation details, not portable ORCHIDEE

@@ -205,6 +205,9 @@ chargés hors notebook.
         une référence de périmètre canonique à `sir_wide`
 -   `scripts/validate_external_bundle.R`
     -   validateur CLI autonome pour les bundles externes
+-   `scripts/smoke_external_runtime_inputs.R`
+    -   smoke test CLI vérifiant qu'un bundle validé peut construire les
+        entrées aval minimales du coeur RATB
 -   `documentation/external_bundle/`
     -   documentation du contrat pour les entrées canoniques,
         `sir_wide`, la référence de périmètre au prélèvement et le
