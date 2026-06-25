@@ -66,17 +66,6 @@ orchidee_source_required_script("phenotype_flag_helpers.R", "phenotype_flag_help
 # -----------------------------------------------------------------------------
 # Resolve all required inputs (raw extracts + dictionaries)
 # -----------------------------------------------------------------------------
-resolve_dictionary_path <- function(filename, what) {
-  resolve_existing_path(
-    c(
-      file.path(dictionaries_dir, filename),
-      filename,
-      file.path(data_dir, filename)
-    ),
-    what = what
-  )
-}
-
 pmsi_path <- resolve_existing_path(
   c("pmsi", file.path(data_dir, "pmsi")),
   what = "pmsi raw input"

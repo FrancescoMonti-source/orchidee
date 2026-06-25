@@ -56,6 +56,22 @@ resolve_existing_path <- function(candidates, what = "file", must_exist = TRUE) 
   normalizePath(existing[[1]], winslash = "/", mustWork = TRUE)
 }
 
+resolve_dictionary_path <- function(
+    filename,
+    what,
+    dictionaries_dir = "dictionaries",
+    data_dir = "data"
+  ) {
+  resolve_existing_path(
+    c(
+      file.path(dictionaries_dir, filename),
+      filename,
+      file.path(data_dir, filename)
+    ),
+    what = what
+  )
+}
+
 .file_info_signature <- function(path) {
   info <- file.info(path)
   if (nrow(info) == 0L || is.na(info$size[[1]]) || is.na(info$mtime[[1]])) {
