@@ -47,6 +47,13 @@ build_download_path <- function(file_stem, extension) {
   file.path(cfg$download_dir, paste0(slugify_filename(file_stem), ".", extension))
 }
 
+lookup_ratb_dataset_label <- function(x, label_map) {
+  x_chr <- as.character(x)
+  mapped <- unname(label_map[x_chr])
+  mapped[is.na(mapped)] <- x_chr[is.na(mapped)]
+  mapped
+}
+
 emit_html <- function(x) {
   rendered <- htmltools::renderTags(x)
   if (length(rendered$dependencies) > 0L) {
