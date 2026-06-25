@@ -92,13 +92,18 @@ workflow from `sir_wide`, PMSI data and TA/DE references. The external
 bundle validator accepts the resulting denominator bundle for compatibility,
 but the main notebooks do not yet branch into an external-runtime mode.
 
-Before another hospital can run the shared core directly from a bundle, one
-boundary choice must be made explicit:
+The intended portability direction is now:
 
-- either the site adapter provides microbiology rows already scoped to the
-  RATB TA/DE perimeter;
-- or the canonical bundle also includes the TA/DE mapping surface needed by
-  the ORCHIDEE core to scope microbiology rows itself.
+- the site adapter maps local unit information into a canonical sample-scope
+  reference;
+- the ORCHIDEE core applies that reference to microbiology rows;
+- the site adapter should not pre-filter `sir_wide` to hide rows outside the
+  RATB TA/DE perimeter.
 
-Until that decision is implemented, the v1 bundle is a documented and
-validated compatibility target, not a fully wired external execution mode.
+This keeps the surveillance counting rule in the shared core while keeping
+local HDW extraction and unit mapping outside the core.
+
+The current v1 validator does not yet require that separate sample-scope
+reference file. Until that schema increment is implemented, the v1 bundle is
+a documented and validated compatibility target, not a fully wired external
+execution mode.
