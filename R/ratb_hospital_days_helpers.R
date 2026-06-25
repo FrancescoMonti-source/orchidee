@@ -609,6 +609,36 @@ build_ratb_analytic_scope_dataset <- function(sir_wide_ratb_scope) {
     filter(sample_uf_is_eligible_by_ta_de)
 }
 
+build_ratb_downstream_scope_from_canonical_inputs <- function(
+    sir_wide,
+    sample_scope_reference,
+    denominator_bundle
+  ) {
+  stopifnot(
+    is.data.frame(sir_wide),
+    is.data.frame(sample_scope_reference),
+    is.list(denominator_bundle),
+    all(c(
+      "hospital_days_year_summary",
+      "hospital_days_year_summary_provisional"
+    ) %in% names(denominator_bundle))
+  )
+
+  sir_wide_ratb_scope <- apply_ratb_sample_ta_de_scope(
+    sir_wide_ratb_scope = sir_wide,
+    sample_scope_reference = sample_scope_reference
+  )
+
+  list(
+    sir_wide_ratb_scope = sir_wide_ratb_scope,
+    sir_wide_ratb_analytic_scope = build_ratb_analytic_scope_dataset(
+      sir_wide_ratb_scope
+    ),
+    hospital_days_year_summary = denominator_bundle$hospital_days_year_summary,
+    hospital_days_year_summary_provisional = denominator_bundle$hospital_days_year_summary_provisional
+  )
+}
+
 ratb_split_one_stay_by_year <- function(patid, evtid, datent_min, datsort_max, cross_year = FALSE) {
   if (is.na(datent_min) || is.na(datsort_max) || datsort_max < datent_min) {
     return(tibble())

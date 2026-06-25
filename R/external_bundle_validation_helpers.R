@@ -704,6 +704,17 @@ external_bundle_validate_denominator_bundle <- function(denominator_bundle, cont
   list(ok = length(errors) == 0L, errors = unique(errors), warnings = unique(warnings))
 }
 
+external_bundle_subset_denominator_bundle <- function(
+    denominator_bundle,
+    contract = orchidee_external_contract_v1()
+  ) {
+  required_tables <- contract$denominator_bundle$required_tables
+  if (!is.list(denominator_bundle) || !all(required_tables %in% names(denominator_bundle))) {
+    return(denominator_bundle)
+  }
+  denominator_bundle[required_tables]
+}
+
 validate_external_input_bundle <- function(bundle_dir = file.path("data"), contract = orchidee_external_contract_v1()) {
   path_validation <- external_bundle_validate_paths(bundle_dir, contract = contract)
   errors <- path_validation$errors
@@ -747,6 +758,36 @@ validate_external_input_bundle <- function(bundle_dir = file.path("data"), contr
     sample_scope_reference_source = basename(path_validation$paths$sample_scope_reference),
     denominator_source = basename(path_validation$paths$denominator_bundle),
     contract_version = contract$version
+  )
+}
+
+load_validated_external_input_bundle <- function(
+    bundle_dir = file.path("data"),
+    contract = orchidee_external_contract_v1()
+  ) {
+  report <- validate_external_input_bundle(bundle_dir = bundle_dir, contract = contract)
+  if (!isTRUE(report$ok)) {
+    stop(
+      "External input bundle does not match the ORCHIDEE contract:\n",
+      paste(report$errors, collapse = "\n"),
+      call. = FALSE
+    )
+  }
+
+  path_validation <- external_bundle_validate_paths(bundle_dir, contract = contract)
+  loaded <- external_bundle_load_bundle(path_validation$paths)
+
+  list(
+    sir_wide = loaded$sir_wide,
+    sir_wide_meta = loaded$sir_wide_meta,
+    sample_scope_reference = external_bundle_coerce_sample_scope_reference(
+      loaded$sample_scope_reference
+    ),
+    denominator_bundle = external_bundle_subset_denominator_bundle(
+      loaded$denominator_bundle,
+      contract = contract
+    ),
+    validation_report = report
   )
 }
 

@@ -72,6 +72,11 @@ It validates the shape and basic invariants of these files. It does not
 validate that a hospital's raw-to-canonical adapter made the scientifically
 right local mapping choices.
 
+After validation, `load_validated_external_input_bundle()` can load the
+canonical files and `build_ratb_downstream_scope_from_canonical_inputs()`
+can build the minimal downstream scope and denominator objects used by the
+RATB method.
+
 ## What is not canonical input
 
 These objects are CHU/local implementation details, not portable ORCHIDEE

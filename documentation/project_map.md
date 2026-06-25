@@ -197,6 +197,12 @@ chargés hors notebook.
         externe dormant
     -   porte la version exécutable du contrat v1 via
         `orchidee_external_contract_v1()`
+    -   charge aussi un bundle validé via
+        `load_validated_external_input_bundle()`
+-   `R/ratb_hospital_days_helpers.R`
+    -   contient le helper de frontière
+        `build_ratb_downstream_scope_from_canonical_inputs()` qui applique
+        une référence de périmètre canonique à `sir_wide`
 -   `scripts/validate_external_bundle.R`
     -   validateur CLI autonome pour les bundles externes
 -   `documentation/external_bundle/`
