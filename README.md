@@ -102,6 +102,7 @@ La documentation de l'externalisation future se trouve dans `documentation/exter
 -   `documentation/external_bundle/README.md`
 -   `documentation/external_bundle/canonical_inputs_v1.md`
 -   `documentation/external_bundle/sir_wide_v1.md`
+-   `documentation/external_bundle/sample_scope_reference_v1.md`
 -   `documentation/external_bundle/denominator_bundle_v1.md`
 -   validateur : `scripts/validate_external_bundle.R`
 

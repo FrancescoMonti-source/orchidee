@@ -46,6 +46,8 @@ orchidee_external_contract_v1 <- function() {
     version = "v1",
     bundle = list(
       required_files = c("sir_wide.rds", "sir_wide_meta.rds"),
+      preferred_sample_scope_reference_file = "sample_scope_reference.rds",
+      compatibility_sample_scope_reference_files = c("ratb_scope_cache", "ratb_scope_cache.rds"),
       preferred_denominator_file = "denominator_bundle.rds",
       compatibility_denominator_files = c("ratb_scope_cache", "ratb_scope_cache.rds")
     ),
@@ -99,6 +101,42 @@ orchidee_external_contract_v1 <- function() {
       ),
       phenotype_flag_cols = c("blse_flag", "carbapenemase_flag"),
       phenotype_status_cols = c("blse_status_row", "carbapenemase_status_row")
+    ),
+    sample_scope_reference = list(
+      required_columns = c(
+        "SEJUF",
+        "sample_CODE_TA",
+        "sample_CODE_DE",
+        "sample_de_domain_ref",
+        "sample_uf_is_eligible_by_ta_de",
+        "sample_uf_ta_de_status",
+        "sample_uf_ta_de_reason"
+      ),
+      character_columns = c(
+        "SEJUF",
+        "sample_CODE_TA",
+        "sample_CODE_DE",
+        "sample_de_domain_ref",
+        "sample_uf_ta_de_status",
+        "sample_uf_ta_de_reason"
+      ),
+      logical_columns = c("sample_uf_is_eligible_by_ta_de"),
+      status_allowed = c(
+        "eligible_ta_de",
+        "excluded_ta",
+        "excluded_de_domain",
+        "review_unmapped_uf",
+        "review_unmapped_de",
+        "review_missing_sample_uf"
+      ),
+      reason_allowed = c(
+        "eligible_ta_de",
+        "ta_not_03_20",
+        "ta_03_20_de_domain_not_included",
+        "uf_absent_from_consores_structure",
+        "ta_03_20_unmapped_de",
+        "missing_sample_uf"
+      )
     ),
     denominator_bundle = list(
       required_tables = c(
@@ -181,6 +219,35 @@ external_bundle_validate_paths <- function(bundle_dir, contract = orchidee_exter
     errors <- external_bundle_add_issue(errors, paste0("Missing required file: ", sir_wide_meta_path))
   }
 
+  sample_scope_path <- file.path(bundle_dir, contract$bundle$preferred_sample_scope_reference_file)
+  sample_scope_source <- "preferred"
+  if (!file.exists(sample_scope_path)) {
+    compat_candidates <- file.path(bundle_dir, contract$bundle$compatibility_sample_scope_reference_files)
+    existing <- compat_candidates[file.exists(compat_candidates)]
+    if (length(existing) > 0L) {
+      sample_scope_path <- existing[[1]]
+      sample_scope_source <- "compatibility"
+      warnings <- external_bundle_add_issue(
+        warnings,
+        paste0(
+          "Preferred sample-scope reference file not found; using compatibility source ",
+          basename(sample_scope_path),
+          "."
+        )
+      )
+    } else {
+      errors <- external_bundle_add_issue(
+        errors,
+        paste0(
+          "Missing sample-scope reference. Expected ",
+          contract$bundle$preferred_sample_scope_reference_file,
+          " or one of: ",
+          paste(contract$bundle$compatibility_sample_scope_reference_files, collapse = ", ")
+        )
+      )
+    }
+  }
+
   denominator_path <- file.path(bundle_dir, contract$bundle$preferred_denominator_file)
   denominator_source <- "preferred"
   if (!file.exists(denominator_path)) {
@@ -218,6 +285,8 @@ external_bundle_validate_paths <- function(bundle_dir, contract = orchidee_exter
       bundle_dir = normalizePath(bundle_dir, winslash = "/", mustWork = FALSE),
       sir_wide = sir_wide_path,
       sir_wide_meta = sir_wide_meta_path,
+      sample_scope_reference = sample_scope_path,
+      sample_scope_reference_source = sample_scope_source,
       denominator_bundle = denominator_path,
       denominator_source = denominator_source
     )
@@ -228,6 +297,7 @@ external_bundle_load_bundle <- function(paths) {
   list(
     sir_wide = readRDS(paths$sir_wide),
     sir_wide_meta = readRDS(paths$sir_wide_meta),
+    sample_scope_reference = readRDS(paths$sample_scope_reference),
     denominator_bundle = readRDS(paths$denominator_bundle)
   )
 }
@@ -408,6 +478,137 @@ external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract 
   list(ok = length(errors) == 0L, errors = unique(errors), warnings = unique(warnings))
 }
 
+external_bundle_coerce_sample_scope_reference <- function(sample_scope_reference) {
+  if (is.data.frame(sample_scope_reference)) {
+    return(sample_scope_reference)
+  }
+
+  if (is.list(sample_scope_reference) && is.data.frame(sample_scope_reference$sample_scope_reference)) {
+    return(sample_scope_reference$sample_scope_reference)
+  }
+
+  if (is.list(sample_scope_reference) && is.data.frame(sample_scope_reference$ratb_uf_ta_de_reference)) {
+    ref <- sample_scope_reference$ratb_uf_ta_de_reference
+    compat_cols <- c(
+      "SEJUF",
+      "CODE_TA",
+      "CODE_DE",
+      "de_domain_ref",
+      "uf_is_eligible_by_ta_de",
+      "uf_ta_de_status",
+      "uf_ta_de_reason"
+    )
+    if (!all(compat_cols %in% names(ref))) {
+      return(sample_scope_reference)
+    }
+    return(data.frame(
+      SEJUF = as.character(ref$SEJUF),
+      sample_CODE_TA = as.character(ref$CODE_TA),
+      sample_CODE_DE = as.character(ref$CODE_DE),
+      sample_de_domain_ref = as.character(ref$de_domain_ref),
+      sample_uf_is_eligible_by_ta_de = as.logical(ref$uf_is_eligible_by_ta_de),
+      sample_uf_ta_de_status = as.character(ref$uf_ta_de_status),
+      sample_uf_ta_de_reason = as.character(ref$uf_ta_de_reason),
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  sample_scope_reference
+}
+
+external_bundle_validate_sample_scope_reference <- function(
+    sample_scope_reference,
+    contract = orchidee_external_contract_v1()
+  ) {
+  errors <- character(0)
+  warnings <- character(0)
+  spec <- contract$sample_scope_reference
+  sample_scope_reference <- external_bundle_coerce_sample_scope_reference(sample_scope_reference)
+
+  if (!is.data.frame(sample_scope_reference)) {
+    errors <- external_bundle_add_issue(errors, "sample_scope_reference is not a data.frame.")
+    return(list(ok = FALSE, errors = errors, warnings = warnings))
+  }
+
+  missing_cols <- setdiff(spec$required_columns, names(sample_scope_reference))
+  if (length(missing_cols) > 0L) {
+    errors <- external_bundle_add_issue(
+      errors,
+      paste0("sample_scope_reference is missing required columns: ", paste(missing_cols, collapse = ", "))
+    )
+  }
+
+  extra_cols <- setdiff(names(sample_scope_reference), spec$required_columns)
+  if (length(extra_cols) > 0L) {
+    warnings <- external_bundle_add_issue(
+      warnings,
+      paste0("sample_scope_reference contains extra columns outside the v1 contract: ", paste(extra_cols, collapse = ", "))
+    )
+  }
+
+  if (length(missing_cols) == 0L) {
+    bad_character_cols <- spec$character_columns[
+      !vapply(sample_scope_reference[spec$character_columns], is.character, logical(1))
+    ]
+    if (length(bad_character_cols) > 0L) {
+      errors <- external_bundle_add_issue(
+        errors,
+        paste0("sample_scope_reference columns must be character: ", paste(bad_character_cols, collapse = ", "))
+      )
+    }
+
+    bad_logical_cols <- spec$logical_columns[
+      !vapply(sample_scope_reference[spec$logical_columns], is.logical, logical(1))
+    ]
+    if (length(bad_logical_cols) > 0L) {
+      errors <- external_bundle_add_issue(
+        errors,
+        paste0("sample_scope_reference columns must be logical: ", paste(bad_logical_cols, collapse = ", "))
+      )
+    }
+
+    if (any(is.na(sample_scope_reference$SEJUF))) {
+      errors <- external_bundle_add_issue(errors, "sample_scope_reference$SEJUF contains NA values.")
+    }
+    if (any(duplicated(sample_scope_reference$SEJUF[!is.na(sample_scope_reference$SEJUF)]))) {
+      errors <- external_bundle_add_issue(errors, "sample_scope_reference contains duplicate SEJUF values.")
+    }
+    if (any(is.na(sample_scope_reference$sample_uf_is_eligible_by_ta_de))) {
+      errors <- external_bundle_add_issue(errors, "sample_scope_reference$sample_uf_is_eligible_by_ta_de contains NA values.")
+    }
+    if (any(is.na(sample_scope_reference$sample_uf_ta_de_status))) {
+      errors <- external_bundle_add_issue(errors, "sample_scope_reference$sample_uf_ta_de_status contains NA values.")
+    }
+    if (any(is.na(sample_scope_reference$sample_uf_ta_de_reason))) {
+      errors <- external_bundle_add_issue(errors, "sample_scope_reference$sample_uf_ta_de_reason contains NA values.")
+    }
+
+    bad_status <- setdiff(
+      unique(sample_scope_reference$sample_uf_ta_de_status[!is.na(sample_scope_reference$sample_uf_ta_de_status)]),
+      spec$status_allowed
+    )
+    if (length(bad_status) > 0L) {
+      errors <- external_bundle_add_issue(
+        errors,
+        paste0("sample_scope_reference$sample_uf_ta_de_status contains unsupported values: ", paste(bad_status, collapse = ", "))
+      )
+    }
+
+    bad_reason <- setdiff(
+      unique(sample_scope_reference$sample_uf_ta_de_reason[!is.na(sample_scope_reference$sample_uf_ta_de_reason)]),
+      spec$reason_allowed
+    )
+    if (length(bad_reason) > 0L) {
+      errors <- external_bundle_add_issue(
+        errors,
+        paste0("sample_scope_reference$sample_uf_ta_de_reason contains unsupported values: ", paste(bad_reason, collapse = ", "))
+      )
+    }
+  }
+
+  list(ok = length(errors) == 0L, errors = unique(errors), warnings = unique(warnings))
+}
+
 external_bundle_validate_denominator_table <- function(tbl, table_name, table_spec) {
   errors <- character(0)
   warnings <- character(0)
@@ -525,13 +726,17 @@ validate_external_input_bundle <- function(bundle_dir = file.path("data"), contr
     sir_wide_meta = loaded$sir_wide_meta,
     contract = contract
   )
+  sample_scope_validation <- external_bundle_validate_sample_scope_reference(
+    sample_scope_reference = loaded$sample_scope_reference,
+    contract = contract
+  )
   denominator_validation <- external_bundle_validate_denominator_bundle(
     denominator_bundle = loaded$denominator_bundle,
     contract = contract
   )
 
-  errors <- c(errors, sir_wide_validation$errors, denominator_validation$errors)
-  warnings <- c(warnings, sir_wide_validation$warnings, denominator_validation$warnings)
+  errors <- c(errors, sir_wide_validation$errors, sample_scope_validation$errors, denominator_validation$errors)
+  warnings <- c(warnings, sir_wide_validation$warnings, sample_scope_validation$warnings, denominator_validation$warnings)
 
   list(
     ok = length(errors) == 0L,
@@ -539,6 +744,7 @@ validate_external_input_bundle <- function(bundle_dir = file.path("data"), contr
     errors = unique(errors),
     warnings = unique(warnings),
     paths = path_validation$paths,
+    sample_scope_reference_source = basename(path_validation$paths$sample_scope_reference),
     denominator_source = basename(path_validation$paths$denominator_bundle),
     contract_version = contract$version
   )
@@ -549,6 +755,7 @@ print_external_input_bundle_validation <- function(report) {
   if (!is.null(report$paths)) {
     cat("sir_wide: ", report$paths$sir_wide, "\n", sep = "")
     cat("sir_wide_meta: ", report$paths$sir_wide_meta, "\n", sep = "")
+    cat("sample-scope reference: ", report$paths$sample_scope_reference, "\n", sep = "")
     cat("denominator bundle: ", report$paths$denominator_bundle, "\n", sep = "")
   }
   cat("Contract version: ", report$contract_version %||% "v1", "\n", sep = "")

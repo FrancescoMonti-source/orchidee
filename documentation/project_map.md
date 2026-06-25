@@ -201,7 +201,8 @@ chargés hors notebook.
     -   validateur CLI autonome pour les bundles externes
 -   `documentation/external_bundle/`
     -   documentation du contrat pour les entrées canoniques,
-        `sir_wide` et le bundle de dénominateur
+        `sir_wide`, la référence de périmètre au prélèvement et le
+        bundle de dénominateur
     -   à maintenir en cohérence avec
         `R/external_bundle_validation_helpers.R` quand le schéma v1
         change
