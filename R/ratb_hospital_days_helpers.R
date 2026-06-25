@@ -203,6 +203,87 @@ build_ratb_ta_de_policy_table <- function() {
   )
 }
 
+build_ratb_sample_scope_reference <- function(ta_de_ref) {
+  stopifnot(is.data.frame(ta_de_ref))
+  required_cols <- c(
+    "SEJUF",
+    "consores_uf_label",
+    "CODE_TA",
+    "CODE_DE",
+    "de_domain_ref",
+    "uf_is_eligible_by_ta_de",
+    "uf_ta_de_status",
+    "uf_ta_de_reason"
+  )
+  missing_cols <- setdiff(required_cols, names(ta_de_ref))
+  if (length(missing_cols) > 0L) {
+    stop(
+      "TA/DE reference is missing required columns for sample scoping: ",
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  ta_de_ref %>%
+    transmute(
+      SEJUF = ratb_trim_or_na_local(SEJUF),
+      sample_consores_uf_label = consores_uf_label,
+      sample_CODE_TA = CODE_TA,
+      sample_CODE_DE = CODE_DE,
+      sample_de_domain_ref = de_domain_ref,
+      sample_uf_is_eligible_by_ta_de = uf_is_eligible_by_ta_de,
+      sample_uf_ta_de_status = uf_ta_de_status,
+      sample_uf_ta_de_reason = uf_ta_de_reason
+    ) %>%
+    distinct(SEJUF, .keep_all = TRUE)
+}
+
+apply_ratb_sample_ta_de_scope <- function(sir_wide_ratb_scope, sample_scope_reference) {
+  stopifnot(is.data.frame(sir_wide_ratb_scope), is.data.frame(sample_scope_reference))
+  stopifnot(all(c("PATID", "EVTID", "SEJUF", "SEJUM") %in% names(sir_wide_ratb_scope)))
+
+  required_ref_cols <- c(
+    "SEJUF",
+    "sample_CODE_TA",
+    "sample_uf_is_eligible_by_ta_de",
+    "sample_uf_ta_de_status",
+    "sample_uf_ta_de_reason"
+  )
+  missing_ref_cols <- setdiff(required_ref_cols, names(sample_scope_reference))
+  if (length(missing_ref_cols) > 0L) {
+    stop(
+      "Sample scope reference is missing required columns: ",
+      paste(missing_ref_cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  sir_wide_ratb_scope %>%
+    mutate(
+      PATID = as.character(PATID),
+      EVTID = as.character(EVTID),
+      SEJUF = ratb_trim_or_na_local(SEJUF),
+      SEJUM = ratb_trim_or_na_local(SEJUM)
+    ) %>%
+    left_join(
+      sample_scope_reference %>% distinct(SEJUF, .keep_all = TRUE),
+      by = "SEJUF"
+    ) %>%
+    mutate(
+      sample_uf_is_eligible_by_ta_de = dplyr::coalesce(sample_uf_is_eligible_by_ta_de, FALSE),
+      sample_uf_ta_de_status = case_when(
+        is.na(SEJUF) ~ "review_missing_sample_uf",
+        is.na(sample_CODE_TA) ~ "review_unmapped_uf",
+        TRUE ~ sample_uf_ta_de_status
+      ),
+      sample_uf_ta_de_reason = case_when(
+        is.na(SEJUF) ~ "missing_sample_uf",
+        is.na(sample_CODE_TA) ~ "uf_absent_from_consores_structure",
+        TRUE ~ sample_uf_ta_de_reason
+      )
+    )
+}
+
 load_ratb_consores_ta_de_reference <- function(
     structure_path,
     codes_ta_path,
@@ -737,39 +818,11 @@ build_ratb_provisional_perimeter_audit <- function(
   )
   ratb_perimeter_rules <- build_ratb_ta_de_policy_table()
 
-  sample_uf_ta_de_reference <- consores_ta_de_ref %>%
-    transmute(
-      SEJUF,
-      sample_consores_uf_label = consores_uf_label,
-      sample_CODE_TA = CODE_TA,
-      sample_CODE_DE = CODE_DE,
-      sample_de_domain_ref = de_domain_ref,
-      sample_uf_is_eligible_by_ta_de = uf_is_eligible_by_ta_de,
-      sample_uf_ta_de_status = uf_ta_de_status,
-      sample_uf_ta_de_reason = uf_ta_de_reason
-    )
-
-  sir_wide_ratb_scope <- sir_wide_ratb_scope %>%
-    mutate(
-      PATID = as.character(PATID),
-      EVTID = as.character(EVTID),
-      SEJUF = ratb_trim_or_na_local(SEJUF),
-      SEJUM = ratb_trim_or_na_local(SEJUM)
-    ) %>%
-    left_join(sample_uf_ta_de_reference, by = "SEJUF") %>%
-    mutate(
-      sample_uf_is_eligible_by_ta_de = dplyr::coalesce(sample_uf_is_eligible_by_ta_de, FALSE),
-      sample_uf_ta_de_status = case_when(
-        is.na(SEJUF) ~ "review_missing_sample_uf",
-        is.na(sample_CODE_TA) ~ "review_unmapped_uf",
-        TRUE ~ sample_uf_ta_de_status
-      ),
-      sample_uf_ta_de_reason = case_when(
-        is.na(SEJUF) ~ "missing_sample_uf",
-        is.na(sample_CODE_TA) ~ "uf_absent_from_consores_structure",
-        TRUE ~ sample_uf_ta_de_reason
-      )
-    )
+  sample_uf_ta_de_reference <- build_ratb_sample_scope_reference(consores_ta_de_ref)
+  sir_wide_ratb_scope <- apply_ratb_sample_ta_de_scope(
+    sir_wide_ratb_scope = sir_wide_ratb_scope,
+    sample_scope_reference = sample_uf_ta_de_reference
+  )
 
   scope_status_lookup <- status_lookup %>%
     select(
