@@ -185,16 +185,6 @@ current_upstream_signature <- tryCatch(
       c("bact22_24", file.path("data", "bact22_24")),
       what = "bact22_24 raw input"
     )
-    resolve_dictionary_path <- function(filename, what) {
-      resolve_existing_path(
-        c(
-          file.path(dictionaries_dir, filename),
-          filename,
-          file.path(data_dir, filename)
-        ),
-        what = what
-      )
-    }
     atb_regex_map_path <- resolve_dictionary_path(
       "atb_regex_map.csv",
       what = "ATB regex mapping"
