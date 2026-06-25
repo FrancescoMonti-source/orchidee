@@ -25,6 +25,7 @@ extraction pipeline.
 Instead, the site should provide a canonical bundle made of:
 - `sir_wide.rds`
 - `sir_wide_meta.rds`
+- `sample_scope_reference.rds`
 - `denominator_bundle.rds`
 
 Once those artifacts match the contract, the shared Orchidee downstream
@@ -52,6 +53,8 @@ The intended split is:
   - boundary between site-specific adapter work and shared ORCHIDEE core
 - `sir_wide_v1.md`
   - exact v1 compatibility contract for the microbiology artifact
+- `sample_scope_reference_v1.md`
+  - v1 contract for the sample-level RATB TA/DE scope reference
 - `denominator_bundle_v1.md`
   - v1 contract for the annual denominator bundle
 
@@ -62,6 +65,7 @@ The v1 contract has two surfaces:
 - human-facing contract:
   - `documentation/external_bundle/canonical_inputs_v1.md`
   - `documentation/external_bundle/sir_wide_v1.md`
+  - `documentation/external_bundle/sample_scope_reference_v1.md`
   - `documentation/external_bundle/denominator_bundle_v1.md`
 - executable contract and validation rules:
   - `R/external_bundle_validation_helpers.R`
@@ -86,6 +90,9 @@ Use the standalone validator:
 Default behavior:
 - validates `sir_wide.rds`
 - validates `sir_wide_meta.rds`
+- validates `sample_scope_reference.rds` if present
+- otherwise accepts the current native `ratb_scope_cache` as a
+  compatibility source for the sample-scope reference
 - validates `denominator_bundle.rds` if present
 - otherwise accepts the current native `ratb_scope_cache` as a
   compatibility source for the denominator bundle

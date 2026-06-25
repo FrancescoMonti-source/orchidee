@@ -47,7 +47,7 @@ local biology software conventions, or site-specific screening codes.
 
 ## Current v1 canonical files
 
-The current dormant external contract uses three files:
+The current dormant external contract uses four files:
 
 - `sir_wide.rds`
   - canonical microbiology rows in wide S/I/R format;
@@ -55,6 +55,9 @@ The current dormant external contract uses three files:
 - `sir_wide_meta.rds`
   - metadata and freshness information for `sir_wide.rds`;
   - exact required fields in `sir_wide_v1.md`.
+- `sample_scope_reference.rds`
+  - sample-level TA/DE scope reference joined to `sir_wide` by `SEJUF`;
+  - exact schema in `sample_scope_reference_v1.md`.
 - `denominator_bundle.rds`
   - annual PMSI/activity denominator tables;
   - exact schema in `denominator_bundle_v1.md`.
@@ -101,9 +104,10 @@ The intended portability direction is now:
   RATB TA/DE perimeter.
 
 This keeps the surveillance counting rule in the shared core while keeping
-local HDW extraction and unit mapping outside the core.
+local HDW extraction and unit mapping outside the core. The v1 validator
+already knows this preferred file, while still accepting the current native
+`ratb_scope_cache` as a compatibility source.
 
-The current v1 validator does not yet require that separate sample-scope
-reference file. Until that schema increment is implemented, the v1 bundle is
-a documented and validated compatibility target, not a fully wired external
-execution mode.
+The main notebooks do not yet branch into an external-runtime mode. The v1
+bundle is therefore a documented and validated compatibility target, not a
+fully wired external execution mode.
