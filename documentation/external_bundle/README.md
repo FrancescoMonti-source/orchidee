@@ -48,6 +48,8 @@ The intended split is:
 
 ## Documents in this folder
 
+- `canonical_inputs_v1.md`
+  - boundary between site-specific adapter work and shared ORCHIDEE core
 - `sir_wide_v1.md`
   - exact v1 compatibility contract for the microbiology artifact
 - `denominator_bundle_v1.md`
@@ -58,6 +60,7 @@ The intended split is:
 The v1 contract has two surfaces:
 
 - human-facing contract:
+  - `documentation/external_bundle/canonical_inputs_v1.md`
   - `documentation/external_bundle/sir_wide_v1.md`
   - `documentation/external_bundle/denominator_bundle_v1.md`
 - executable contract and validation rules:
