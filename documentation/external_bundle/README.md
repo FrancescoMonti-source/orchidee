@@ -99,6 +99,20 @@ Default behavior:
 
 The validator is additive only. It is not called by the main notebooks.
 
+## Runtime smoke test
+
+Use the runtime smoke test to check that a validated bundle can be converted
+into the downstream ORCHIDEE inputs expected by the RATB method:
+
+```powershell
+& 'C:\Program Files\R\R-4.5.2\bin\Rscript.exe' scripts/smoke_external_runtime_inputs.R data
+```
+
+This test validates the bundle, applies the sample-scope reference to
+`sir_wide`, and checks that the scoped microbiology rows and annual
+denominator tables satisfy the core invariants. It does not render notebooks
+or write pipeline caches.
+
 ## Loader helper
 
 The code boundary for future external execution is split in two:
