@@ -490,13 +490,6 @@ stopifnot(
   exists("build_ratb_indicator_panel_incidence_annual", mode = "function")
 )
 
-lookup_ratb_dataset_label <- function(x, label_map) {
-  x_chr <- as.character(x)
-  mapped <- unname(label_map[x_chr])
-  mapped[is.na(mapped)] <- x_chr[is.na(mapped)]
-  mapped
-}
-
 localize_ratb_indicator_kind <- function(
   x,
   indicator_id = NA_character_,
