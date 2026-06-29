@@ -823,36 +823,16 @@ build_hospital_days_validation <- function(pmsi_main, status_lookup = NULL) {
   )
 }
 
-build_ratb_provisional_perimeter_audit <- function(
-    sir_wide_ratb_scope,
+build_ratb_pmsi_ta_de_denominator <- function(
     pmsi_main,
-    status_lookup = NULL,
-    structure_path = file.path("ref", "consores_structure_intranet_maj_2025.xlsx"),
-    codes_ta_path = file.path("ref", "consores_codes_ta.csv"),
-    codes_de_path = file.path("ref", "consores_codes_de.csv"),
-    ref_dir = "ref"
+    status_lookup,
+    refs,
+    consores_ta_de_ref
   ) {
-  stopifnot(is.data.frame(sir_wide_ratb_scope), is.data.frame(pmsi_main))
-  stopifnot(all(c("PATID", "EVTID", "ELTID", "SEJUF", "SEJUM") %in% names(sir_wide_ratb_scope)))
+  stopifnot(is.data.frame(pmsi_main), is.data.frame(status_lookup))
+  stopifnot(is.list(refs), is.data.frame(consores_ta_de_ref))
+  stopifnot(all(c("uf_ref", "uf2um_ref", "um_ref") %in% names(refs)))
   stopifnot(all(c("PATID", "EVTID", "PMSISTATUT", "DATENT", "DATSORT", "SEJUM", "SEJUF", "GHM") %in% names(pmsi_main)))
-
-  if (is.null(status_lookup)) {
-    status_lookup <- build_pmsi_status_lookup(pmsi_main)
-  }
-
-  refs <- load_ratb_unit_references(ref_dir = ref_dir)
-  consores_ta_de_ref <- load_ratb_consores_ta_de_reference(
-    structure_path = structure_path,
-    codes_ta_path = codes_ta_path,
-    codes_de_path = codes_de_path
-  )
-  ratb_perimeter_rules <- build_ratb_ta_de_policy_table()
-
-  sample_uf_ta_de_reference <- build_ratb_sample_scope_reference(consores_ta_de_ref)
-  sir_wide_ratb_scope <- apply_ratb_sample_ta_de_scope(
-    sir_wide_ratb_scope = sir_wide_ratb_scope,
-    sample_scope_reference = sample_uf_ta_de_reference
-  )
 
   scope_status_lookup <- status_lookup %>%
     select(
@@ -933,7 +913,7 @@ build_ratb_provisional_perimeter_audit <- function(
       scope_status_lookup,
       by = c("PATID", "EVTID"),
       suffix = c("", "_status")
-    ) %>% 
+    ) %>%
     mutate(
       nights_provisional = as.integer(as.Date(datsort_max) - as.Date(datent_min)),
       missing_bounds = is.na(datent_min) | is.na(datsort_max),
@@ -1023,6 +1003,57 @@ build_ratb_provisional_perimeter_audit <- function(
       .groups = "drop"
     ) %>%
     arrange(calendar_year)
+
+  list(
+    ratb_episode_scope_audit = ratb_episode_scope_audit,
+    ratb_episode_exclusion_summary = ratb_episode_exclusion_summary,
+    hospital_days_year_split_provisional = hospital_days_year_split_provisional,
+    hospital_days_year_summary_provisional = hospital_days_year_summary_provisional
+  )
+}
+
+build_ratb_provisional_perimeter_audit <- function(
+    sir_wide_ratb_scope,
+    pmsi_main,
+    status_lookup = NULL,
+    structure_path = file.path("ref", "consores_structure_intranet_maj_2025.xlsx"),
+    codes_ta_path = file.path("ref", "consores_codes_ta.csv"),
+    codes_de_path = file.path("ref", "consores_codes_de.csv"),
+    ref_dir = "ref"
+  ) {
+  stopifnot(is.data.frame(sir_wide_ratb_scope), is.data.frame(pmsi_main))
+  stopifnot(all(c("PATID", "EVTID", "ELTID", "SEJUF", "SEJUM") %in% names(sir_wide_ratb_scope)))
+  stopifnot(all(c("PATID", "EVTID", "PMSISTATUT", "DATENT", "DATSORT", "SEJUM", "SEJUF", "GHM") %in% names(pmsi_main)))
+
+  if (is.null(status_lookup)) {
+    status_lookup <- build_pmsi_status_lookup(pmsi_main)
+  }
+
+  refs <- load_ratb_unit_references(ref_dir = ref_dir)
+  consores_ta_de_ref <- load_ratb_consores_ta_de_reference(
+    structure_path = structure_path,
+    codes_ta_path = codes_ta_path,
+    codes_de_path = codes_de_path
+  )
+  ratb_perimeter_rules <- build_ratb_ta_de_policy_table()
+
+  sample_uf_ta_de_reference <- build_ratb_sample_scope_reference(consores_ta_de_ref)
+  sir_wide_ratb_scope <- apply_ratb_sample_ta_de_scope(
+    sir_wide_ratb_scope = sir_wide_ratb_scope,
+    sample_scope_reference = sample_uf_ta_de_reference
+  )
+
+  denominator_objects <- build_ratb_pmsi_ta_de_denominator(
+    pmsi_main = pmsi_main,
+    status_lookup = status_lookup,
+    refs = refs,
+    consores_ta_de_ref = consores_ta_de_ref
+  )
+
+  ratb_episode_scope_audit <- denominator_objects$ratb_episode_scope_audit
+  ratb_episode_exclusion_summary <- denominator_objects$ratb_episode_exclusion_summary
+  hospital_days_year_split_provisional <- denominator_objects$hospital_days_year_split_provisional
+  hospital_days_year_summary_provisional <- denominator_objects$hospital_days_year_summary_provisional
 
   ratb_numerator_scope_impact_audit <- sir_wide_ratb_scope %>%
     mutate(
