@@ -161,100 +161,21 @@ if (!all(file.exists(required_artifacts))) {
 }
 
 sir_wide_meta <- readRDS(sir_wide_meta_path)
+sir_wide <- readRDS(sir_wide_artifact_path)
 
-pmsi_path <- NA_character_
-bact_path <- NA_character_
-current_upstream_signature <- tryCatch(
-  {
-    pmsi_path <- resolve_existing_path(
-      c("pmsi", file.path("data", "pmsi")),
-      what = "pmsi raw input"
-    )
-    bact_path <- resolve_existing_path(
-      c("bact22_24", file.path("data", "bact22_24")),
-      what = "bact22_24 raw input"
-    )
-    atb_regex_map_path <- resolve_dictionary_path(
-      "atb_regex_map.csv",
-      what = "ATB regex mapping"
-    )
-    species_regex_map_path <- resolve_dictionary_path(
-      "species_regex_map.csv",
-      what = "species regex mapping"
-    )
-    naturepvt_regex_map_path <- resolve_dictionary_path(
-      "naturepvt_regex_map.csv",
-      what = "sample-site regex mapping"
-    )
-    couples_species_atb_path <- resolve_dictionary_path(
-      "couples_species_atb.csv",
-      what = "species-ATB couples mapping"
-    )
-    atb_expand_map_path <- resolve_dictionary_path(
-      "atb_expand_map.csv",
-      what = "ATB expansion mapping"
-    )
-
-    script_paths <- vapply(
-      c(
-        "helpers.R",
-        "normalisation_bact.R",
-        "normalisation_atb.R",
-        "spares_shared_primitives.R",
-        "phenotype_flag_helpers.R"
-      ),
-      function(x) {
-        resolve_existing_path(
-          c(file.path("R", x), x),
-          what = paste0("script ", x)
-        )
-      },
-      character(1)
-    )
-
-    compute_upstream_signature(
-      raw_input_paths = c(pmsi_path, bact_path),
-      hashed_paths = c(
-        script_paths,
-        atb_regex_map_path,
-        species_regex_map_path,
-        naturepvt_regex_map_path,
-        couples_species_atb_path,
-        atb_expand_map_path
-      )
-    )
-  },
-  error = function(e) {
-    stop(
-      "Cannot validate sir_wide artifact freshness: ",
-      conditionMessage(e),
-      "\n",
-      "Run: Rscript R/build_sir_wide_artifact.R",
-      call. = FALSE
-    )
-  }
-)
-
-artifact_validation <- validate_sir_wide_artifact(
-  meta = sir_wide_meta,
-  current_signature = current_upstream_signature
+artifact_validation <- validate_loaded_sir_wide_artifact(
+  sir_wide = sir_wide,
+  meta = sir_wide_meta
 )
 
 if (!isTRUE(artifact_validation$ok)) {
   stop(
-    "sir_wide artifact is stale or invalid:\n - ",
+    "sir_wide artifact is invalid or inconsistent with metadata:\n - ",
     paste(artifact_validation$reasons, collapse = "\n - "),
     "\nRun: Rscript R/build_sir_wide_artifact.R",
     call. = FALSE
   )
 }
-
-sir_wide <- readRDS(sir_wide_artifact_path)
-stopifnot(
-  is.data.frame(sir_wide),
-  nrow(sir_wide) == sir_wide_meta$sir_wide_n_rows
-)
-stopifnot(dplyr::n_distinct(sir_wide$ELTID) == sir_wide_meta$sir_wide_n_eltid)
 
 if (!exists("filtre_atb") && !is.null(sir_wide_meta$filtre_atb)) {
   filtre_atb <- sir_wide_meta$filtre_atb
