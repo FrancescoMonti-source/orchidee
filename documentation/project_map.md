@@ -77,20 +77,20 @@ pas comme source méthodologique de référence.
 ## Fichiers R principaux
 
 Les notebooks chargent ces fichiers en deux temps : `R/setup.R` est sourcé
-en tête (librairies, sourcing du socle d'extraction, lecture de
-`config/pipeline.R`), puis chaque notebook source explicitement les scripts
-de logique dont il a besoin via `orchidee_source_required_script()`.
+en tête (librairies, bootstrap portable, lecture de `config/pipeline.R`),
+puis chaque notebook source explicitement les scripts de logique dont il a
+besoin via `orchidee_source_required_script()`.
 
 Quelques helpers R autonomes sourcent aussi `R/bootstrap.R` directement
 pour accéder aux mêmes fonctions de résolution de chemins lorsqu'ils sont
 chargés hors notebook.
 
-### Bootstrap et extraction amont
+### Bootstrap
 
 -   `R/setup.R`
-    -   bootstrap : chargement des librairies, sourcing du socle
-        d'extraction et lecture de la config ; sourcé en tête des
-        notebooks
+    -   bootstrap portable : chargement des librairies, sourcing de
+        `R/bootstrap.R`, lecture de la config et helpers communs ; sourcé
+        en tête des notebooks
 -   `R/bootstrap.R`
     -   helpers légers de résolution de chemins et de sourcing partagés
         entre notebooks, scripts CLI et helpers R
@@ -98,6 +98,12 @@ chargés hors notebook.
     -   utilitaires généraux partagés
 -   `R/zzz.R`
     -   déclarations `globalVariables`
+-   `R/setup_chu_adapter.R`
+    -   bootstrap de l'adaptateur CHU / EDSaN ; source `R/setup.R` puis
+        les helpers d'extraction amont locaux
+
+### Adaptateur CHU / extraction amont
+
 -   `R/get_edsan.R`
     -   récupération des données EDSaN (batch par fenêtre temporelle ou
         par liste d'ID)

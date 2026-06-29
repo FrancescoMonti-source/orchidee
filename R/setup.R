@@ -21,9 +21,6 @@ library(fmckage)
 library(arrow)
 conflicts_prefer(dplyr::filter)
 
-source("R/biol.R")
-source("R/get_edsan.R")
-source("R/pmsi.R")
 source("R/zzz.R")
 source("R/bootstrap.R")
 
