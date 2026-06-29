@@ -130,6 +130,10 @@ orchidee_source_required_script(
   "ratb_hospital_days_helpers.R",
   "ratb_hospital_days_helpers script"
 )
+orchidee_source_required_script(
+  "chu_ratb_scope_adapter.R",
+  "CHU native RATB scope adapter"
+)
 ```
 
 ## Prebuilt `sir_wide` artifact
@@ -228,7 +232,8 @@ stopifnot(
   exists("build_ratb_scope_tables", mode = "function"),
   exists("build_ratb_analytic_scope_dataset", mode = "function"),
   exists("build_hospital_days_validation", mode = "function"),
-  exists("build_ratb_provisional_perimeter_audit", mode = "function")
+  exists("build_ratb_provisional_perimeter_audit", mode = "function"),
+  exists("build_chu_native_ratb_scope_cache_payload", mode = "function")
 )
 
 build_ratb_scope_cache_meta <- function(
@@ -245,11 +250,22 @@ build_ratb_scope_cache_meta <- function(
     length(ratb_ref_paths) > 0L
   )
 
-  scope_script_path <- orchidee_resolve_script_path(
+  scope_script_names <- c(
     "ratb_hospital_days_helpers.R",
-    "script required for RATB scope cache fingerprint"
+    "chu_ratb_scope_adapter.R"
   )
-  scope_script_hash <- as.character(unname(tools::md5sum(scope_script_path)))
+  scope_script_paths <- vapply(
+    scope_script_names,
+    function(script_name) {
+      orchidee_resolve_script_path(
+        script_name,
+        "script required for RATB scope cache fingerprint"
+      )
+    },
+    character(1)
+  )
+  scope_script_hashes <- as.list(as.character(unname(tools::md5sum(scope_script_paths))))
+  names(scope_script_hashes) <- scope_script_names
   reference_hashes <- as.list(as.character(unname(tools::md5sum(ratb_ref_paths))))
   names(reference_hashes) <- names(ratb_ref_paths)
 
@@ -260,7 +276,7 @@ build_ratb_scope_cache_meta <- function(
     sir_wide_artifact_signature = sir_wide_artifact_signature,
     microbiology_scope_policy = microbiology_scope_policy,
     incidence_denominator_policy = incidence_denominator_policy,
-    scope_script_hash = scope_script_hash,
+    scope_script_hashes = scope_script_hashes,
     reference_hashes = reference_hashes
   )
 
@@ -277,7 +293,7 @@ build_ratb_scope_cache_meta <- function(
     sir_wide_artifact_signature = sir_wide_artifact_signature,
     microbiology_scope_policy = microbiology_scope_policy,
     incidence_denominator_policy = incidence_denominator_policy,
-    scope_script_hash = scope_script_hash,
+    scope_script_hashes = scope_script_hashes,
     reference_hashes = reference_hashes,
     created_at = format(Sys.time(), tz = "UTC", usetz = TRUE)
   )
@@ -404,73 +420,14 @@ if (!isTRUE(recompute_ratb_scope) && !is.null(ratb_scope_cache_payload)) {
     message("No valid RATB scope cache found; building RATB scope artifacts.")
   }
 
-  pmsi_runtime_path <- resolve_existing_path(
-    c("pmsi", file.path("data", "pmsi")),
-    what = "pmsi raw input"
-  )
-  pmsi <- readRDS(pmsi_runtime_path)
-  stopifnot(is.list(pmsi), "main" %in% names(pmsi), is.data.frame(pmsi$main))
-
-  ratb_scope_objects <- build_ratb_scope_tables(
+  native_scope_cache <- build_chu_native_ratb_scope_cache_payload(
     sir_wide = sir_wide,
-    pmsi_main = pmsi$main
-  )
-
-  sir_wide_ratb_scope <- ratb_scope_objects$sir_wide_ratb_scope
-  ratb_scope_join_audit <- ratb_scope_objects$ratb_scope_join_audit
-  ratb_scope_exclusion_summary <- ratb_scope_objects$ratb_scope_exclusion_summary
-
-  hospital_days_objects <- build_hospital_days_validation(
-    pmsi_main = pmsi$main,
-    status_lookup = ratb_scope_objects$pmsi_status_lookup
-  )
-
-  hospital_stays_raw <- hospital_days_objects$hospital_stays_raw
-  hospital_stays_validated <- hospital_days_objects$hospital_stays_validated
-  hospital_stay_validation_summary <- hospital_days_objects$hospital_stay_validation_summary
-  hospital_days_year_split <- hospital_days_objects$hospital_days_year_split
-  hospital_days_year_summary <- hospital_days_objects$hospital_days_year_summary
-
-  ratb_provisional_perimeter_objects <- build_ratb_provisional_perimeter_audit(
-    sir_wide_ratb_scope = sir_wide_ratb_scope,
-    pmsi_main = pmsi$main,
-    status_lookup = ratb_scope_objects$pmsi_status_lookup,
     structure_path = orchidee_config$paths$consores_structure_path,
     codes_ta_path = orchidee_config$paths$consores_codes_ta_path,
     codes_de_path = orchidee_config$paths$consores_codes_de_path,
     ref_dir = orchidee_config$paths$ref_dir
   )
-
-  ratb_perimeter_rules <- ratb_provisional_perimeter_objects$ratb_perimeter_rules
-  ratb_uf_ta_de_reference <- ratb_provisional_perimeter_objects$ratb_uf_ta_de_reference
-  sir_wide_ratb_scope <- ratb_provisional_perimeter_objects$sir_wide_ratb_scope
-  ratb_episode_scope_audit <- ratb_provisional_perimeter_objects$ratb_episode_scope_audit
-  ratb_episode_exclusion_summary <- ratb_provisional_perimeter_objects$ratb_episode_exclusion_summary
-  hospital_days_year_split_provisional <- ratb_provisional_perimeter_objects$hospital_days_year_split_provisional
-  hospital_days_year_summary_provisional <- ratb_provisional_perimeter_objects$hospital_days_year_summary_provisional
-  ratb_numerator_scope_impact_audit <- ratb_provisional_perimeter_objects$ratb_numerator_scope_impact_audit
-  sir_wide_ratb_analytic_scope <- build_ratb_analytic_scope_dataset(
-    sir_wide_ratb_scope = sir_wide_ratb_scope
-  )
-
-  ratb_scope_cache_payload <- list(
-    sir_wide_ratb_scope = sir_wide_ratb_scope,
-    sir_wide_ratb_analytic_scope = sir_wide_ratb_analytic_scope,
-    ratb_scope_join_audit = ratb_scope_join_audit,
-    ratb_scope_exclusion_summary = ratb_scope_exclusion_summary,
-    hospital_stays_raw = hospital_stays_raw,
-    hospital_stays_validated = hospital_stays_validated,
-    hospital_stay_validation_summary = hospital_stay_validation_summary,
-    hospital_days_year_split = hospital_days_year_split,
-    hospital_days_year_summary = hospital_days_year_summary,
-    ratb_perimeter_rules = ratb_perimeter_rules,
-    ratb_uf_ta_de_reference = ratb_uf_ta_de_reference,
-    ratb_episode_scope_audit = ratb_episode_scope_audit,
-    ratb_episode_exclusion_summary = ratb_episode_exclusion_summary,
-    hospital_days_year_split_provisional = hospital_days_year_split_provisional,
-    hospital_days_year_summary_provisional = hospital_days_year_summary_provisional,
-    ratb_numerator_scope_impact_audit = ratb_numerator_scope_impact_audit
-  )
+  ratb_scope_cache_payload <- native_scope_cache$payload
   ratb_scope_cache_meta <- ratb_scope_cache_meta_current
 
   saveRDS(ratb_scope_cache_payload, file.path("data", "ratb_scope_cache"))
@@ -479,7 +436,7 @@ if (!isTRUE(recompute_ratb_scope) && !is.null(ratb_scope_cache_payload)) {
   ratb_scope_cache_decision <- "recomputed"
   message("Saved RATB scope artifacts to: data/ratb_scope_cache, data/ratb_scope_cache_meta")
 
-  rm(pmsi)
+  rm(native_scope_cache)
 }
 
 list2env(ratb_scope_cache_payload, envir = environment())

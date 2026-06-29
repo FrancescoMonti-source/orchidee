@@ -112,6 +112,11 @@ chargés hors notebook.
 -   `R/pmsi.R`
     -   traitement des séjours PMSI (parsing des dates d'entrée/sortie et
         des heures)
+-   `R/chu_ratb_scope_adapter.R`
+    -   chemin natif actuel de recompute du cache RATB à partir de
+        l'artefact local `data/pmsi`
+    -   isole le chargement PMSI local et l'assemblage du payload de
+        périmètre/dénominateur hors du notebook socle
 
 ### Normalisation et artefact amont
 
