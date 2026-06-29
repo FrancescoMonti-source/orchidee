@@ -36,18 +36,7 @@ editor_options:
 #| warning: false
 #| message: false
 
-source_setup_candidates <- c("setup.R", file.path("R", "setup.R"))
-source_setup_path <- source_setup_candidates[file.exists(
-  source_setup_candidates
-)][1]
-if (is.na(source_setup_path)) {
-  stop(
-    "Missing setup script. Expected one of: ",
-    paste(source_setup_candidates, collapse = ", "),
-    call. = FALSE
-  )
-}
-source(source_setup_path)
+source(file.path("R", "setup.R"))
 ```
 
 ```{r}
