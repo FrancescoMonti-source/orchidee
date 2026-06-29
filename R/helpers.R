@@ -112,16 +112,47 @@ compute_upstream_signature <- function(raw_input_paths = character(), hashed_pat
   )
 }
 
-validate_sir_wide_artifact <- function(meta, current_signature) {
+compute_sir_wide_artifact_signature <- function(
+    sir_wide_path,
+    sir_wide_meta_path,
+    meta
+  ) {
+  list(
+    canonical_artifacts = list(
+      sir_wide = .file_info_signature(sir_wide_path),
+      sir_wide_meta = .file_info_signature(sir_wide_meta_path)
+    ),
+    metadata = list(
+      artifact_version = meta$artifact_version %||% NA,
+      created_at = meta$created_at %||% NA,
+      sir_wide_n_rows = meta$sir_wide_n_rows %||% NA,
+      sir_wide_n_eltid = meta$sir_wide_n_eltid %||% NA,
+      atb_cols = meta$atb_cols %||% character(),
+      supported_atb_cols = meta$supported_atb_cols %||% character(),
+      phenotype_status_cols = meta$phenotype_status_cols %||% character(),
+      phenotype_flag_cols = meta$phenotype_flag_cols %||% character()
+    )
+  )
+}
+
+validate_loaded_sir_wide_artifact <- function(sir_wide, meta) {
   reasons <- character(0)
   required_meta <- c(
-    "artifact_version", "created_at", "sir_wide_n_rows", "sir_wide_n_eltid",
-    "atb_cols", "filtre_atb", "upstream_signature"
+    "artifact_version",
+    "created_at",
+    "sir_wide_n_rows",
+    "sir_wide_n_eltid",
+    "atb_cols",
+    "filtre_atb"
   )
+
+  if (!is.data.frame(sir_wide)) {
+    reasons <- c(reasons, "sir_wide object is not a data frame")
+  }
 
   if (!is.list(meta)) {
     reasons <- c(reasons, "metadata object is not a list")
-    return(list(ok = FALSE, reasons = reasons))
+    return(list(ok = FALSE, reasons = unique(reasons)))
   }
 
   missing_meta <- setdiff(required_meta, names(meta))
@@ -129,51 +160,31 @@ validate_sir_wide_artifact <- function(meta, current_signature) {
     reasons <- c(reasons, paste0("metadata missing fields: ", paste(missing_meta, collapse = ", ")))
   }
 
-  if (!is.list(current_signature)) {
-    reasons <- c(reasons, "current signature is not a list")
-    return(list(ok = FALSE, reasons = reasons))
-  }
-
-  sig_required <- c("raw_inputs", "hashed_files")
-  if (!all(sig_required %in% names(current_signature))) {
-    reasons <- c(reasons, "current signature missing raw_inputs and/or hashed_files")
-    return(list(ok = FALSE, reasons = reasons))
-  }
-
-  meta_sig <- meta$upstream_signature
-  if (!is.list(meta_sig) || !all(sig_required %in% names(meta_sig))) {
-    reasons <- c(reasons, "metadata upstream_signature missing raw_inputs and/or hashed_files")
-    return(list(ok = FALSE, reasons = reasons))
-  }
-
-  meta_raw_names <- names(meta_sig$raw_inputs %||% list())
-  cur_raw_names <- names(current_signature$raw_inputs %||% list())
-  meta_hash_names <- names(meta_sig$hashed_files %||% list())
-  cur_hash_names <- names(current_signature$hashed_files %||% list())
-
-  if (!identical(meta_raw_names, cur_raw_names)) {
-    reasons <- c(reasons, "raw input file set differs from artifact metadata")
-  }
-  if (!identical(meta_hash_names, cur_hash_names)) {
-    reasons <- c(reasons, "hashed file set differs from artifact metadata")
-  }
-
-  raw_names <- intersect(meta_raw_names, cur_raw_names)
-  for (nm in raw_names) {
-    meta_entry <- meta_sig$raw_inputs[[nm]]
-    cur_entry <- current_signature$raw_inputs[[nm]]
-    if (!identical(meta_entry$size, cur_entry$size)) {
-      reasons <- c(reasons, paste0("raw input size changed: ", nm))
+  if (is.data.frame(sir_wide)) {
+    if (!is.null(meta$sir_wide_n_rows) && !identical(as.integer(meta$sir_wide_n_rows), as.integer(nrow(sir_wide)))) {
+      reasons <- c(reasons, "sir_wide row count differs from artifact metadata")
     }
-    if (!identical(meta_entry$mtime_utc, cur_entry$mtime_utc)) {
-      reasons <- c(reasons, paste0("raw input mtime changed: ", nm))
+    if (!is.null(meta$sir_wide_n_eltid)) {
+      if (!"ELTID" %in% names(sir_wide)) {
+        reasons <- c(reasons, "sir_wide is missing ELTID")
+      } else if (!identical(
+        as.integer(meta$sir_wide_n_eltid),
+        as.integer(dplyr::n_distinct(sir_wide$ELTID))
+      )) {
+        reasons <- c(reasons, "sir_wide ELTID count differs from artifact metadata")
+      }
     }
-  }
 
-  hash_names <- intersect(meta_hash_names, cur_hash_names)
-  for (nm in hash_names) {
-    if (!identical(meta_sig$hashed_files[[nm]], current_signature$hashed_files[[nm]])) {
-      reasons <- c(reasons, paste0("hashed file content changed: ", nm))
+    for (field in c("atb_cols", "supported_atb_cols", "phenotype_status_cols", "phenotype_flag_cols")) {
+      cols <- meta[[field]]
+      if (is.null(cols)) next
+      missing_cols <- setdiff(as.character(cols), names(sir_wide))
+      if (length(missing_cols) > 0L) {
+        reasons <- c(
+          reasons,
+          paste0(field, " columns missing from sir_wide: ", paste(missing_cols, collapse = ", "))
+        )
+      }
     }
   }
 
