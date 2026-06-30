@@ -29,8 +29,8 @@ orchidee_source_required_script(
   "external bundle validation helpers"
 )
 orchidee_source_required_script(
-  "ratb_hospital_days_helpers.R",
-  "RATB hospital-days helpers"
+  "ratb_canonical_runtime_helpers.R",
+  "RATB canonical runtime helpers"
 )
 
 args <- commandArgs(trailingOnly = TRUE)

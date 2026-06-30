@@ -127,6 +127,10 @@ orchidee_source_required_script(
   "ratb_plausibility_qc_helpers script"
 )
 orchidee_source_required_script(
+  "ratb_canonical_runtime_helpers.R",
+  "ratb_canonical_runtime_helpers script"
+)
+orchidee_source_required_script(
   "ratb_hospital_days_helpers.R",
   "ratb_hospital_days_helpers script"
 )
@@ -251,6 +255,7 @@ build_ratb_scope_cache_meta <- function(
   )
 
   scope_script_names <- c(
+    "ratb_canonical_runtime_helpers.R",
     "ratb_hospital_days_helpers.R",
     "chu_ratb_scope_adapter.R"
   )
