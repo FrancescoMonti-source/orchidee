@@ -319,6 +319,8 @@ ratb_scope_cache_candidates <- list(
   )
 )
 expected_ratb_scope_payload_names <- c(
+  "sample_scope_reference",
+  "denominator_bundle",
   "sir_wide_ratb_scope",
   "sir_wide_ratb_analytic_scope",
   "ratb_scope_join_audit",
@@ -371,6 +373,15 @@ if (!isTRUE(recompute_ratb_scope)) {
 
     loaded_payload <- tryCatch(readRDS(candidate$payload), error = function(e) NULL)
     if (!is.list(loaded_payload) || !all(expected_ratb_scope_payload_names %in% names(loaded_payload))) {
+      next
+    }
+    if (!is.data.frame(loaded_payload$sample_scope_reference)) {
+      next
+    }
+    if (!is.list(loaded_payload$denominator_bundle) || !all(c(
+      "hospital_days_year_summary",
+      "hospital_days_year_summary_provisional"
+    ) %in% names(loaded_payload$denominator_bundle))) {
       next
     }
     if (nrow(loaded_payload$sir_wide_ratb_scope) > nrow(sir_wide)) {
@@ -444,6 +455,12 @@ list2env(ratb_scope_cache_payload, envir = environment())
 stopifnot(
   nrow(sir_wide_ratb_scope) <= nrow(sir_wide),
   nrow(sir_wide_ratb_analytic_scope) <= nrow(sir_wide_ratb_scope),
+  is.data.frame(sample_scope_reference),
+  is.list(denominator_bundle),
+  all(c(
+    "hospital_days_year_summary",
+    "hospital_days_year_summary_provisional"
+  ) %in% names(denominator_bundle)),
   all(c("SEJUF", "SEJUM", "TYPEANA", "sample_uf_is_eligible_by_ta_de") %in% names(sir_wide_ratb_scope)),
   all(sir_wide_ratb_analytic_scope$sample_uf_is_eligible_by_ta_de),
   all(

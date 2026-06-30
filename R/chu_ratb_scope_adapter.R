@@ -1,8 +1,8 @@
 # CHU native RATB scope adapter.
 #
 # This file keeps the current local PMSI-backed cache recompute path explicit.
-# The shared downstream core should prefer canonical scope and denominator
-# artifacts once external runtime wiring is enabled.
+# It produces the canonical sample-scope reference and denominator bundle used
+# by the shared downstream RATB scope helper, while preserving native QA tables.
 
 load_chu_pmsi_main <- function(
     path_candidates = c("pmsi", file.path("data", "pmsi"))
@@ -52,14 +52,26 @@ build_chu_native_ratb_scope_cache_payload <- function(
     ref_dir = ref_dir
   )
 
-  sir_wide_ratb_scope <- ratb_provisional_perimeter_objects$sir_wide_ratb_scope
+  sample_scope_reference <- build_ratb_sample_scope_reference(
+    ratb_provisional_perimeter_objects$ratb_uf_ta_de_reference
+  )
+  denominator_bundle <- list(
+    hospital_days_year_summary = hospital_days_objects$hospital_days_year_summary,
+    hospital_days_year_summary_provisional =
+      ratb_provisional_perimeter_objects$hospital_days_year_summary_provisional
+  )
+  runtime_scope_objects <- build_ratb_downstream_scope_from_canonical_inputs(
+    sir_wide = ratb_scope_objects$sir_wide_ratb_scope,
+    sample_scope_reference = sample_scope_reference,
+    denominator_bundle = denominator_bundle
+  )
 
   list(
     payload = list(
-      sir_wide_ratb_scope = sir_wide_ratb_scope,
-      sir_wide_ratb_analytic_scope = build_ratb_analytic_scope_dataset(
-        sir_wide_ratb_scope = sir_wide_ratb_scope
-      ),
+      sample_scope_reference = sample_scope_reference,
+      denominator_bundle = denominator_bundle,
+      sir_wide_ratb_scope = runtime_scope_objects$sir_wide_ratb_scope,
+      sir_wide_ratb_analytic_scope = runtime_scope_objects$sir_wide_ratb_analytic_scope,
       ratb_scope_join_audit = ratb_scope_objects$ratb_scope_join_audit,
       ratb_scope_exclusion_summary = ratb_scope_objects$ratb_scope_exclusion_summary,
       hospital_stays_raw = hospital_days_objects$hospital_stays_raw,
@@ -67,7 +79,7 @@ build_chu_native_ratb_scope_cache_payload <- function(
       hospital_stay_validation_summary =
         hospital_days_objects$hospital_stay_validation_summary,
       hospital_days_year_split = hospital_days_objects$hospital_days_year_split,
-      hospital_days_year_summary = hospital_days_objects$hospital_days_year_summary,
+      hospital_days_year_summary = runtime_scope_objects$hospital_days_year_summary,
       ratb_perimeter_rules = ratb_provisional_perimeter_objects$ratb_perimeter_rules,
       ratb_uf_ta_de_reference = ratb_provisional_perimeter_objects$ratb_uf_ta_de_reference,
       ratb_episode_scope_audit = ratb_provisional_perimeter_objects$ratb_episode_scope_audit,
@@ -76,7 +88,7 @@ build_chu_native_ratb_scope_cache_payload <- function(
       hospital_days_year_split_provisional =
         ratb_provisional_perimeter_objects$hospital_days_year_split_provisional,
       hospital_days_year_summary_provisional =
-        ratb_provisional_perimeter_objects$hospital_days_year_summary_provisional,
+        runtime_scope_objects$hospital_days_year_summary_provisional,
       ratb_numerator_scope_impact_audit =
         ratb_provisional_perimeter_objects$ratb_numerator_scope_impact_audit
     ),
