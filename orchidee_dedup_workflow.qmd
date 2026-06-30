@@ -247,13 +247,15 @@ build_ratb_scope_cache_meta <- function(
     sir_wide_meta,
     sir_wide_artifact_signature,
     ratb_ref_paths,
+    pmsi_input_signature,
     microbiology_scope_policy,
     incidence_denominator_policy
   ) {
   stopifnot(
     is.list(sir_wide_meta),
     is.list(sir_wide_artifact_signature),
-    length(ratb_ref_paths) > 0L
+    length(ratb_ref_paths) > 0L,
+    is.list(pmsi_input_signature)
   )
 
   scope_script_names <- c(
@@ -284,6 +286,7 @@ build_ratb_scope_cache_meta <- function(
     microbiology_scope_policy = microbiology_scope_policy,
     incidence_denominator_policy = incidence_denominator_policy,
     scope_script_hashes = scope_script_hashes,
+    pmsi_input_signature = pmsi_input_signature,
     reference_hashes = reference_hashes
   )
 
@@ -301,8 +304,17 @@ build_ratb_scope_cache_meta <- function(
     microbiology_scope_policy = microbiology_scope_policy,
     incidence_denominator_policy = incidence_denominator_policy,
     scope_script_hashes = scope_script_hashes,
+    pmsi_input_signature = pmsi_input_signature,
     reference_hashes = reference_hashes,
     created_at = format(Sys.time(), tz = "UTC", usetz = TRUE)
+  )
+}
+
+ratb_file_signature <- function(path) {
+  info <- file.info(path)
+  list(
+    size_bytes = unname(as.numeric(info$size)),
+    md5 = as.character(unname(tools::md5sum(path)))
   )
 }
 
@@ -317,6 +329,11 @@ ratb_ref_paths <- vapply(
   ),
   function(x) resolve_existing_path(c(x), what = paste0("reference ", x)),
   character(1)
+)
+ratb_pmsi_path_candidates <- c("pmsi", file.path(data_dir, "pmsi"))
+ratb_pmsi_input_path <- resolve_existing_path(
+  ratb_pmsi_path_candidates,
+  what = "pmsi raw input"
 )
 
 ratb_scope_cache_candidates <- list(
@@ -344,6 +361,21 @@ expected_ratb_scope_payload_names <- c(
   "ratb_numerator_scope_impact_audit"
 )
 
+ratb_scope_cache_script_hashes_match <- function(loaded_meta, current_meta, script_names) {
+  is.list(loaded_meta$scope_script_hashes) &&
+    is.list(current_meta$scope_script_hashes) &&
+    all(vapply(
+      script_names,
+      function(script_name) {
+        identical(
+          loaded_meta$scope_script_hashes[[script_name]],
+          current_meta$scope_script_hashes[[script_name]]
+        )
+      },
+      logical(1)
+    ))
+}
+
 ratb_scope_cache_canonical_inputs_match <- function(loaded_meta, current_meta) {
   fields <- c(
     "sir_wide_n_rows",
@@ -352,7 +384,12 @@ ratb_scope_cache_canonical_inputs_match <- function(loaded_meta, current_meta) {
     "sir_wide_artifact_signature",
     "microbiology_scope_policy",
     "incidence_denominator_policy",
+    "pmsi_input_signature",
     "reference_hashes"
+  )
+  producer_script_names <- c(
+    "ratb_hospital_days_helpers.R",
+    "chu_ratb_scope_adapter.R"
   )
 
   is.list(loaded_meta) &&
@@ -360,7 +397,12 @@ ratb_scope_cache_canonical_inputs_match <- function(loaded_meta, current_meta) {
       fields,
       function(field) identical(loaded_meta[[field]], current_meta[[field]]),
       logical(1)
-    ))
+    )) &&
+    ratb_scope_cache_script_hashes_match(
+      loaded_meta = loaded_meta,
+      current_meta = current_meta,
+      script_names = producer_script_names
+    )
 }
 
 ratb_scope_cache_source <- NA_character_
@@ -374,6 +416,7 @@ ratb_scope_cache_meta_current <- build_ratb_scope_cache_meta(
   sir_wide_meta = sir_wide_meta,
   sir_wide_artifact_signature = sir_wide_artifact_signature,
   ratb_ref_paths = ratb_ref_paths,
+  pmsi_input_signature = ratb_file_signature(ratb_pmsi_input_path),
   microbiology_scope_policy = orchidee_config$ratb$microbiology_scope_policy,
   incidence_denominator_policy = orchidee_config$ratb$incidence_denominator_policy
 )
@@ -415,6 +458,12 @@ if (!isTRUE(recompute_ratb_scope)) {
     ) %in% names(loaded_payload$denominator_bundle))) {
       next
     }
+    loaded_denominator_provisional <-
+      loaded_payload$denominator_bundle$hospital_days_year_summary_provisional
+    if (!is.data.frame(loaded_denominator_provisional) ||
+        !"hospital_nights_provisional" %in% names(loaded_denominator_provisional)) {
+      next
+    }
     loaded_scope_base <- loaded_payload$sir_wide_ratb_scope_base
     if (!is.data.frame(loaded_scope_base) && is.data.frame(loaded_payload$sir_wide_ratb_scope)) {
       loaded_scope_base <- loaded_payload$sir_wide_ratb_scope
@@ -446,7 +495,7 @@ if (!isTRUE(recompute_ratb_scope)) {
     if (!all(!loaded_payload$hospital_stays_validated$negative_elapsed)) {
       next
     }
-    if (!all(loaded_payload$hospital_days_year_summary_provisional$hospital_nights_provisional >= 0)) {
+    if (!all(loaded_denominator_provisional$hospital_nights_provisional >= 0)) {
       next
     }
 
@@ -485,6 +534,7 @@ if (!isTRUE(recompute_ratb_scope) && !is.null(ratb_scope_cache_payload)) {
 
   native_scope_cache <- build_chu_native_ratb_scope_cache_payload(
     sir_wide = sir_wide,
+    pmsi_path_candidates = ratb_pmsi_path_candidates,
     structure_path = orchidee_config$paths$consores_structure_path,
     codes_ta_path = orchidee_config$paths$consores_codes_ta_path,
     codes_de_path = orchidee_config$paths$consores_codes_de_path,
@@ -615,7 +665,7 @@ Then check cache diagnostics in output:
 ### Run modes (what to recompute)
 
 - **Presentation-only changes** (text, themes, plots): just render.
-- **RATB scope / denominator input or logic changes** (`data/pmsi`, `ratb_hospital_days_helpers.R`, `ref/ref_uf*.txt`, `ref/ref_um.txt`, CONSORES TA/DE reference files): set `orchidee_config$cache$recompute_ratb_scope <- TRUE` in `config/pipeline.R`, render once, then revert to `FALSE`.
+- **RATB scope / denominator input or producer-logic changes** (`data/pmsi`, `ratb_hospital_days_helpers.R`, `chu_ratb_scope_adapter.R`, `ref/ref_uf*.txt`, `ref/ref_um.txt`, CONSORES TA/DE reference files): render the notebook. The scope cache fingerprint includes PMSI content, producer helper hashes and reference hashes; set `orchidee_config$cache$recompute_ratb_scope <- TRUE` only when you need to force a rebuild manually.
 - **Completion logic changes** (`completion_*` helpers/rules): set `orchidee_config$cache$recompute_completion <- TRUE` in `config/pipeline.R`, render once, then revert to `FALSE`.
 - **Dedup logic changes** (`spares_dedup.R` / scope defs): set `orchidee_config$cache$recompute_dedup <- TRUE` in `config/pipeline.R`, render once, then revert to `FALSE`.
 - **Microbiology artifact changes**: rerun builder script, then render (downstream caches use the canonical `sir_wide` artifact signature and should auto-invalidate where relevant).
@@ -653,8 +703,8 @@ Notes:
 - Cache read order is root first, then `data/` fallback where configured.
 - Cache fingerprints include canonical artifact signatures and selected
   helper-script/reference hashes. Runtime-helper-only changes can reuse and
-  refresh matching canonical inputs; native PMSI denominator changes still
-  require the RATB scope recompute flag.
+  refresh matching canonical inputs; PMSI, reference or producer-helper
+  changes force a native RATB scope recompute.
 
 ## Troubleshooting quick fixes
 
