@@ -119,6 +119,11 @@ chargés hors notebook.
         `denominator_bundle`, ainsi que le contexte de QA natif CHU
     -   laisse le notebook appliquer ces objets via le helper aval partagé
     -   conserve les tables natives de QA nécessaires au notebook socle
+-   `R/chu_ratb_scope_cache_helpers.R`
+    -   chargement, fraîcheur, rafraîchissement et recompute du cache de
+        périmètre RATB natif CHU
+    -   garde la mécanique de cache hors du notebook socle tout en
+        séparant cette mécanique du producteur CHU lui-même
 
 ### Normalisation et artefact amont
 

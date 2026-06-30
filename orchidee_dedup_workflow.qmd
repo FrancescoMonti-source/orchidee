@@ -138,6 +138,10 @@ orchidee_source_required_script(
   "chu_ratb_scope_adapter.R",
   "CHU native RATB scope adapter"
 )
+orchidee_source_required_script(
+  "chu_ratb_scope_cache_helpers.R",
+  "CHU native RATB scope cache helpers"
+)
 ```
 
 ## Prebuilt `sir_wide` artifact
@@ -233,328 +237,27 @@ recompute_ratb_scope <- orchidee_config$cache$recompute_ratb_scope
 #| echo: false
 
 stopifnot(
-  exists("build_ratb_scope_tables", mode = "function"),
-  exists("build_ratb_downstream_scope_from_canonical_inputs", mode = "function"),
-  exists("build_ratb_runtime_payload_from_canonical_inputs", mode = "function"),
-  exists("build_ratb_analytic_scope_dataset", mode = "function"),
-  exists("build_hospital_days_validation", mode = "function"),
-  exists("build_ratb_provisional_perimeter_audit", mode = "function"),
-  exists("build_chu_native_ratb_scope_cache_payload", mode = "function")
+  exists("load_or_build_chu_ratb_scope_cache", mode = "function"),
+  exists("validate_ratb_canonical_runtime_inputs", mode = "function")
 )
 
-build_ratb_scope_cache_meta <- function(
-    sir_wide,
-    sir_wide_meta,
-    sir_wide_artifact_signature,
-    ratb_ref_paths,
-    pmsi_input_signature,
-    microbiology_scope_policy,
-    incidence_denominator_policy
-  ) {
-  stopifnot(
-    is.list(sir_wide_meta),
-    is.list(sir_wide_artifact_signature),
-    length(ratb_ref_paths) > 0L,
-    is.list(pmsi_input_signature)
-  )
-
-  scope_script_names <- c(
-    "ratb_canonical_runtime_helpers.R",
-    "ratb_hospital_days_helpers.R",
-    "chu_ratb_scope_adapter.R"
-  )
-  scope_script_paths <- vapply(
-    scope_script_names,
-    function(script_name) {
-      orchidee_resolve_script_path(
-        script_name,
-        "script required for RATB scope cache fingerprint"
-      )
-    },
-    character(1)
-  )
-  scope_script_hashes <- as.list(as.character(unname(tools::md5sum(scope_script_paths))))
-  names(scope_script_hashes) <- scope_script_names
-  reference_hashes <- as.list(as.character(unname(tools::md5sum(ratb_ref_paths))))
-  names(reference_hashes) <- names(ratb_ref_paths)
-
-  payload <- list(
-    sir_wide_n_rows = nrow(sir_wide),
-    sir_wide_n_eltid = dplyr::n_distinct(sir_wide$ELTID),
-    artifact_created_at = sir_wide_meta$created_at,
-    sir_wide_artifact_signature = sir_wide_artifact_signature,
-    microbiology_scope_policy = microbiology_scope_policy,
-    incidence_denominator_policy = incidence_denominator_policy,
-    scope_script_hashes = scope_script_hashes,
-    pmsi_input_signature = pmsi_input_signature,
-    reference_hashes = reference_hashes
-  )
-
-  tmp_file <- tempfile(pattern = "ratb_scope_fingerprint_", fileext = ".rds")
-  on.exit(unlink(tmp_file), add = TRUE)
-  saveRDS(payload, tmp_file, version = 2)
-  fingerprint <- as.character(unname(tools::md5sum(tmp_file)))
-
-  list(
-    fingerprint = fingerprint,
-    sir_wide_n_rows = nrow(sir_wide),
-    sir_wide_n_eltid = dplyr::n_distinct(sir_wide$ELTID),
-    artifact_created_at = sir_wide_meta$created_at,
-    sir_wide_artifact_signature = sir_wide_artifact_signature,
-    microbiology_scope_policy = microbiology_scope_policy,
-    incidence_denominator_policy = incidence_denominator_policy,
-    scope_script_hashes = scope_script_hashes,
-    pmsi_input_signature = pmsi_input_signature,
-    reference_hashes = reference_hashes,
-    created_at = format(Sys.time(), tz = "UTC", usetz = TRUE)
-  )
-}
-
-ratb_file_signature <- function(path) {
-  info <- file.info(path)
-  list(
-    size_bytes = unname(as.numeric(info$size)),
-    md5 = as.character(unname(tools::md5sum(path)))
-  )
-}
-
-ratb_ref_paths <- vapply(
-  c(
-    ref_uf = file.path(orchidee_config$paths$ref_dir, "ref_uf.txt"),
-    ref_um = file.path(orchidee_config$paths$ref_dir, "ref_um.txt"),
-    ref_uf2um = file.path(orchidee_config$paths$ref_dir, "ref_uf2um.txt"),
-    consores_structure = orchidee_config$paths$consores_structure_path,
-    consores_codes_ta = orchidee_config$paths$consores_codes_ta_path,
-    consores_codes_de = orchidee_config$paths$consores_codes_de_path
-  ),
-  function(x) resolve_existing_path(c(x), what = paste0("reference ", x)),
-  character(1)
-)
-ratb_pmsi_path_candidates <- c("pmsi", file.path(data_dir, "pmsi"))
-ratb_pmsi_input_path <- resolve_existing_path(
-  ratb_pmsi_path_candidates,
-  what = "pmsi raw input"
-)
-
-ratb_scope_cache_candidates <- list(
-  list(
-    payload = file.path("data", "ratb_scope_cache"),
-    meta = file.path("data", "ratb_scope_cache_meta")
-  )
-)
-expected_ratb_scope_payload_names <- c(
-  "sample_scope_reference",
-  "denominator_bundle",
-  "ratb_scope_join_audit",
-  "ratb_scope_exclusion_summary",
-  "hospital_stays_raw",
-  "hospital_stays_validated",
-  "hospital_stay_validation_summary",
-  "hospital_days_year_split",
-  "hospital_days_year_summary",
-  "ratb_perimeter_rules",
-  "ratb_uf_ta_de_reference",
-  "ratb_episode_scope_audit",
-  "ratb_episode_exclusion_summary",
-  "hospital_days_year_split_provisional",
-  "hospital_days_year_summary_provisional",
-  "ratb_numerator_scope_impact_audit"
-)
-
-ratb_scope_cache_script_hashes_match <- function(loaded_meta, current_meta, script_names) {
-  is.list(loaded_meta$scope_script_hashes) &&
-    is.list(current_meta$scope_script_hashes) &&
-    all(vapply(
-      script_names,
-      function(script_name) {
-        identical(
-          loaded_meta$scope_script_hashes[[script_name]],
-          current_meta$scope_script_hashes[[script_name]]
-        )
-      },
-      logical(1)
-    ))
-}
-
-ratb_scope_cache_canonical_inputs_match <- function(loaded_meta, current_meta) {
-  fields <- c(
-    "sir_wide_n_rows",
-    "sir_wide_n_eltid",
-    "artifact_created_at",
-    "sir_wide_artifact_signature",
-    "microbiology_scope_policy",
-    "incidence_denominator_policy",
-    "pmsi_input_signature",
-    "reference_hashes"
-  )
-  producer_script_names <- c(
-    "ratb_hospital_days_helpers.R",
-    "chu_ratb_scope_adapter.R"
-  )
-
-  is.list(loaded_meta) &&
-    all(vapply(
-      fields,
-      function(field) identical(loaded_meta[[field]], current_meta[[field]]),
-      logical(1)
-    )) &&
-    ratb_scope_cache_script_hashes_match(
-      loaded_meta = loaded_meta,
-      current_meta = current_meta,
-      script_names = producer_script_names
-    )
-}
-
-ratb_scope_cache_source <- NA_character_
-ratb_scope_cache_payload <- NULL
-ratb_scope_cache_meta <- NULL
-ratb_scope_cache_decision <- NA_character_
-ratb_scope_cache_refresh_needed <- FALSE
-
-ratb_scope_cache_meta_current <- build_ratb_scope_cache_meta(
+ratb_scope_cache_result <- load_or_build_chu_ratb_scope_cache(
   sir_wide = sir_wide,
   sir_wide_meta = sir_wide_meta,
   sir_wide_artifact_signature = sir_wide_artifact_signature,
-  ratb_ref_paths = ratb_ref_paths,
-  pmsi_input_signature = ratb_file_signature(ratb_pmsi_input_path),
+  data_dir = data_dir,
+  recompute = recompute_ratb_scope,
+  ref_dir = orchidee_config$paths$ref_dir,
+  structure_path = orchidee_config$paths$consores_structure_path,
+  codes_ta_path = orchidee_config$paths$consores_codes_ta_path,
+  codes_de_path = orchidee_config$paths$consores_codes_de_path,
   microbiology_scope_policy = orchidee_config$ratb$microbiology_scope_policy,
   incidence_denominator_policy = orchidee_config$ratb$incidence_denominator_policy
 )
-
-if (!isTRUE(recompute_ratb_scope)) {
-  for (candidate in ratb_scope_cache_candidates) {
-    cache_paths <- unlist(candidate, use.names = FALSE)
-    if (!all(file.exists(cache_paths))) {
-      next
-    }
-
-    loaded_meta <- tryCatch(readRDS(candidate$meta), error = function(e) NULL)
-    if (!is.list(loaded_meta) || is.null(loaded_meta$fingerprint)) {
-      next
-    }
-    cache_fingerprint_matches <- identical(
-      as.character(loaded_meta$fingerprint),
-      ratb_scope_cache_meta_current$fingerprint
-    )
-    cache_canonical_inputs_match <- cache_fingerprint_matches ||
-      ratb_scope_cache_canonical_inputs_match(
-        loaded_meta = loaded_meta,
-        current_meta = ratb_scope_cache_meta_current
-      )
-    if (!cache_canonical_inputs_match) {
-      next
-    }
-
-    loaded_payload <- tryCatch(readRDS(candidate$payload), error = function(e) NULL)
-    if (!is.list(loaded_payload) || !all(expected_ratb_scope_payload_names %in% names(loaded_payload))) {
-      next
-    }
-    if (!is.data.frame(loaded_payload$sample_scope_reference)) {
-      next
-    }
-    if (!is.list(loaded_payload$denominator_bundle) || !all(c(
-      "hospital_days_year_summary",
-      "hospital_days_year_summary_provisional"
-    ) %in% names(loaded_payload$denominator_bundle))) {
-      next
-    }
-    loaded_denominator_provisional <-
-      loaded_payload$denominator_bundle$hospital_days_year_summary_provisional
-    if (!is.data.frame(loaded_denominator_provisional) ||
-        !"hospital_nights_provisional" %in% names(loaded_denominator_provisional)) {
-      next
-    }
-    loaded_scope_base <- loaded_payload$sir_wide_ratb_scope_base
-    if (!is.data.frame(loaded_scope_base) && is.data.frame(loaded_payload$sir_wide_ratb_scope)) {
-      loaded_scope_base <- loaded_payload$sir_wide_ratb_scope
-    }
-    if (!is.data.frame(loaded_scope_base)) {
-      next
-    }
-    if (nrow(loaded_scope_base) > nrow(sir_wide)) {
-      next
-    }
-    if (!"ratb_scope_status" %in% names(loaded_scope_base)) {
-      next
-    }
-    if (!all(loaded_scope_base$ratb_scope_status %in% c(
-      "eligible_hospitalization",
-      "excluded_external",
-      "mixed_status",
-      "no_usable_status",
-      "no_pmsi_match"
-    ))) {
-      next
-    }
-    if (!all(loaded_payload$hospital_stays_validated$validation_status == "validated")) {
-      next
-    }
-    if (!all(!loaded_payload$hospital_stays_validated$missing_bounds)) {
-      next
-    }
-    if (!all(!loaded_payload$hospital_stays_validated$negative_elapsed)) {
-      next
-    }
-    if (!all(loaded_denominator_provisional$hospital_nights_provisional >= 0)) {
-      next
-    }
-
-    ratb_scope_cache_payload <- loaded_payload
-    ratb_scope_cache_meta <- loaded_meta
-    ratb_scope_cache_source <- candidate$payload
-    ratb_scope_cache_refresh_needed <- !cache_fingerprint_matches
-    break
-  }
-} else {
-  ratb_scope_cache_source <- "forced_recompute"
-}
-
-if (!isTRUE(recompute_ratb_scope) && !is.null(ratb_scope_cache_payload)) {
-  ratb_scope_cache_payload <- build_ratb_runtime_payload_from_canonical_inputs(
-    payload = ratb_scope_cache_payload,
-    sir_wide = sir_wide
-  )
-  if (isTRUE(ratb_scope_cache_refresh_needed)) {
-    ratb_scope_cache_meta <- ratb_scope_cache_meta_current
-    saveRDS(ratb_scope_cache_payload, file.path("data", "ratb_scope_cache"))
-    saveRDS(ratb_scope_cache_meta, file.path("data", "ratb_scope_cache_meta"))
-  }
-  ratb_scope_cache_decision <- if (isTRUE(ratb_scope_cache_refresh_needed)) {
-    "loaded_refreshed"
-  } else {
-    "loaded"
-  }
-  message("Loaded RATB scope artifacts from ", ratb_scope_cache_source)
-} else {
-  if (isTRUE(recompute_ratb_scope)) {
-    message("Force recompute requested; building RATB scope artifacts.")
-  } else {
-    message("No valid RATB scope cache found; building RATB scope artifacts.")
-  }
-
-  native_scope_cache <- build_chu_native_ratb_scope_cache_payload(
-    sir_wide = sir_wide,
-    pmsi_path_candidates = ratb_pmsi_path_candidates,
-    structure_path = orchidee_config$paths$consores_structure_path,
-    codes_ta_path = orchidee_config$paths$consores_codes_ta_path,
-    codes_de_path = orchidee_config$paths$consores_codes_de_path,
-    ref_dir = orchidee_config$paths$ref_dir
-  )
-  ratb_scope_cache_payload <- native_scope_cache$payload
-  ratb_scope_cache_payload <- build_ratb_runtime_payload_from_canonical_inputs(
-    payload = ratb_scope_cache_payload,
-    sir_wide = sir_wide
-  )
-  ratb_scope_cache_meta <- ratb_scope_cache_meta_current
-
-  saveRDS(ratb_scope_cache_payload, file.path("data", "ratb_scope_cache"))
-  saveRDS(ratb_scope_cache_meta, file.path("data", "ratb_scope_cache_meta"))
-  ratb_scope_cache_source <- "recomputed"
-  ratb_scope_cache_decision <- "recomputed"
-  message("Saved RATB scope artifacts to: data/ratb_scope_cache, data/ratb_scope_cache_meta")
-
-  rm(native_scope_cache)
-}
+ratb_scope_cache_payload <- ratb_scope_cache_result$payload
+ratb_scope_cache_meta <- ratb_scope_cache_result$meta
+ratb_scope_cache_source <- ratb_scope_cache_result$source
+ratb_scope_cache_decision <- ratb_scope_cache_result$decision
 
 list2env(ratb_scope_cache_payload, envir = environment())
 
