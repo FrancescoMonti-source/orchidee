@@ -19,7 +19,7 @@ For now, this is not a full external execution mode:
 - the CHU path now produces canonical `sample_scope_reference` and
   `denominator_bundle` objects
 - the notebook applies those canonical objects through the shared runtime
-  helper to build scoped microbiology rows and denominator tables
+  helper to build scoped microbiology rows and the incidence denominator table
 
 ## Future operating model
 
@@ -128,7 +128,7 @@ into the downstream ORCHIDEE inputs expected by the RATB method:
 
 This test validates the bundle, applies the sample-scope reference to
 `sir_wide`, and checks that the scoped microbiology rows and annual
-denominator tables satisfy the core invariants. It does not render notebooks
+denominator table satisfy the core invariants. It does not render notebooks
 or write pipeline caches.
 
 ## Loader helper
@@ -142,7 +142,7 @@ The code boundary for future external execution is split in two:
   - implemented in `R/external_bundle_validation_helpers.R`.
 - `build_ratb_downstream_scope_from_canonical_inputs()`
   - applies the sample-scope reference to `sir_wide`;
-  - returns the scoped microbiology rows and annual denominator tables needed
+  - returns the scoped microbiology rows and annual denominator table needed
     by the downstream RATB method;
   - implemented in `R/ratb_canonical_runtime_helpers.R`.
 

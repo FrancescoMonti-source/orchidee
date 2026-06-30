@@ -75,10 +75,7 @@ build_ratb_downstream_scope_from_canonical_inputs <- function(
     is.data.frame(sir_wide),
     is.data.frame(sample_scope_reference),
     is.list(denominator_bundle),
-    all(c(
-      "hospital_days_year_summary",
-      "hospital_days_year_summary_provisional"
-    ) %in% names(denominator_bundle))
+    "hospital_days_year_summary_provisional" %in% names(denominator_bundle)
   )
 
   sir_wide_ratb_scope <- apply_ratb_sample_ta_de_scope(
@@ -91,7 +88,6 @@ build_ratb_downstream_scope_from_canonical_inputs <- function(
     sir_wide_ratb_analytic_scope = build_ratb_analytic_scope_dataset(
       sir_wide_ratb_scope
     ),
-    hospital_days_year_summary = denominator_bundle$hospital_days_year_summary,
     hospital_days_year_summary_provisional = denominator_bundle$hospital_days_year_summary_provisional
   )
 }
@@ -178,14 +174,6 @@ validate_ratb_canonical_runtime_inputs <- function(runtime_inputs, sir_wide = NU
         "sir_wide_ratb_analytic_scope contains non-eligible sample rows."
       )
     }
-  }
-
-  hospital_days_year_summary <- runtime_inputs$hospital_days_year_summary
-  if (!is.data.frame(hospital_days_year_summary)) {
-    errors <- ratb_runtime_add_issue(
-      errors,
-      "hospital_days_year_summary is not a data frame."
-    )
   }
 
   hospital_days_year_summary_provisional <-
