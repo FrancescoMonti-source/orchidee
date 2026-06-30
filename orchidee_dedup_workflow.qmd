@@ -558,17 +558,19 @@ if (!isTRUE(recompute_ratb_scope) && !is.null(ratb_scope_cache_payload)) {
 
 list2env(ratb_scope_cache_payload, envir = environment())
 
+ratb_runtime_validation <- validate_ratb_canonical_runtime_inputs(
+  runtime_inputs = ratb_scope_cache_payload,
+  sir_wide = sir_wide
+)
+if (!isTRUE(ratb_runtime_validation$ok)) {
+  stop(
+    "Canonical RATB runtime inputs are invalid:\n - ",
+    paste(ratb_runtime_validation$errors, collapse = "\n - "),
+    call. = FALSE
+  )
+}
+
 stopifnot(
-  nrow(sir_wide_ratb_scope) <= nrow(sir_wide),
-  nrow(sir_wide_ratb_analytic_scope) <= nrow(sir_wide_ratb_scope),
-  is.data.frame(sample_scope_reference),
-  is.list(denominator_bundle),
-  all(c(
-    "hospital_days_year_summary",
-    "hospital_days_year_summary_provisional"
-  ) %in% names(denominator_bundle)),
-  all(c("SEJUF", "SEJUM", "TYPEANA", "sample_uf_is_eligible_by_ta_de") %in% names(sir_wide_ratb_scope)),
-  all(sir_wide_ratb_analytic_scope$sample_uf_is_eligible_by_ta_de),
   all(
     !ratb_episode_scope_audit$included_in_provisional_perimeter |
       ratb_episode_scope_audit$n_ta_de_eligible_uf > 0L

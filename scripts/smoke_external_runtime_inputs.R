@@ -49,74 +49,15 @@ runtime_inputs <- build_ratb_downstream_scope_from_canonical_inputs(
   denominator_bundle = bundle$denominator_bundle
 )
 
-required_scope_cols <- c(
-  "PATID",
-  "EVTID",
-  "ELTID",
-  "SEJUF",
-  "sample_uf_is_eligible_by_ta_de",
-  "sample_uf_ta_de_status",
-  "sample_uf_ta_de_reason"
+runtime_validation <- validate_ratb_canonical_runtime_inputs(
+  runtime_inputs = runtime_inputs,
+  sir_wide = bundle$sir_wide
 )
 
-failures <- character(0)
-add_failure <- function(text) {
-  failures <<- c(failures, text)
-}
-
-if (!is.data.frame(runtime_inputs$sir_wide_ratb_scope)) {
-  add_failure("sir_wide_ratb_scope is not a data frame.")
-} else {
-  missing_scope_cols <- setdiff(required_scope_cols, names(runtime_inputs$sir_wide_ratb_scope))
-  if (length(missing_scope_cols) > 0L) {
-    add_failure(paste0(
-      "sir_wide_ratb_scope is missing columns: ",
-      paste(missing_scope_cols, collapse = ", ")
-    ))
-  }
-  if (nrow(runtime_inputs$sir_wide_ratb_scope) != nrow(bundle$sir_wide)) {
-    add_failure("sir_wide_ratb_scope row count differs from sir_wide.")
-  }
-}
-
-if (!is.data.frame(runtime_inputs$sir_wide_ratb_analytic_scope)) {
-  add_failure("sir_wide_ratb_analytic_scope is not a data frame.")
-} else {
-  if (nrow(runtime_inputs$sir_wide_ratb_analytic_scope) >
-      nrow(runtime_inputs$sir_wide_ratb_scope)) {
-    add_failure("sir_wide_ratb_analytic_scope has more rows than sir_wide_ratb_scope.")
-  }
-  if (!all(runtime_inputs$sir_wide_ratb_analytic_scope$sample_uf_is_eligible_by_ta_de)) {
-    add_failure("sir_wide_ratb_analytic_scope contains non-eligible sample rows.")
-  }
-}
-
-if (!is.data.frame(runtime_inputs$hospital_days_year_summary_provisional)) {
-  add_failure("hospital_days_year_summary_provisional is not a data frame.")
-} else {
-  required_runtime_denominator_cols <- c("calendar_year", "hospital_nights_provisional")
-  missing_runtime_denominator_cols <- setdiff(
-    required_runtime_denominator_cols,
-    names(runtime_inputs$hospital_days_year_summary_provisional)
-  )
-  if (length(missing_runtime_denominator_cols) > 0L) {
-    add_failure(paste0(
-      "hospital_days_year_summary_provisional is missing columns: ",
-      paste(missing_runtime_denominator_cols, collapse = ", ")
-    ))
-  } else if (any(runtime_inputs$hospital_days_year_summary_provisional$hospital_nights_provisional < 0)) {
-    add_failure("hospital_days_year_summary_provisional contains negative nights.")
-  }
-}
-
-if (!is.data.frame(runtime_inputs$hospital_days_year_summary)) {
-  add_failure("hospital_days_year_summary is not a data frame.")
-}
-
-if (length(failures) > 0L) {
+if (!isTRUE(runtime_validation$ok)) {
   cat("FAIL: canonical bundle could not build valid downstream ORCHIDEE inputs.\n")
   cat("Failures:\n")
-  for (failure in failures) {
+  for (failure in runtime_validation$errors) {
     cat(" - ", failure, "\n", sep = "")
   }
   quit(status = 1L)
