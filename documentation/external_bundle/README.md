@@ -6,16 +6,19 @@ editor_options:
 
 # External Input Bundle for Orchidee
 
-This folder documents a dormant external input contract for Orchidee.
+This folder documents the external input contract for Orchidee.
 
 The goal is to make the shared downstream core reusable by another
-hospital without changing the current runtime path.
+hospital without requiring that hospital to reproduce the CHU raw
+extraction path.
 
-For now, this layer is strictly additive:
-- it does not change the current notebooks
-- it does not change the current build path
-- it does not make the notebooks branch between internal and external
-  modes
+For now, this is not a full external execution mode:
+- the main notebooks do not branch between internal and external bundles
+- the CHU path still produces the rich native QA cache used by the
+  notebook
+- the CHU path now builds the scoped microbiology rows and denominator
+  tables through the same canonical `sample_scope_reference` and
+  `denominator_bundle` boundary documented here
 
 ## Future operating model
 
@@ -141,4 +144,6 @@ The code boundary for future external execution is split in two:
     by the downstream RATB method.
 
 These helpers are also additive. They make the future runtime boundary
-executable, but the main notebooks still use the current native CHU path.
+executable. The main notebooks still use the current native CHU path for
+loading and QA, but the CHU scope cache now routes its core scope and
+denominator objects through this same canonical boundary.

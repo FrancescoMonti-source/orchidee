@@ -34,7 +34,11 @@ Autour de cet artefact, le workflow produit ensuite des artefacts intermédiaire
 
 Pour le détail de ces artefacts et de leur rôle exact, se reporter à `documentation/project_map.md`.
 
-Pour une réutilisation future par d'autres établissements, un contrat externe d'entrée, encore dormant, est déjà documenté dans `documentation/external_bundle/`.
+Pour une réutilisation future par d'autres établissements, un contrat
+externe d'entrée est documenté dans `documentation/external_bundle/`. Le
+chemin CHU actuel commence à utiliser cette frontière canonique pour le
+périmètre et le dénominateur, sans être encore un mode d'exécution externe
+complet.
 
 ## Premiers documents à lire pour la reprise
 
@@ -106,7 +110,10 @@ La documentation de l'externalisation future se trouve dans `documentation/exter
 -   `documentation/external_bundle/denominator_bundle_v1.md`
 -   validateur : `scripts/validate_external_bundle.R`
 
-Cette couche documente le futur contrat d'entrée pour un autre établissement, mais n'est pas encore branchée sur le chemin d'exécution principal.
+Cette couche documente le futur contrat d'entrée pour un autre établissement.
+Elle sert déjà de frontière interne pour le périmètre et le dénominateur du
+chemin CHU, mais le notebook principal ne propose pas encore un mode
+d'exécution externe complet.
 
 ## Conseils immédiats de maintenance
 

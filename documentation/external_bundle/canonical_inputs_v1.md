@@ -47,7 +47,7 @@ local biology software conventions, or site-specific screening codes.
 
 ## Current v1 canonical files
 
-The current dormant external contract uses four files:
+The current external contract uses four files:
 
 - `sir_wide.rds`
   - canonical microbiology rows in wide S/I/R format;
@@ -109,9 +109,15 @@ another hospital must reproduce line by line.
 ## Current open boundary
 
 The current runtime still builds `ratb_scope_cache` inside the native CHU
-workflow from `sir_wide`, PMSI data and TA/DE references. The external
-bundle validator accepts the resulting denominator bundle for compatibility,
-but the main notebooks do not yet branch into an external-runtime mode.
+workflow from `sir_wide`, PMSI data and TA/DE references. Within that CHU
+path, the scoped microbiology rows and incidence denominator tables are now
+built from the canonical `sample_scope_reference` and
+`denominator_bundle` objects.
+
+The main notebooks do not yet branch into a full external-runtime mode.
+The external bundle validator accepts the current native `ratb_scope_cache`
+as a compatibility source when the preferred four-file bundle has not been
+materialized.
 
 The intended portability direction is now:
 
@@ -126,6 +132,6 @@ local HDW extraction and unit mapping outside the core. The v1 validator
 already knows this preferred file, while still accepting the current native
 `ratb_scope_cache` as a compatibility source.
 
-The main notebooks do not yet branch into an external-runtime mode. The v1
-bundle is therefore a documented and validated compatibility target, not a
-fully wired external execution mode.
+The v1 bundle is therefore a documented and validated compatibility target
+with an executable core scope boundary, not a fully wired external notebook
+execution mode.

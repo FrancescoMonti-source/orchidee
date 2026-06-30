@@ -115,8 +115,9 @@ chargés hors notebook.
 -   `R/chu_ratb_scope_adapter.R`
     -   chemin natif actuel de recompute du cache RATB à partir de
         l'artefact local `data/pmsi`
-    -   isole le chargement PMSI local et l'assemblage du payload de
-        périmètre/dénominateur hors du notebook socle
+    -   produit les objets canoniques `sample_scope_reference` et
+        `denominator_bundle`, puis les applique via le helper aval partagé
+    -   conserve les tables natives de QA nécessaires au notebook socle
 
 ### Normalisation et artefact amont
 
@@ -205,7 +206,7 @@ chargés hors notebook.
 
 -   `R/external_bundle_validation_helpers.R`
     -   helpers de validation réutilisables pour le contrat d'entrée
-        externe dormant
+        externe
     -   porte la version exécutable du contrat v1 via
         `orchidee_external_contract_v1()`
     -   charge aussi un bundle validé via
