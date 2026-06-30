@@ -116,7 +116,8 @@ chargés hors notebook.
     -   chemin natif actuel de recompute du cache RATB à partir de
         l'artefact local `data/pmsi`
     -   produit les objets canoniques `sample_scope_reference` et
-        `denominator_bundle`, puis les applique via le helper aval partagé
+        `denominator_bundle`, ainsi que le contexte de QA natif CHU
+    -   laisse le notebook appliquer ces objets via le helper aval partagé
     -   conserve les tables natives de QA nécessaires au notebook socle
 
 ### Normalisation et artefact amont
@@ -161,6 +162,8 @@ chargés hors notebook.
         `sample_scope_reference` à `sir_wide`
     -   construit le périmètre microbiologique analytique et expose les
         tables annuelles du `denominator_bundle` au workflow RATB
+    -   matérialise le payload runtime utilisé par le notebook à partir
+        des entrées canoniques et du contexte de QA disponible
 -   `R/ratb_hospital_days_helpers.R`
     -   helpers natifs PMSI / CHU pour les audits de séjour et le
         dénominateur local
