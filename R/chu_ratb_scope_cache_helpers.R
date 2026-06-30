@@ -261,7 +261,6 @@ build_chu_ratb_runtime_payload_from_cache_payload <- function(payload, sir_wide)
   payload$sir_wide_ratb_scope_base <- runtime_base
   payload$sir_wide_ratb_scope <- runtime_scope$sir_wide_ratb_scope
   payload$sir_wide_ratb_analytic_scope <- runtime_scope$sir_wide_ratb_analytic_scope
-  payload$hospital_days_year_summary <- runtime_scope$hospital_days_year_summary
   payload$hospital_days_year_summary_provisional <-
     runtime_scope$hospital_days_year_summary_provisional
 

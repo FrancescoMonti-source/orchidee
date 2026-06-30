@@ -26,7 +26,7 @@ The site adapter owns all raw-to-canonical work:
 - identifying diagnostic microbiology rows and excluding local screening
   material that should not enter RATB indicators;
 - mapping local units to the TA/DE perimeter used for RATB surveillance;
-- building the annual PMSI/activity denominator tables expected by
+- building the annual PMSI/activity denominator table expected by
   ORCHIDEE.
 
 Adapter code can be hospital-specific. It should not be implemented inside
@@ -59,7 +59,7 @@ The current external contract uses four files:
   - sample-level TA/DE scope reference joined to `sir_wide` by `SEJUF`;
   - exact schema in `sample_scope_reference_v1.md`.
 - `denominator_bundle.rds`
-  - annual PMSI/activity denominator tables;
+  - annual PMSI/activity denominator table;
   - exact schema in `denominator_bundle_v1.md`.
 
 The executable validator is:
@@ -112,7 +112,7 @@ The current runtime still uses a native CHU recompute path to produce
 `ratb_scope_cache` from `sir_wide`, PMSI data and TA/DE references. Within
 that cache, the CHU path provides the canonical `sample_scope_reference`
 and `denominator_bundle` objects plus local QA context. The notebook then
-builds the scoped microbiology rows and incidence denominator tables from
+builds the scoped microbiology rows and incidence denominator table from
 those canonical objects through `R/ratb_canonical_runtime_helpers.R`.
 
 The main notebooks do not yet branch into a full external-runtime mode.

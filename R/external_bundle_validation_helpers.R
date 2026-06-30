@@ -140,34 +140,9 @@ orchidee_external_contract_v1 <- function() {
     ),
     denominator_bundle = list(
       required_tables = c(
-        "hospital_days_year_summary",
         "hospital_days_year_summary_provisional"
       ),
       tables = list(
-        hospital_days_year_summary = list(
-          required_columns = c(
-            "calendar_year",
-            "n_stays",
-            "n_cross_year_stays",
-            "hospital_days_exact",
-            "hospital_days_floor",
-            "hospital_days_ceiling",
-            "hospital_days_round"
-          ),
-          integerish_columns = c(
-            "calendar_year",
-            "n_stays",
-            "n_cross_year_stays"
-          ),
-          non_negative_columns = c(
-            "n_stays",
-            "n_cross_year_stays",
-            "hospital_days_exact",
-            "hospital_days_floor",
-            "hospital_days_ceiling",
-            "hospital_days_round"
-          )
-        ),
         hospital_days_year_summary_provisional = list(
           required_columns = c(
             "calendar_year",
@@ -689,15 +664,6 @@ external_bundle_validate_denominator_bundle <- function(denominator_bundle, cont
       )
       errors <- c(errors, table_validation$errors)
       warnings <- c(warnings, table_validation$warnings)
-    }
-
-    summary_years <- denominator_bundle$hospital_days_year_summary$calendar_year
-    provisional_years <- denominator_bundle$hospital_days_year_summary_provisional$calendar_year
-    if (length(intersect(summary_years, provisional_years)) == 0L) {
-      warnings <- external_bundle_add_issue(
-        warnings,
-        "The denominator summary tables do not share any calendar_year values."
-      )
     }
   }
 
