@@ -108,11 +108,12 @@ another hospital must reproduce line by line.
 
 ## Current open boundary
 
-The current runtime still builds `ratb_scope_cache` inside the native CHU
-workflow from `sir_wide`, PMSI data and TA/DE references. Within that CHU
-path, the scoped microbiology rows and incidence denominator tables are now
-built from the canonical `sample_scope_reference` and
-`denominator_bundle` objects.
+The current runtime still uses a native CHU recompute path to produce
+`ratb_scope_cache` from `sir_wide`, PMSI data and TA/DE references. Within
+that cache, the CHU path provides the canonical `sample_scope_reference`
+and `denominator_bundle` objects plus local QA context. The notebook then
+builds the scoped microbiology rows and incidence denominator tables from
+those canonical objects through `R/ratb_canonical_runtime_helpers.R`.
 
 The main notebooks do not yet branch into a full external-runtime mode.
 The external bundle validator accepts the current native `ratb_scope_cache`

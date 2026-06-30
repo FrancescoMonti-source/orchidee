@@ -16,9 +16,10 @@ For now, this is not a full external execution mode:
 - the main notebooks do not branch between internal and external bundles
 - the CHU path still produces the rich native QA cache used by the
   notebook
-- the CHU path now builds the scoped microbiology rows and denominator
-  tables through the same canonical `sample_scope_reference` and
-  `denominator_bundle` boundary documented here
+- the CHU path now produces canonical `sample_scope_reference` and
+  `denominator_bundle` objects
+- the notebook applies those canonical objects through the shared runtime
+  helper to build scoped microbiology rows and denominator tables
 
 ## Future operating model
 
@@ -147,5 +148,6 @@ The code boundary for future external execution is split in two:
 
 These helpers are also additive. They make the future runtime boundary
 executable. The main notebooks still use the current native CHU path for
-loading and QA, but the CHU scope cache now routes its core scope and
-denominator objects through this same canonical boundary.
+loading and QA, but the runtime scope and denominator objects are now built
+in the notebook from the same canonical `sample_scope_reference` and
+`denominator_bundle` boundary.

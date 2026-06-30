@@ -234,6 +234,8 @@ recompute_ratb_scope <- orchidee_config$cache$recompute_ratb_scope
 
 stopifnot(
   exists("build_ratb_scope_tables", mode = "function"),
+  exists("build_ratb_downstream_scope_from_canonical_inputs", mode = "function"),
+  exists("build_ratb_runtime_payload_from_canonical_inputs", mode = "function"),
   exists("build_ratb_analytic_scope_dataset", mode = "function"),
   exists("build_hospital_days_validation", mode = "function"),
   exists("build_ratb_provisional_perimeter_audit", mode = "function"),
@@ -326,8 +328,6 @@ ratb_scope_cache_candidates <- list(
 expected_ratb_scope_payload_names <- c(
   "sample_scope_reference",
   "denominator_bundle",
-  "sir_wide_ratb_scope",
-  "sir_wide_ratb_analytic_scope",
   "ratb_scope_join_audit",
   "ratb_scope_exclusion_summary",
   "hospital_stays_raw",
@@ -344,10 +344,30 @@ expected_ratb_scope_payload_names <- c(
   "ratb_numerator_scope_impact_audit"
 )
 
+ratb_scope_cache_canonical_inputs_match <- function(loaded_meta, current_meta) {
+  fields <- c(
+    "sir_wide_n_rows",
+    "sir_wide_n_eltid",
+    "artifact_created_at",
+    "sir_wide_artifact_signature",
+    "microbiology_scope_policy",
+    "incidence_denominator_policy",
+    "reference_hashes"
+  )
+
+  is.list(loaded_meta) &&
+    all(vapply(
+      fields,
+      function(field) identical(loaded_meta[[field]], current_meta[[field]]),
+      logical(1)
+    ))
+}
+
 ratb_scope_cache_source <- NA_character_
 ratb_scope_cache_payload <- NULL
 ratb_scope_cache_meta <- NULL
 ratb_scope_cache_decision <- NA_character_
+ratb_scope_cache_refresh_needed <- FALSE
 
 ratb_scope_cache_meta_current <- build_ratb_scope_cache_meta(
   sir_wide = sir_wide,
@@ -369,10 +389,16 @@ if (!isTRUE(recompute_ratb_scope)) {
     if (!is.list(loaded_meta) || is.null(loaded_meta$fingerprint)) {
       next
     }
-    if (!identical(
+    cache_fingerprint_matches <- identical(
       as.character(loaded_meta$fingerprint),
       ratb_scope_cache_meta_current$fingerprint
-    )) {
+    )
+    cache_canonical_inputs_match <- cache_fingerprint_matches ||
+      ratb_scope_cache_canonical_inputs_match(
+        loaded_meta = loaded_meta,
+        current_meta = ratb_scope_cache_meta_current
+      )
+    if (!cache_canonical_inputs_match) {
       next
     }
 
@@ -389,13 +415,20 @@ if (!isTRUE(recompute_ratb_scope)) {
     ) %in% names(loaded_payload$denominator_bundle))) {
       next
     }
-    if (nrow(loaded_payload$sir_wide_ratb_scope) > nrow(sir_wide)) {
+    loaded_scope_base <- loaded_payload$sir_wide_ratb_scope_base
+    if (!is.data.frame(loaded_scope_base) && is.data.frame(loaded_payload$sir_wide_ratb_scope)) {
+      loaded_scope_base <- loaded_payload$sir_wide_ratb_scope
+    }
+    if (!is.data.frame(loaded_scope_base)) {
       next
     }
-    if (nrow(loaded_payload$sir_wide_ratb_analytic_scope) > nrow(loaded_payload$sir_wide_ratb_scope)) {
+    if (nrow(loaded_scope_base) > nrow(sir_wide)) {
       next
     }
-    if (!all(loaded_payload$sir_wide_ratb_scope$ratb_scope_status %in% c(
+    if (!"ratb_scope_status" %in% names(loaded_scope_base)) {
+      next
+    }
+    if (!all(loaded_scope_base$ratb_scope_status %in% c(
       "eligible_hospitalization",
       "excluded_external",
       "mixed_status",
@@ -420,6 +453,7 @@ if (!isTRUE(recompute_ratb_scope)) {
     ratb_scope_cache_payload <- loaded_payload
     ratb_scope_cache_meta <- loaded_meta
     ratb_scope_cache_source <- candidate$payload
+    ratb_scope_cache_refresh_needed <- !cache_fingerprint_matches
     break
   }
 } else {
@@ -427,7 +461,20 @@ if (!isTRUE(recompute_ratb_scope)) {
 }
 
 if (!isTRUE(recompute_ratb_scope) && !is.null(ratb_scope_cache_payload)) {
-  ratb_scope_cache_decision <- "loaded"
+  ratb_scope_cache_payload <- build_ratb_runtime_payload_from_canonical_inputs(
+    payload = ratb_scope_cache_payload,
+    sir_wide = sir_wide
+  )
+  if (isTRUE(ratb_scope_cache_refresh_needed)) {
+    ratb_scope_cache_meta <- ratb_scope_cache_meta_current
+    saveRDS(ratb_scope_cache_payload, file.path("data", "ratb_scope_cache"))
+    saveRDS(ratb_scope_cache_meta, file.path("data", "ratb_scope_cache_meta"))
+  }
+  ratb_scope_cache_decision <- if (isTRUE(ratb_scope_cache_refresh_needed)) {
+    "loaded_refreshed"
+  } else {
+    "loaded"
+  }
   message("Loaded RATB scope artifacts from ", ratb_scope_cache_source)
 } else {
   if (isTRUE(recompute_ratb_scope)) {
@@ -444,6 +491,10 @@ if (!isTRUE(recompute_ratb_scope) && !is.null(ratb_scope_cache_payload)) {
     ref_dir = orchidee_config$paths$ref_dir
   )
   ratb_scope_cache_payload <- native_scope_cache$payload
+  ratb_scope_cache_payload <- build_ratb_runtime_payload_from_canonical_inputs(
+    payload = ratb_scope_cache_payload,
+    sir_wide = sir_wide
+  )
   ratb_scope_cache_meta <- ratb_scope_cache_meta_current
 
   saveRDS(ratb_scope_cache_payload, file.path("data", "ratb_scope_cache"))
@@ -557,7 +608,7 @@ Use plain render first:
 
 Then check cache diagnostics in output:
 
-- `ratb_scope_cache_decision` (`loaded` or `recomputed`)
+- `ratb_scope_cache_decision` (`loaded`, `loaded_refreshed`, or `recomputed`)
 - `completion_cache_decision` (`loaded` or `recomputed`)
 - `dedup_cache_decision` (`loaded` or `recomputed`)
 
@@ -569,7 +620,10 @@ Then check cache diagnostics in output:
 - **Dedup logic changes** (`spares_dedup.R` / scope defs): set `orchidee_config$cache$recompute_dedup <- TRUE` in `config/pipeline.R`, render once, then revert to `FALSE`.
 - **Microbiology artifact changes**: rerun builder script, then render (downstream caches use the canonical `sir_wide` artifact signature and should auto-invalidate where relevant).
 
-- **Helper script changes**: rerender the notebook. Cache invalidation is driven by fingerprints that hash the relevant helper scripts as well as canonical artifact signatures, so a code change can legitimately trigger recomputation even when the raw inputs have not changed.
+- **Helper script changes**: rerender the notebook. If the cached canonical
+  inputs still match the current `sir_wide`, policies and references, the
+  notebook can refresh runtime scope objects from those inputs. Otherwise a
+  native RATB scope recompute is expected.
 ## Control panel (edit points)
 
 This notebook is intentionally parameterized through `config/pipeline.R` plus a
@@ -597,7 +651,10 @@ Notes:
 
 - Cache system is custom and **independent from knitr cache**.
 - Cache read order is root first, then `data/` fallback where configured.
-- Cache fingerprints include canonical artifact signatures and selected helper-script/reference hashes. Native PMSI denominator changes still require the RATB scope recompute flag.
+- Cache fingerprints include canonical artifact signatures and selected
+  helper-script/reference hashes. Runtime-helper-only changes can reuse and
+  refresh matching canonical inputs; native PMSI denominator changes still
+  require the RATB scope recompute flag.
 
 ## Troubleshooting quick fixes
 
@@ -624,7 +681,8 @@ Notes:
 Base artifact: `sir_wide` (broad microbiology build, 1 row = 1 strain-level antibiogram record).
 
 Operational RATB inputs:
-- `sir_wide_ratb_scope`, the broad PMSI-linked subset kept for join and status audit;
+- `sir_wide_ratb_scope`, the broad microbiology table annotated with
+  sample-level TA/DE scope and CHU join audit context;
 - `sir_wide_ratb_analytic_scope`, the sample-level TA/DE microbiology perimeter used for completion, deduplication, proportions, and incidence numerators;
 - `hospital_days_year_summary_provisional`, the PMSI TA/DE denominator built independently from microbiology rows.
 

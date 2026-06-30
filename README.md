@@ -36,9 +36,9 @@ Pour le détail de ces artefacts et de leur rôle exact, se reporter à `documen
 
 Pour une réutilisation future par d'autres établissements, un contrat
 externe d'entrée est documenté dans `documentation/external_bundle/`. Le
-chemin CHU actuel commence à utiliser cette frontière canonique pour le
-périmètre et le dénominateur, sans être encore un mode d'exécution externe
-complet.
+chemin CHU actuel produit les objets canoniques de périmètre et de
+dénominateur, puis le notebook les applique via la frontière canonique
+partagée, sans être encore un mode d'exécution externe complet.
 
 ## Premiers documents à lire pour la reprise
 
@@ -111,9 +111,10 @@ La documentation de l'externalisation future se trouve dans `documentation/exter
 -   validateur : `scripts/validate_external_bundle.R`
 
 Cette couche documente le futur contrat d'entrée pour un autre établissement.
-Elle sert déjà de frontière interne pour le périmètre et le dénominateur du
-chemin CHU, mais le notebook principal ne propose pas encore un mode
-d'exécution externe complet.
+Elle sert déjà de frontière interne pour le périmètre et le dénominateur : le
+chemin CHU produit les objets canoniques et le notebook les consomme pour
+construire les entrées RATB aval. Le notebook principal ne propose toutefois
+pas encore un mode d'exécution externe complet.
 
 ## Conseils immédiats de maintenance
 
