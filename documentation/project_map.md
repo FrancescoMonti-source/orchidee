@@ -156,9 +156,16 @@ chargés hors notebook.
 
 ### Dénominateur / périmètre
 
+-   `R/ratb_canonical_runtime_helpers.R`
+    -   coeur aval indépendant de l'entrepôt : applique
+        `sample_scope_reference` à `sir_wide`
+    -   construit le périmètre microbiologique analytique et expose les
+        tables annuelles du `denominator_bundle` au workflow RATB
 -   `R/ratb_hospital_days_helpers.R`
-    -   périmètre analytique d'hospitalisation
-    -   logique annuelle des nuits d'hospitalisation
+    -   helpers natifs PMSI / CHU pour les audits de séjour et le
+        dénominateur local
+    -   transformation des références CONSORES TA/DE locales vers la
+        `sample_scope_reference` canonique
     -   découpage inter-annuel
 
 ### Indicateurs et couche rapport
@@ -212,6 +219,9 @@ chargés hors notebook.
     -   charge aussi un bundle validé via
         `load_validated_external_input_bundle()`
 -   `R/ratb_hospital_days_helpers.R`
+    -   contient les helpers natifs PMSI / CHU qui produisent la
+        référence de périmètre et les tables de dénominateur locales
+-   `R/ratb_canonical_runtime_helpers.R`
     -   contient le helper de frontière
         `build_ratb_downstream_scope_from_canonical_inputs()` qui applique
         une référence de périmètre canonique à `sir_wide`

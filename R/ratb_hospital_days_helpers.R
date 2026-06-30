@@ -1,13 +1,16 @@
-## RATB hospitalization scope and hospital-days helpers
+## RATB native hospitalization and hospital-days helpers
 ##
-## These helpers keep three concerns explicit and separate from the main notebook:
-## 1. derive the downstream RATB microbiology analysis scope from each sample's
-##    `SEJUF` and the CONSORES TA/DE perimeter
+## These helpers keep native PMSI concerns separate from the main notebook:
+## 1. transform local CONSORES TA/DE references into the canonical
+##    `sample_scope_reference`
 ## 2. build a generic validation-first `hospital_days` layer for future
 ##    incidence-density indicators, without yet locking the final denominator
 ##    convention
-## 3. build a PMSI-based ORCHIDEE incidence denominator using the same TA/DE
+## 3. build a PMSI-based CHU incidence denominator using the same TA/DE
 ##    perimeter independently from microbiology rows
+##
+## HDW-agnostic application of the canonical scope and denominator inputs lives
+## in `R/ratb_canonical_runtime_helpers.R`.
 ##
 ## Naming note: objects with `provisional` in their name are the current
 ## runtime-compatible incidence denominator artifacts. The name is kept for
@@ -236,52 +239,6 @@ build_ratb_sample_scope_reference <- function(ta_de_ref) {
       sample_uf_ta_de_reason = uf_ta_de_reason
     ) %>%
     distinct(SEJUF, .keep_all = TRUE)
-}
-
-apply_ratb_sample_ta_de_scope <- function(sir_wide_ratb_scope, sample_scope_reference) {
-  stopifnot(is.data.frame(sir_wide_ratb_scope), is.data.frame(sample_scope_reference))
-  stopifnot(all(c("PATID", "EVTID", "SEJUF", "SEJUM") %in% names(sir_wide_ratb_scope)))
-
-  required_ref_cols <- c(
-    "SEJUF",
-    "sample_CODE_TA",
-    "sample_uf_is_eligible_by_ta_de",
-    "sample_uf_ta_de_status",
-    "sample_uf_ta_de_reason"
-  )
-  missing_ref_cols <- setdiff(required_ref_cols, names(sample_scope_reference))
-  if (length(missing_ref_cols) > 0L) {
-    stop(
-      "Sample scope reference is missing required columns: ",
-      paste(missing_ref_cols, collapse = ", "),
-      call. = FALSE
-    )
-  }
-
-  sir_wide_ratb_scope %>%
-    mutate(
-      PATID = as.character(PATID),
-      EVTID = as.character(EVTID),
-      SEJUF = ratb_trim_or_na_local(SEJUF),
-      SEJUM = ratb_trim_or_na_local(SEJUM)
-    ) %>%
-    left_join(
-      sample_scope_reference %>% distinct(SEJUF, .keep_all = TRUE),
-      by = "SEJUF"
-    ) %>%
-    mutate(
-      sample_uf_is_eligible_by_ta_de = dplyr::coalesce(sample_uf_is_eligible_by_ta_de, FALSE),
-      sample_uf_ta_de_status = case_when(
-        is.na(SEJUF) ~ "review_missing_sample_uf",
-        is.na(sample_CODE_TA) ~ "review_unmapped_uf",
-        TRUE ~ sample_uf_ta_de_status
-      ),
-      sample_uf_ta_de_reason = case_when(
-        is.na(SEJUF) ~ "missing_sample_uf",
-        is.na(sample_CODE_TA) ~ "uf_absent_from_consores_structure",
-        TRUE ~ sample_uf_ta_de_reason
-      )
-    )
 }
 
 load_ratb_consores_ta_de_reference <- function(
@@ -595,47 +552,6 @@ build_ratb_scope_tables <- function(sir_wide, pmsi_main) {
     ratb_scope_join_audit = ratb_scope_join_audit,
     ratb_scope_exclusion_summary = ratb_scope_exclusion_summary,
     pmsi_status_lookup = pmsi_status_lookup
-  )
-}
-
-build_ratb_analytic_scope_dataset <- function(sir_wide_ratb_scope) {
-  stopifnot(
-    is.data.frame(sir_wide_ratb_scope),
-    all(c("PATID", "EVTID") %in% names(sir_wide_ratb_scope)),
-    "sample_uf_is_eligible_by_ta_de" %in% names(sir_wide_ratb_scope)
-  )
-
-  sir_wide_ratb_scope %>%
-    filter(sample_uf_is_eligible_by_ta_de)
-}
-
-build_ratb_downstream_scope_from_canonical_inputs <- function(
-    sir_wide,
-    sample_scope_reference,
-    denominator_bundle
-  ) {
-  stopifnot(
-    is.data.frame(sir_wide),
-    is.data.frame(sample_scope_reference),
-    is.list(denominator_bundle),
-    all(c(
-      "hospital_days_year_summary",
-      "hospital_days_year_summary_provisional"
-    ) %in% names(denominator_bundle))
-  )
-
-  sir_wide_ratb_scope <- apply_ratb_sample_ta_de_scope(
-    sir_wide_ratb_scope = sir_wide,
-    sample_scope_reference = sample_scope_reference
-  )
-
-  list(
-    sir_wide_ratb_scope = sir_wide_ratb_scope,
-    sir_wide_ratb_analytic_scope = build_ratb_analytic_scope_dataset(
-      sir_wide_ratb_scope
-    ),
-    hospital_days_year_summary = denominator_bundle$hospital_days_year_summary,
-    hospital_days_year_summary_provisional = denominator_bundle$hospital_days_year_summary_provisional
   )
 }
 
@@ -1039,7 +955,7 @@ build_ratb_provisional_perimeter_audit <- function(
 
   sample_uf_ta_de_reference <- build_ratb_sample_scope_reference(consores_ta_de_ref)
   sir_wide_ratb_scope <- apply_ratb_sample_ta_de_scope(
-    sir_wide_ratb_scope = sir_wide_ratb_scope,
+    sir_wide = sir_wide_ratb_scope,
     sample_scope_reference = sample_uf_ta_de_reference
   )
 

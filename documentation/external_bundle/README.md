@@ -137,11 +137,13 @@ The code boundary for future external execution is split in two:
 - `load_validated_external_input_bundle()`
   - loads a bundle only after it passes the external contract;
   - coerces current compatibility sources, such as `ratb_scope_cache`, into
-    the preferred canonical surfaces.
+    the preferred canonical surfaces;
+  - implemented in `R/external_bundle_validation_helpers.R`.
 - `build_ratb_downstream_scope_from_canonical_inputs()`
   - applies the sample-scope reference to `sir_wide`;
   - returns the scoped microbiology rows and annual denominator tables needed
-    by the downstream RATB method.
+    by the downstream RATB method;
+  - implemented in `R/ratb_canonical_runtime_helpers.R`.
 
 These helpers are also additive. They make the future runtime boundary
 executable. The main notebooks still use the current native CHU path for
