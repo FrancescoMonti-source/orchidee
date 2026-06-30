@@ -227,6 +227,47 @@ chu_ratb_cache_payload_is_usable <- function(payload, sir_wide) {
   TRUE
 }
 
+build_chu_ratb_runtime_payload_from_cache_payload <- function(payload, sir_wide) {
+  stopifnot(
+    is.list(payload),
+    is.data.frame(sir_wide),
+    is.data.frame(payload$sample_scope_reference),
+    is.list(payload$denominator_bundle)
+  )
+
+  runtime_base <- payload$sir_wide_ratb_scope_base
+  if (!is.data.frame(runtime_base) && is.data.frame(payload$sir_wide_ratb_scope)) {
+    runtime_base <- payload$sir_wide_ratb_scope
+  }
+  if (!is.data.frame(runtime_base)) {
+    runtime_base <- sir_wide
+  }
+
+  overlapping_scope_cols <- setdiff(
+    intersect(names(payload$sample_scope_reference), names(runtime_base)),
+    "SEJUF"
+  )
+  if (length(overlapping_scope_cols) > 0L) {
+    runtime_base <- runtime_base %>%
+      dplyr::select(-dplyr::all_of(overlapping_scope_cols))
+  }
+
+  runtime_scope <- build_ratb_downstream_scope_from_canonical_inputs(
+    sir_wide = runtime_base,
+    sample_scope_reference = payload$sample_scope_reference,
+    denominator_bundle = payload$denominator_bundle
+  )
+
+  payload$sir_wide_ratb_scope_base <- runtime_base
+  payload$sir_wide_ratb_scope <- runtime_scope$sir_wide_ratb_scope
+  payload$sir_wide_ratb_analytic_scope <- runtime_scope$sir_wide_ratb_analytic_scope
+  payload$hospital_days_year_summary <- runtime_scope$hospital_days_year_summary
+  payload$hospital_days_year_summary_provisional <-
+    runtime_scope$hospital_days_year_summary_provisional
+
+  payload
+}
+
 load_or_build_chu_ratb_scope_cache <- function(
     sir_wide,
     sir_wide_meta,
@@ -297,7 +338,7 @@ load_or_build_chu_ratb_scope_cache <- function(
   }
 
   if (!isTRUE(recompute) && !is.null(scope_cache_payload)) {
-    scope_cache_payload <- build_ratb_runtime_payload_from_canonical_inputs(
+    scope_cache_payload <- build_chu_ratb_runtime_payload_from_cache_payload(
       payload = scope_cache_payload,
       sir_wide = sir_wide
     )
@@ -327,7 +368,7 @@ load_or_build_chu_ratb_scope_cache <- function(
       codes_de_path = codes_de_path,
       ref_dir = ref_dir
     )
-    scope_cache_payload <- build_ratb_runtime_payload_from_canonical_inputs(
+    scope_cache_payload <- build_chu_ratb_runtime_payload_from_cache_payload(
       payload = native_scope_cache$payload,
       sir_wide = sir_wide
     )

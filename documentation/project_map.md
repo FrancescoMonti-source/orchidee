@@ -124,6 +124,8 @@ chargés hors notebook.
         périmètre RATB natif CHU
     -   garde la mécanique de cache hors du notebook socle tout en
         séparant cette mécanique du producteur CHU lui-même
+    -   reconstruit le payload runtime enrichi du notebook à partir des
+        objets canoniques et du contexte de QA natif CHU
 
 ### Normalisation et artefact amont
 
@@ -168,8 +170,6 @@ chargés hors notebook.
     -   construit le périmètre microbiologique analytique et expose les
         tables annuelles du `denominator_bundle` au workflow RATB
     -   valide les invariants minimaux des entrées runtime canoniques
-    -   matérialise le payload runtime utilisé par le notebook à partir
-        des entrées canoniques et du contexte de QA disponible
 -   `R/ratb_hospital_days_helpers.R`
     -   helpers natifs PMSI / CHU pour les audits de séjour et le
         dénominateur local
