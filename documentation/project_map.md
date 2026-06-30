@@ -162,6 +162,7 @@ chargés hors notebook.
         `sample_scope_reference` à `sir_wide`
     -   construit le périmètre microbiologique analytique et expose les
         tables annuelles du `denominator_bundle` au workflow RATB
+    -   valide les invariants minimaux des entrées runtime canoniques
     -   matérialise le payload runtime utilisé par le notebook à partir
         des entrées canoniques et du contexte de QA disponible
 -   `R/ratb_hospital_days_helpers.R`

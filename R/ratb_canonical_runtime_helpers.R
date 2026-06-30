@@ -96,6 +96,152 @@ build_ratb_downstream_scope_from_canonical_inputs <- function(
   )
 }
 
+ratb_runtime_add_issue <- function(issues, text) {
+  c(issues, text)
+}
+
+validate_ratb_canonical_runtime_inputs <- function(runtime_inputs, sir_wide = NULL) {
+  errors <- character(0)
+
+  if (!is.list(runtime_inputs)) {
+    return(list(
+      ok = FALSE,
+      errors = "runtime_inputs is not a list."
+    ))
+  }
+  if (!is.null(sir_wide) && !is.data.frame(sir_wide)) {
+    errors <- ratb_runtime_add_issue(errors, "sir_wide is not a data frame.")
+  }
+
+  required_scope_cols <- c(
+    "PATID",
+    "EVTID",
+    "ELTID",
+    "SEJUF",
+    "sample_uf_is_eligible_by_ta_de",
+    "sample_uf_ta_de_status",
+    "sample_uf_ta_de_reason"
+  )
+  sir_wide_ratb_scope <- runtime_inputs$sir_wide_ratb_scope
+  if (!is.data.frame(sir_wide_ratb_scope)) {
+    errors <- ratb_runtime_add_issue(errors, "sir_wide_ratb_scope is not a data frame.")
+  } else {
+    missing_scope_cols <- setdiff(required_scope_cols, names(sir_wide_ratb_scope))
+    if (length(missing_scope_cols) > 0L) {
+      errors <- ratb_runtime_add_issue(
+        errors,
+        paste0(
+          "sir_wide_ratb_scope is missing columns: ",
+          paste(missing_scope_cols, collapse = ", ")
+        )
+      )
+    }
+    if (is.data.frame(sir_wide) && nrow(sir_wide_ratb_scope) != nrow(sir_wide)) {
+      errors <- ratb_runtime_add_issue(
+        errors,
+        "sir_wide_ratb_scope row count differs from sir_wide."
+      )
+    }
+  }
+
+  sir_wide_ratb_analytic_scope <- runtime_inputs$sir_wide_ratb_analytic_scope
+  if (!is.data.frame(sir_wide_ratb_analytic_scope)) {
+    errors <- ratb_runtime_add_issue(
+      errors,
+      "sir_wide_ratb_analytic_scope is not a data frame."
+    )
+  } else {
+    missing_analytic_cols <- setdiff(
+      required_scope_cols,
+      names(sir_wide_ratb_analytic_scope)
+    )
+    if (length(missing_analytic_cols) > 0L) {
+      errors <- ratb_runtime_add_issue(
+        errors,
+        paste0(
+          "sir_wide_ratb_analytic_scope is missing columns: ",
+          paste(missing_analytic_cols, collapse = ", ")
+        )
+      )
+    }
+    if (is.data.frame(sir_wide_ratb_scope) &&
+        nrow(sir_wide_ratb_analytic_scope) > nrow(sir_wide_ratb_scope)) {
+      errors <- ratb_runtime_add_issue(
+        errors,
+        "sir_wide_ratb_analytic_scope has more rows than sir_wide_ratb_scope."
+      )
+    }
+    if ("sample_uf_is_eligible_by_ta_de" %in% names(sir_wide_ratb_analytic_scope) &&
+        any(!(sir_wide_ratb_analytic_scope$sample_uf_is_eligible_by_ta_de %in% TRUE))) {
+      errors <- ratb_runtime_add_issue(
+        errors,
+        "sir_wide_ratb_analytic_scope contains non-eligible sample rows."
+      )
+    }
+  }
+
+  hospital_days_year_summary <- runtime_inputs$hospital_days_year_summary
+  if (!is.data.frame(hospital_days_year_summary)) {
+    errors <- ratb_runtime_add_issue(
+      errors,
+      "hospital_days_year_summary is not a data frame."
+    )
+  }
+
+  hospital_days_year_summary_provisional <-
+    runtime_inputs$hospital_days_year_summary_provisional
+  if (!is.data.frame(hospital_days_year_summary_provisional)) {
+    errors <- ratb_runtime_add_issue(
+      errors,
+      "hospital_days_year_summary_provisional is not a data frame."
+    )
+  } else {
+    required_runtime_denominator_cols <- c(
+      "calendar_year",
+      "hospital_nights_provisional"
+    )
+    missing_runtime_denominator_cols <- setdiff(
+      required_runtime_denominator_cols,
+      names(hospital_days_year_summary_provisional)
+    )
+    if (length(missing_runtime_denominator_cols) > 0L) {
+      errors <- ratb_runtime_add_issue(
+        errors,
+        paste0(
+          "hospital_days_year_summary_provisional is missing columns: ",
+          paste(missing_runtime_denominator_cols, collapse = ", ")
+        )
+      )
+    } else if (any(hospital_days_year_summary_provisional$hospital_nights_provisional < 0)) {
+      errors <- ratb_runtime_add_issue(
+        errors,
+        "hospital_days_year_summary_provisional contains negative nights."
+      )
+    }
+  }
+
+  list(
+    ok = length(errors) == 0L,
+    errors = unique(errors)
+  )
+}
+
+stop_if_invalid_ratb_canonical_runtime_inputs <- function(runtime_inputs, sir_wide = NULL) {
+  validation <- validate_ratb_canonical_runtime_inputs(
+    runtime_inputs = runtime_inputs,
+    sir_wide = sir_wide
+  )
+  if (!isTRUE(validation$ok)) {
+    stop(
+      "Canonical RATB runtime inputs are invalid:\n - ",
+      paste(validation$errors, collapse = "\n - "),
+      call. = FALSE
+    )
+  }
+
+  invisible(validation)
+}
+
 build_ratb_runtime_payload_from_canonical_inputs <- function(payload, sir_wide) {
   stopifnot(
     is.list(payload),
