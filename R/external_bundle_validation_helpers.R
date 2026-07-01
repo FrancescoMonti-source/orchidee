@@ -584,6 +584,21 @@ external_bundle_validate_sample_scope_reference <- function(
   list(ok = length(errors) == 0L, errors = unique(errors), warnings = unique(warnings))
 }
 
+external_bundle_subset_sample_scope_reference <- function(
+    sample_scope_reference,
+    contract = orchidee_external_contract_v1()
+  ) {
+  sample_scope_reference <- external_bundle_coerce_sample_scope_reference(sample_scope_reference)
+  required_columns <- contract$sample_scope_reference$required_columns
+
+  if (!is.data.frame(sample_scope_reference) ||
+      !all(required_columns %in% names(sample_scope_reference))) {
+    return(sample_scope_reference)
+  }
+
+  sample_scope_reference[required_columns]
+}
+
 external_bundle_validate_denominator_table <- function(tbl, table_name, table_spec) {
   errors <- character(0)
   warnings <- character(0)
@@ -746,8 +761,9 @@ load_validated_external_input_bundle <- function(
   list(
     sir_wide = loaded$sir_wide,
     sir_wide_meta = loaded$sir_wide_meta,
-    sample_scope_reference = external_bundle_coerce_sample_scope_reference(
-      loaded$sample_scope_reference
+    sample_scope_reference = external_bundle_subset_sample_scope_reference(
+      loaded$sample_scope_reference,
+      contract = contract
     ),
     denominator_bundle = external_bundle_subset_denominator_bundle(
       loaded$denominator_bundle,
