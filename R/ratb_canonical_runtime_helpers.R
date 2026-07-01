@@ -256,12 +256,13 @@ validate_ratb_canonical_runtime_inputs <- function(runtime_inputs, sir_wide = NU
   }
 
   hospital_days_year_summary_provisional <- runtime_inputs$hospital_days_year_summary_provisional
-  if (!is.data.frame(hospital_days_year_summary_provisional)) {
+  if (!is.null(hospital_days_year_summary_provisional) &&
+      !is.data.frame(hospital_days_year_summary_provisional)) {
     errors <- ratb_runtime_add_issue(
       errors,
       "hospital_days_year_summary_provisional is not a data frame."
     )
-  } else {
+  } else if (is.data.frame(hospital_days_year_summary_provisional)) {
     required_runtime_denominator_cols <- c(
       "calendar_year",
       "hospital_nights_provisional"
