@@ -44,7 +44,6 @@ The validator still requires the other row-grain fields to be non-missing.
 
 ### Scope and taxonomy columns
 
-- `nb_resultats`
 - `naturepvt_norm`
 - `bact_norm`
 - `SEJUF`
@@ -60,6 +59,10 @@ audit context, but they are not required by the portable ORCHIDEE core.
 helpers. They are optional because the shared SPARES code derives ordering
 from the canonical date, time, document identifier and row order when these
 columns are absent.
+
+`nb_resultats` may be present as a local completeness helper. It is optional
+because the ORCHIDEE loader derives it from the supported antibiotic columns
+when absent.
 
 ### Supported antibiotic columns
 
@@ -117,8 +120,9 @@ The validator ignores them after warning.
 - `blse_status_row`, `carbapenemase_status_row`: character
 - `DATEPRELEV`: `Date`
 - `HEUREPRELEV`: `difftime`-based time column serialized by R
-- `nb_resultats`: numeric
 - `blse_flag`, `carbapenemase_flag`: logical
+- optional `nb_resultats`: numeric when present; derived by the loader when
+  absent
 - optional `evt_order`, `elt_order`: integer-like when present
 
 ## Allowed values
