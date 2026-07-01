@@ -89,23 +89,6 @@ extract_incidence_denominator_by_year <- function(denominator_bundle) {
   )
 }
 
-build_legacy_hospital_days_year_summary <- function(
-    denominator_bundle,
-    incidence_denominator_by_year
-  ) {
-  legacy_tbl <- denominator_bundle$hospital_days_year_summary_provisional
-  if (is.data.frame(legacy_tbl) &&
-      all(c("calendar_year", "hospital_nights_provisional") %in% names(legacy_tbl))) {
-    return(legacy_tbl)
-  }
-
-  data.frame(
-    calendar_year = incidence_denominator_by_year$calendar_year,
-    hospital_nights_provisional = incidence_denominator_by_year$hospital_nights,
-    stringsAsFactors = FALSE
-  )
-}
-
 build_ratb_downstream_scope_from_canonical_inputs <- function(
     sir_wide,
     sample_scope_reference,
@@ -120,10 +103,6 @@ build_ratb_downstream_scope_from_canonical_inputs <- function(
   incidence_denominator_by_year <- extract_incidence_denominator_by_year(
     denominator_bundle
   )
-  hospital_days_year_summary_provisional <- build_legacy_hospital_days_year_summary(
-    denominator_bundle = denominator_bundle,
-    incidence_denominator_by_year = incidence_denominator_by_year
-  )
 
   sir_wide_ratb_scope <- apply_ratb_sample_ta_de_scope(
     sir_wide = sir_wide,
@@ -135,8 +114,7 @@ build_ratb_downstream_scope_from_canonical_inputs <- function(
     sir_wide_ratb_analytic_scope = build_ratb_analytic_scope_dataset(
       sir_wide_ratb_scope
     ),
-    incidence_denominator_by_year = incidence_denominator_by_year,
-    hospital_days_year_summary_provisional = hospital_days_year_summary_provisional
+    incidence_denominator_by_year = incidence_denominator_by_year
   )
 }
 
