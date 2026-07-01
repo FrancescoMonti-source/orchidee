@@ -43,8 +43,6 @@ Purpose:
 
 Required columns:
 - `calendar_year`
-- `n_episodes`
-- `n_cross_year_episodes`
 - `hospital_nights_provisional`
 
 Type expectations:
@@ -52,14 +50,18 @@ Type expectations:
 
 Invariants:
 - no duplicate `calendar_year`
-- no negative counts
+- no negative `hospital_nights_provisional`
 - no missing `calendar_year`
 
 ## Extra elements
 
-The bundle may contain extra list elements or extra columns, but they are
-not part of the v1 contract.
+The bundle may contain extra list elements or extra columns, but they are not
+part of the v1 contract. For example, `n_episodes` and
+`n_cross_year_episodes` can remain useful audit columns in local CHU outputs.
+
 The validator ignores extra list elements and warns about extra columns.
+Loader and materialization helpers retain only the required v1 columns at the
+portable ORCHIDEE boundary.
 
 ## Optional CHU audit table
 
