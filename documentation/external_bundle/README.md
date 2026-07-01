@@ -103,6 +103,17 @@ Default behavior:
 
 The validator is additive only. It is not called by the main notebooks.
 
+For a true external bundle, use strict preferred mode:
+
+```powershell
+& 'C:\Program Files\R\R-4.5.2\bin\Rscript.exe' scripts/validate_external_bundle.R outputs/external_bundle_v1 --strict-preferred
+```
+
+Strict preferred mode rejects CHU compatibility sources such as
+`ratb_scope_cache`. It requires the four preferred files:
+`sir_wide.rds`, `sir_wide_meta.rds`, `sample_scope_reference.rds`, and
+`denominator_bundle.rds`.
+
 ## Materialize a preferred bundle
 
 Current CHU artifacts still validate through compatibility sources such as
@@ -130,6 +141,13 @@ This test validates the bundle, applies the sample-scope reference to
 `sir_wide`, and checks that the scoped microbiology rows and annual
 denominator table satisfy the core invariants. It does not render notebooks
 or write pipeline caches.
+
+For a true external handoff, run the same smoke test in strict preferred
+mode:
+
+```powershell
+& 'C:\Program Files\R\R-4.5.2\bin\Rscript.exe' scripts/smoke_external_runtime_inputs.R outputs/external_bundle_v1 --strict-preferred
+```
 
 ## Loader helper
 

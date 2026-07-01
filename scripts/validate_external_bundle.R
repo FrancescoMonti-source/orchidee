@@ -18,13 +18,20 @@ orchidee_source_required_script("helpers.R", "helpers script")
 orchidee_source_required_script("external_bundle_validation_helpers.R", "external bundle validation helpers")
 
 args <- commandArgs(trailingOnly = TRUE)
+strict_preferred <- "--strict-preferred" %in% args
+args <- setdiff(args, "--strict-preferred")
+
 if (length(args) > 1L || any(args %in% c("-h", "--help"))) {
-  cat("Usage: Rscript scripts/validate_external_bundle.R [bundle_dir]\n")
+  cat("Usage: Rscript scripts/validate_external_bundle.R [bundle_dir] [--strict-preferred]\n")
   cat("Default bundle_dir: data\n")
+  cat("--strict-preferred requires sample_scope_reference.rds and denominator_bundle.rds\n")
   quit(status = 0L)
 }
 
 bundle_dir <- if (length(args) == 0L) file.path("data") else args[[1]]
 report <- validate_external_input_bundle(bundle_dir)
+if (isTRUE(strict_preferred)) {
+  report <- external_bundle_enforce_preferred_sources(report)
+}
 print_external_input_bundle_validation(report)
 quit(status = if (isTRUE(report$ok)) 0L else 1L)

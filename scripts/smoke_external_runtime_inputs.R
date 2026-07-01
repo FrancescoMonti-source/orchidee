@@ -34,13 +34,26 @@ orchidee_source_required_script(
 )
 
 args <- commandArgs(trailingOnly = TRUE)
+strict_preferred <- "--strict-preferred" %in% args
+args <- setdiff(args, "--strict-preferred")
+
 if (length(args) > 1L || any(args %in% c("-h", "--help"))) {
-  cat("Usage: Rscript scripts/smoke_external_runtime_inputs.R [bundle_dir]\n")
+  cat("Usage: Rscript scripts/smoke_external_runtime_inputs.R [bundle_dir] [--strict-preferred]\n")
   cat("Default bundle_dir: data\n")
+  cat("--strict-preferred requires sample_scope_reference.rds and denominator_bundle.rds\n")
   quit(status = 0L)
 }
 
 bundle_dir <- if (length(args) == 0L) file.path("data") else args[[1]]
+path_report <- validate_external_input_bundle(bundle_dir)
+if (isTRUE(strict_preferred)) {
+  path_report <- external_bundle_enforce_preferred_sources(path_report)
+}
+if (!isTRUE(path_report$ok)) {
+  print_external_input_bundle_validation(path_report)
+  quit(status = 1L)
+}
+
 bundle <- load_validated_external_input_bundle(bundle_dir)
 
 runtime_inputs <- build_ratb_downstream_scope_from_canonical_inputs(
