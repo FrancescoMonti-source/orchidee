@@ -217,14 +217,13 @@ build_indicator_panels <- function(sir_wide_meta, dedup_results, scope_cache) {
     bact_order_map = bact_order_map
   )
 
-  hospital_days_year_summary_provisional <- scope_cache$hospital_days_year_summary_provisional
   panel_incidence <- build_ratb_indicator_panel_incidence_annual(
     dedup_results = dedup_results,
     spec = spec_incidence_exec,
     atb_cols = atb_cols,
     supported_atb_cols = supported_atb_cols,
     bact_order_map = bact_order_map,
-    hospital_days_year_summary_provisional = hospital_days_year_summary_provisional
+    incidence_denominator_by_year = scope_cache$incidence_denominator_by_year
   )
 
   incidence_excluded_years <- ratb_cfg$incidence_excluded_years

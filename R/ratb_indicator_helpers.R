@@ -533,14 +533,9 @@ build_ratb_indicator_panel_annual <- function(
 }
 
 normalise_ratb_incidence_denominator <- function(
-    incidence_denominator_by_year = NULL,
-    hospital_days_year_summary_provisional = NULL
+    incidence_denominator_by_year
   ) {
   denominator <- incidence_denominator_by_year
-  if (is.null(denominator)) {
-    denominator <- hospital_days_year_summary_provisional
-  }
-
   if (!is.data.frame(denominator)) {
     stop(
       "Incidence denominator must be a data frame.",
@@ -560,24 +555,8 @@ normalise_ratb_incidence_denominator <- function(
     )
   }
 
-  if (all(
-    c("calendar_year", "hospital_nights_provisional") %in%
-      names(denominator)
-  )) {
-    return(
-      denominator %>%
-        transmute(
-          dedup_year = as.integer(calendar_year),
-          hospital_nights = as.numeric(hospital_nights_provisional),
-          denominator_source = "hospital_nights_provisional"
-        ) %>%
-        arrange(dedup_year)
-    )
-  }
-
   stop(
-    "Incidence denominator must contain calendar_year with either ",
-    "hospital_nights or hospital_nights_provisional.",
+    "Incidence denominator must contain calendar_year and hospital_nights.",
     call. = FALSE
   )
 }
@@ -588,8 +567,7 @@ build_ratb_indicator_panel_incidence_annual <- function(
     atb_cols,
     supported_atb_cols = atb_cols,
     bact_order_map,
-    incidence_denominator_by_year = NULL,
-    hospital_days_year_summary_provisional = NULL
+    incidence_denominator_by_year
   ) {
   if (nrow(spec) == 0L) {
     return(tibble())
@@ -597,8 +575,7 @@ build_ratb_indicator_panel_incidence_annual <- function(
 
   stopifnot(is.list(dedup_results))
   denominator_years <- normalise_ratb_incidence_denominator(
-    incidence_denominator_by_year = incidence_denominator_by_year,
-    hospital_days_year_summary_provisional = hospital_days_year_summary_provisional
+    incidence_denominator_by_year = incidence_denominator_by_year
   )
 
   panels <- purrr::imap_dfr(
