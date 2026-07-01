@@ -175,13 +175,21 @@ chu_ratb_cache_payload_is_usable <- function(payload, sir_wide) {
   if (!is.data.frame(payload$sample_scope_reference)) {
     return(FALSE)
   }
-  if (!is.list(payload$denominator_bundle) || !all(c(
-    "hospital_days_year_summary",
-    "hospital_days_year_summary_provisional"
-  ) %in% names(payload$denominator_bundle))) {
+  if (!is.list(payload$denominator_bundle)) {
     return(FALSE)
   }
-  denominator_provisional <- payload$denominator_bundle$hospital_days_year_summary_provisional
+
+  canonical_denominator <- tryCatch(
+    build_chu_canonical_denominator_bundle(payload$denominator_bundle),
+    error = function(err) NULL
+  )
+  if (!is.list(canonical_denominator) ||
+      !is.data.frame(canonical_denominator$incidence_denominator_by_year) ||
+      !"hospital_nights" %in% names(canonical_denominator$incidence_denominator_by_year)) {
+    return(FALSE)
+  }
+
+  denominator_provisional <- payload$hospital_days_year_summary_provisional
   if (!is.data.frame(denominator_provisional) ||
       !"hospital_nights_provisional" %in% names(denominator_provisional)) {
     return(FALSE)
@@ -218,6 +226,9 @@ chu_ratb_cache_payload_is_usable <- function(payload, sir_wide) {
     return(FALSE)
   }
   if (!all(!payload$hospital_stays_validated$negative_elapsed)) {
+    return(FALSE)
+  }
+  if (!all(canonical_denominator$incidence_denominator_by_year$hospital_nights >= 0)) {
     return(FALSE)
   }
   if (!all(denominator_provisional$hospital_nights_provisional >= 0)) {
@@ -303,6 +314,15 @@ build_chu_ratb_runtime_payload_from_cache_payload <- function(payload, sir_wide)
   runtime_denominator_bundle <- build_chu_canonical_denominator_bundle(
     payload$denominator_bundle
   )
+  legacy_denominator_summary <- payload$hospital_days_year_summary_provisional
+  if (!is.data.frame(legacy_denominator_summary) ||
+      !all(c("calendar_year", "hospital_nights_provisional") %in%
+        names(legacy_denominator_summary))) {
+    legacy_denominator_summary <- build_chu_legacy_hospital_days_year_summary(
+      denominator_bundle = payload$denominator_bundle,
+      incidence_denominator_by_year = runtime_denominator_bundle$incidence_denominator_by_year
+    )
+  }
 
   runtime_scope <- build_ratb_downstream_scope_from_canonical_inputs(
     sir_wide = runtime_base,
@@ -313,11 +333,9 @@ build_chu_ratb_runtime_payload_from_cache_payload <- function(payload, sir_wide)
   payload$sir_wide_ratb_scope_base <- runtime_base
   payload$sir_wide_ratb_scope <- runtime_scope$sir_wide_ratb_scope
   payload$sir_wide_ratb_analytic_scope <- runtime_scope$sir_wide_ratb_analytic_scope
+  payload$denominator_bundle <- runtime_denominator_bundle
   payload$incidence_denominator_by_year <- runtime_scope$incidence_denominator_by_year
-  payload$hospital_days_year_summary_provisional <- build_chu_legacy_hospital_days_year_summary(
-    denominator_bundle = payload$denominator_bundle,
-    incidence_denominator_by_year = runtime_scope$incidence_denominator_by_year
-  )
+  payload$hospital_days_year_summary_provisional <- legacy_denominator_summary
 
   payload
 }
