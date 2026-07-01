@@ -827,6 +827,38 @@ validate_external_input_bundle <- function(bundle_dir = file.path("data"), contr
   )
 }
 
+external_bundle_enforce_preferred_sources <- function(report) {
+  errors <- character(0)
+  paths <- report$paths
+
+  if (is.null(paths)) {
+    errors <- external_bundle_add_issue(
+      errors,
+      "Cannot enforce preferred sources because bundle paths were not resolved."
+    )
+  } else {
+    if (!identical(paths$sample_scope_reference_source, "preferred")) {
+      errors <- external_bundle_add_issue(
+        errors,
+        "Strict preferred mode requires sample_scope_reference.rds."
+      )
+    }
+    if (!identical(paths$denominator_source, "preferred")) {
+      errors <- external_bundle_add_issue(
+        errors,
+        "Strict preferred mode requires denominator_bundle.rds."
+      )
+    }
+  }
+
+  if (length(errors) > 0L) {
+    report$ok <- FALSE
+    report$errors <- unique(c(report$errors, errors))
+  }
+
+  report
+}
+
 load_validated_external_input_bundle <- function(
     bundle_dir = file.path("data"),
     contract = orchidee_external_contract_v1()
