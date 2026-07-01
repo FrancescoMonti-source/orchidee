@@ -67,9 +67,7 @@ orchidee_external_contract_v1 <- function() {
         "blse_status_row",
         "carbapenemase_status_row",
         "blse_flag",
-        "carbapenemase_flag",
-        "evt_order",
-        "elt_order"
+        "carbapenemase_flag"
       ),
       atb_cols = atb_cols,
       allowed_atb_values = c("S", "R", "ZIT"),
@@ -342,7 +340,7 @@ external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract 
       )
     }
 
-    order_cols <- c("evt_order", "elt_order")
+    order_cols <- intersect(c("evt_order", "elt_order"), names(sir_wide))
     bad_order_cols <- order_cols[!vapply(sir_wide[order_cols], external_bundle_is_integerish, logical(1))]
     if (length(bad_order_cols) > 0L) {
       errors <- external_bundle_add_issue(
