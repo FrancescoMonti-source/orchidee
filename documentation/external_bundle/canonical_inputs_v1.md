@@ -59,7 +59,8 @@ The current external contract uses four files:
   - sample-level TA/DE scope reference joined to `sir_wide` by `SEJUF`;
   - exact schema in `sample_scope_reference_v1.md`.
 - `denominator_bundle.rds`
-  - annual PMSI/activity denominator table;
+  - annual PMSI/activity denominator table
+    (`incidence_denominator_by_year`);
   - exact schema in `denominator_bundle_v1.md`.
 
 The executable validator is:

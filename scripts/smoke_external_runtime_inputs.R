@@ -63,7 +63,7 @@ if (!isTRUE(runtime_validation$ok)) {
   quit(status = 1L)
 }
 
-denominator_years <- runtime_inputs$hospital_days_year_summary_provisional$calendar_year
+denominator_years <- runtime_inputs$incidence_denominator_by_year$calendar_year
 cat("PASS: canonical bundle builds downstream ORCHIDEE inputs.\n")
 cat("Bundle directory: ", normalizePath(bundle_dir, winslash = "/", mustWork = FALSE), "\n", sep = "")
 cat("Contract version: ", bundle$validation_report$contract_version %||% "v1", "\n", sep = "")

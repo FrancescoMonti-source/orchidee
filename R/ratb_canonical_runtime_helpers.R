@@ -66,6 +66,47 @@ build_ratb_analytic_scope_dataset <- function(sir_wide_ratb_scope) {
     dplyr::filter(sample_uf_is_eligible_by_ta_de)
 }
 
+extract_incidence_denominator_by_year <- function(denominator_bundle) {
+  stopifnot(is.list(denominator_bundle))
+
+  if (is.data.frame(denominator_bundle$incidence_denominator_by_year)) {
+    return(denominator_bundle$incidence_denominator_by_year)
+  }
+
+  legacy_tbl <- denominator_bundle$hospital_days_year_summary_provisional
+  if (is.data.frame(legacy_tbl) &&
+      all(c("calendar_year", "hospital_nights_provisional") %in% names(legacy_tbl))) {
+    return(data.frame(
+      calendar_year = legacy_tbl$calendar_year,
+      hospital_nights = legacy_tbl$hospital_nights_provisional,
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  stop(
+    "denominator_bundle must contain incidence_denominator_by_year ",
+    "or compatible hospital_days_year_summary_provisional.",
+    call. = FALSE
+  )
+}
+
+build_legacy_hospital_days_year_summary <- function(
+    denominator_bundle,
+    incidence_denominator_by_year
+  ) {
+  legacy_tbl <- denominator_bundle$hospital_days_year_summary_provisional
+  if (is.data.frame(legacy_tbl) &&
+      all(c("calendar_year", "hospital_nights_provisional") %in% names(legacy_tbl))) {
+    return(legacy_tbl)
+  }
+
+  data.frame(
+    calendar_year = incidence_denominator_by_year$calendar_year,
+    hospital_nights_provisional = incidence_denominator_by_year$hospital_nights,
+    stringsAsFactors = FALSE
+  )
+}
+
 build_ratb_downstream_scope_from_canonical_inputs <- function(
     sir_wide,
     sample_scope_reference,
@@ -74,8 +115,15 @@ build_ratb_downstream_scope_from_canonical_inputs <- function(
   stopifnot(
     is.data.frame(sir_wide),
     is.data.frame(sample_scope_reference),
-    is.list(denominator_bundle),
-    "hospital_days_year_summary_provisional" %in% names(denominator_bundle)
+    is.list(denominator_bundle)
+  )
+
+  incidence_denominator_by_year <- extract_incidence_denominator_by_year(
+    denominator_bundle
+  )
+  hospital_days_year_summary_provisional <- build_legacy_hospital_days_year_summary(
+    denominator_bundle = denominator_bundle,
+    incidence_denominator_by_year = incidence_denominator_by_year
   )
 
   sir_wide_ratb_scope <- apply_ratb_sample_ta_de_scope(
@@ -88,7 +136,8 @@ build_ratb_downstream_scope_from_canonical_inputs <- function(
     sir_wide_ratb_analytic_scope = build_ratb_analytic_scope_dataset(
       sir_wide_ratb_scope
     ),
-    hospital_days_year_summary_provisional = denominator_bundle$hospital_days_year_summary_provisional
+    incidence_denominator_by_year = incidence_denominator_by_year,
+    hospital_days_year_summary_provisional = hospital_days_year_summary_provisional
   )
 }
 
@@ -176,8 +225,38 @@ validate_ratb_canonical_runtime_inputs <- function(runtime_inputs, sir_wide = NU
     }
   }
 
-  hospital_days_year_summary_provisional <-
-    runtime_inputs$hospital_days_year_summary_provisional
+  incidence_denominator_by_year <- runtime_inputs$incidence_denominator_by_year
+  if (!is.data.frame(incidence_denominator_by_year)) {
+    errors <- ratb_runtime_add_issue(
+      errors,
+      "incidence_denominator_by_year is not a data frame."
+    )
+  } else {
+    required_runtime_denominator_cols <- c(
+      "calendar_year",
+      "hospital_nights"
+    )
+    missing_runtime_denominator_cols <- setdiff(
+      required_runtime_denominator_cols,
+      names(incidence_denominator_by_year)
+    )
+    if (length(missing_runtime_denominator_cols) > 0L) {
+      errors <- ratb_runtime_add_issue(
+        errors,
+        paste0(
+          "incidence_denominator_by_year is missing columns: ",
+          paste(missing_runtime_denominator_cols, collapse = ", ")
+        )
+      )
+    } else if (any(incidence_denominator_by_year$hospital_nights < 0)) {
+      errors <- ratb_runtime_add_issue(
+        errors,
+        "incidence_denominator_by_year contains negative nights."
+      )
+    }
+  }
+
+  hospital_days_year_summary_provisional <- runtime_inputs$hospital_days_year_summary_provisional
   if (!is.data.frame(hospital_days_year_summary_provisional)) {
     errors <- ratb_runtime_add_issue(
       errors,
