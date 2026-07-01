@@ -63,8 +63,6 @@ orchidee_external_contract_v1 <- function() {
         "naturepvt_norm",
         "bact_norm",
         "SEJUF",
-        "SEJUM",
-        "TYPEANA",
         atb_cols,
         "blse_status_row",
         "carbapenemase_status_row",
@@ -272,6 +270,18 @@ external_bundle_load_bundle <- function(paths) {
   )
 }
 
+external_bundle_subset_sir_wide <- function(
+    sir_wide,
+    contract = orchidee_external_contract_v1()
+  ) {
+  required_columns <- contract$sir_wide$required_columns
+  if (!is.data.frame(sir_wide) || !all(required_columns %in% names(sir_wide))) {
+    return(sir_wide)
+  }
+
+  sir_wide[required_columns]
+}
+
 external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract = orchidee_external_contract_v1()) {
   errors <- character(0)
   warnings <- character(0)
@@ -301,7 +311,7 @@ external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract 
   if (length(missing_cols) == 0L) {
     character_cols <- c(
       "PATID", "EVTID", "ELTID", "souche_id", "naturepvt_norm", "bact_norm",
-      "SEJUF", "SEJUM", "TYPEANA",
+      "SEJUF",
       spec$atb_cols,
       spec$phenotype_status_cols
     )
@@ -803,7 +813,10 @@ load_validated_external_input_bundle <- function(
   loaded <- external_bundle_load_bundle(path_validation$paths)
 
   list(
-    sir_wide = loaded$sir_wide,
+    sir_wide = external_bundle_subset_sir_wide(
+      loaded$sir_wide,
+      contract = contract
+    ),
     sir_wide_meta = loaded$sir_wide_meta,
     sample_scope_reference = external_bundle_subset_sample_scope_reference(
       loaded$sample_scope_reference,
