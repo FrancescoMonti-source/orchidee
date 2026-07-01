@@ -227,6 +227,23 @@ chu_ratb_cache_payload_is_usable <- function(payload, sir_wide) {
   TRUE
 }
 
+build_chu_legacy_hospital_days_year_summary <- function(
+    denominator_bundle,
+    incidence_denominator_by_year
+  ) {
+  legacy_tbl <- denominator_bundle$hospital_days_year_summary_provisional
+  if (is.data.frame(legacy_tbl) &&
+      all(c("calendar_year", "hospital_nights_provisional") %in% names(legacy_tbl))) {
+    return(legacy_tbl)
+  }
+
+  data.frame(
+    calendar_year = incidence_denominator_by_year$calendar_year,
+    hospital_nights_provisional = incidence_denominator_by_year$hospital_nights,
+    stringsAsFactors = FALSE
+  )
+}
+
 build_chu_ratb_runtime_payload_from_cache_payload <- function(payload, sir_wide) {
   stopifnot(
     is.list(payload),
@@ -262,8 +279,10 @@ build_chu_ratb_runtime_payload_from_cache_payload <- function(payload, sir_wide)
   payload$sir_wide_ratb_scope <- runtime_scope$sir_wide_ratb_scope
   payload$sir_wide_ratb_analytic_scope <- runtime_scope$sir_wide_ratb_analytic_scope
   payload$incidence_denominator_by_year <- runtime_scope$incidence_denominator_by_year
-  payload$hospital_days_year_summary_provisional <-
-    runtime_scope$hospital_days_year_summary_provisional
+  payload$hospital_days_year_summary_provisional <- build_chu_legacy_hospital_days_year_summary(
+    denominator_bundle = payload$denominator_bundle,
+    incidence_denominator_by_year = runtime_scope$incidence_denominator_by_year
+  )
 
   payload
 }
