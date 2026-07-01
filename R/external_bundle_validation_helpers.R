@@ -140,20 +140,21 @@ orchidee_external_contract_v1 <- function() {
     ),
     denominator_bundle = list(
       required_tables = c(
-        "hospital_days_year_summary_provisional"
+        "incidence_denominator_by_year"
       ),
+      compatibility_tables = c("hospital_days_year_summary_provisional"),
       tables = list(
-        hospital_days_year_summary_provisional = list(
+        incidence_denominator_by_year = list(
           required_columns = c(
             "calendar_year",
-            "hospital_nights_provisional"
+            "hospital_nights"
           ),
           integerish_columns = c(
             "calendar_year",
-            "hospital_nights_provisional"
+            "hospital_nights"
           ),
           non_negative_columns = c(
-            "hospital_nights_provisional"
+            "hospital_nights"
           )
         )
       )
@@ -646,10 +647,47 @@ external_bundle_validate_denominator_table <- function(tbl, table_name, table_sp
   list(ok = length(errors) == 0L, errors = unique(errors), warnings = unique(warnings))
 }
 
+external_bundle_coerce_denominator_bundle <- function(
+    denominator_bundle,
+    contract = orchidee_external_contract_v1()
+  ) {
+  if (!is.list(denominator_bundle)) {
+    return(denominator_bundle)
+  }
+
+  required_tables <- contract$denominator_bundle$required_tables
+  if (all(required_tables %in% names(denominator_bundle))) {
+    return(denominator_bundle)
+  }
+
+  legacy_tbl <- denominator_bundle$hospital_days_year_summary_provisional
+  if (!is.data.frame(legacy_tbl) &&
+      is.list(denominator_bundle$denominator_bundle)) {
+    legacy_tbl <- denominator_bundle$denominator_bundle$hospital_days_year_summary_provisional
+  }
+
+  if (!is.data.frame(legacy_tbl) ||
+      !all(c("calendar_year", "hospital_nights_provisional") %in% names(legacy_tbl))) {
+    return(denominator_bundle)
+  }
+
+  list(
+    incidence_denominator_by_year = data.frame(
+      calendar_year = legacy_tbl$calendar_year,
+      hospital_nights = legacy_tbl$hospital_nights_provisional,
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
 external_bundle_validate_denominator_bundle <- function(denominator_bundle, contract = orchidee_external_contract_v1()) {
   errors <- character(0)
   warnings <- character(0)
   spec <- contract$denominator_bundle
+  denominator_bundle <- external_bundle_coerce_denominator_bundle(
+    denominator_bundle,
+    contract = contract
+  )
 
   if (!is.list(denominator_bundle)) {
     errors <- external_bundle_add_issue(errors, "Denominator bundle is not a list.")
@@ -683,6 +721,10 @@ external_bundle_subset_denominator_bundle <- function(
     denominator_bundle,
     contract = orchidee_external_contract_v1()
   ) {
+  denominator_bundle <- external_bundle_coerce_denominator_bundle(
+    denominator_bundle,
+    contract = contract
+  )
   required_tables <- contract$denominator_bundle$required_tables
   if (!is.list(denominator_bundle) || !all(required_tables %in% names(denominator_bundle))) {
     return(denominator_bundle)
