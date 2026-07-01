@@ -146,19 +146,13 @@ orchidee_external_contract_v1 <- function() {
         hospital_days_year_summary_provisional = list(
           required_columns = c(
             "calendar_year",
-            "n_episodes",
-            "n_cross_year_episodes",
             "hospital_nights_provisional"
           ),
           integerish_columns = c(
             "calendar_year",
-            "n_episodes",
-            "n_cross_year_episodes",
             "hospital_nights_provisional"
           ),
           non_negative_columns = c(
-            "n_episodes",
-            "n_cross_year_episodes",
             "hospital_nights_provisional"
           )
         )
@@ -693,7 +687,15 @@ external_bundle_subset_denominator_bundle <- function(
   if (!is.list(denominator_bundle) || !all(required_tables %in% names(denominator_bundle))) {
     return(denominator_bundle)
   }
-  denominator_bundle[required_tables]
+  denominator_bundle <- denominator_bundle[required_tables]
+  for (table_name in required_tables) {
+    required_columns <- contract$denominator_bundle$tables[[table_name]]$required_columns
+    if (is.data.frame(denominator_bundle[[table_name]]) &&
+        all(required_columns %in% names(denominator_bundle[[table_name]]))) {
+      denominator_bundle[[table_name]] <- denominator_bundle[[table_name]][required_columns]
+    }
+  }
+  denominator_bundle
 }
 
 validate_external_input_bundle <- function(bundle_dir = file.path("data"), contract = orchidee_external_contract_v1()) {
