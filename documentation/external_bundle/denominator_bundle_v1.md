@@ -71,8 +71,8 @@ The loader accepts that shape and converts it to
 `incidence_denominator_by_year$hospital_nights` before data crosses the
 portable ORCHIDEE boundary. The shared runtime helper expects the canonical
 table after this conversion. Current CHU/internal QA code may still carry the
-legacy table as an optional alias, but the shared runtime validator only
-requires the canonical `incidence_denominator_by_year` table.
+legacy table as an optional alias, but it is outside the shared runtime
+validation surface.
 
 ## Optional CHU audit table
 
