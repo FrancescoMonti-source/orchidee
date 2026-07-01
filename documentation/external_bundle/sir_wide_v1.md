@@ -9,9 +9,8 @@ editor_options:
 This document defines the first external compatibility contract for the
 microbiology artifact.
 
-v1 deliberately prioritizes compatibility and safety over elegance.
-The contract mirrors the current internal artifact shape used by
-Orchidee.
+v1 deliberately prioritizes compatibility and safety, while keeping the
+portable surface smaller than the current CHU internal artifact.
 
 ## Required files
 
@@ -51,13 +50,13 @@ The validator still requires the other row-grain fields to be non-missing.
 - `naturepvt_norm`
 - `bact_norm`
 - `SEJUF`
-- `SEJUM`
-- `TYPEANA`
 
 `SEJUF` is required because the current RATB microbiology perimeter is
 derived at sample level from the sample UF and the CONSORES TA/DE
-reference. `SEJUM` and `TYPEANA` are kept as sample-level context and
-audit fields used by the current downstream workflow.
+reference.
+
+`SEJUM` and `TYPEANA` may be present in CHU/internal artifacts as local
+audit context, but they are not required by the portable ORCHIDEE core.
 
 ### Supported antibiotic columns
 
@@ -110,7 +109,7 @@ The validator ignores them after warning.
 ## Expected types
 
 - `PATID`, `EVTID`, `ELTID`, `souche_id`, `naturepvt_norm`, `bact_norm`,
-  `SEJUF`, `SEJUM`, `TYPEANA`: character
+  `SEJUF`: character
 - all supported antibiotic columns: character
 - `blse_status_row`, `carbapenemase_status_row`: character
 - `DATEPRELEV`: `Date`

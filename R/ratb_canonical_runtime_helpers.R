@@ -11,7 +11,7 @@ ratb_canonical_trim_or_na <- function(x) {
 
 apply_ratb_sample_ta_de_scope <- function(sir_wide, sample_scope_reference) {
   stopifnot(is.data.frame(sir_wide), is.data.frame(sample_scope_reference))
-  stopifnot(all(c("PATID", "EVTID", "SEJUF", "SEJUM") %in% names(sir_wide)))
+  stopifnot(all(c("PATID", "EVTID", "SEJUF") %in% names(sir_wide)))
 
   required_ref_cols <- c(
     "SEJUF",
@@ -33,8 +33,7 @@ apply_ratb_sample_ta_de_scope <- function(sir_wide, sample_scope_reference) {
     dplyr::mutate(
       PATID = as.character(PATID),
       EVTID = as.character(EVTID),
-      SEJUF = ratb_canonical_trim_or_na(SEJUF),
-      SEJUM = ratb_canonical_trim_or_na(SEJUM)
+      SEJUF = ratb_canonical_trim_or_na(SEJUF)
     ) %>%
     dplyr::left_join(
       sample_scope_reference %>% dplyr::distinct(SEJUF, .keep_all = TRUE),
