@@ -41,8 +41,6 @@ The validator still requires the other row-grain fields to be non-missing.
 - `DATEPRELEV`
 - `HEUREPRELEV`
 - `souche_id`
-- `evt_order`
-- `elt_order`
 
 ### Scope and taxonomy columns
 
@@ -57,6 +55,11 @@ reference.
 
 `SEJUM` and `TYPEANA` may be present in CHU/internal artifacts as local
 audit context, but they are not required by the portable ORCHIDEE core.
+
+`evt_order` and `elt_order` may be present as local deterministic ordering
+helpers. They are optional because the shared SPARES code derives ordering
+from the canonical date, time, document identifier and row order when these
+columns are absent.
 
 ### Supported antibiotic columns
 
@@ -116,7 +119,7 @@ The validator ignores them after warning.
 - `HEUREPRELEV`: `difftime`-based time column serialized by R
 - `nb_resultats`: numeric
 - `blse_flag`, `carbapenemase_flag`: logical
-- `evt_order`, `elt_order`: integer-like
+- optional `evt_order`, `elt_order`: integer-like when present
 
 ## Allowed values
 
