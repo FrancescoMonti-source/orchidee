@@ -59,7 +59,6 @@ orchidee_external_contract_v1 <- function() {
         "DATEPRELEV",
         "HEUREPRELEV",
         "souche_id",
-        "nb_resultats",
         "naturepvt_norm",
         "bact_norm",
         "SEJUF",
@@ -70,6 +69,7 @@ orchidee_external_contract_v1 <- function() {
         "carbapenemase_flag"
       ),
       atb_cols = atb_cols,
+      derived_columns = c("nb_resultats"),
       allowed_atb_values = c("S", "R", "ZIT"),
       row_grain_key = c(
         "PATID",
@@ -268,22 +268,54 @@ external_bundle_load_bundle <- function(paths) {
   )
 }
 
+external_bundle_sir_wide_contract_columns <- function(contract = orchidee_external_contract_v1()) {
+  unique(c(contract$sir_wide$required_columns, contract$sir_wide$derived_columns))
+}
+
+external_bundle_add_derived_sir_wide_columns <- function(
+    sir_wide,
+    contract = orchidee_external_contract_v1()
+  ) {
+  if (!is.data.frame(sir_wide)) {
+    return(sir_wide)
+  }
+
+  atb_cols <- contract$sir_wide$atb_cols
+  if (!"nb_resultats" %in% names(sir_wide) &&
+      all(atb_cols %in% names(sir_wide))) {
+    atb_mat <- as.matrix(sir_wide[, atb_cols, drop = FALSE])
+    sr_mat <- atb_mat == "S" | atb_mat == "R"
+    sr_mat[is.na(sr_mat)] <- FALSE
+    sir_wide$nb_resultats <- rowSums(sr_mat)
+  }
+
+  sir_wide
+}
+
 external_bundle_subset_sir_wide <- function(
     sir_wide,
     contract = orchidee_external_contract_v1()
   ) {
-  required_columns <- contract$sir_wide$required_columns
-  if (!is.data.frame(sir_wide) || !all(required_columns %in% names(sir_wide))) {
+  contract_columns <- external_bundle_sir_wide_contract_columns(contract)
+  sir_wide <- external_bundle_add_derived_sir_wide_columns(
+    sir_wide,
+    contract = contract
+  )
+  if (!is.data.frame(sir_wide) || !all(contract_columns %in% names(sir_wide))) {
     return(sir_wide)
   }
 
-  sir_wide[required_columns]
+  sir_wide[contract_columns]
 }
 
 external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract = orchidee_external_contract_v1()) {
   errors <- character(0)
   warnings <- character(0)
   spec <- contract$sir_wide
+  sir_wide <- external_bundle_add_derived_sir_wide_columns(
+    sir_wide,
+    contract = contract
+  )
 
   if (!is.data.frame(sir_wide)) {
     errors <- external_bundle_add_issue(errors, "sir_wide is not a data.frame.")
@@ -298,7 +330,8 @@ external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract 
     )
   }
 
-  extra_cols <- setdiff(names(sir_wide), spec$required_columns)
+  contract_cols <- external_bundle_sir_wide_contract_columns(contract)
+  extra_cols <- setdiff(names(sir_wide), contract_cols)
   if (length(extra_cols) > 0L) {
     warnings <- external_bundle_add_issue(
       warnings,
