@@ -112,6 +112,10 @@ orchidee_source_required_script(
   "ratb_hospital_days_helpers script"
 )
 orchidee_source_required_script(
+  "ratb_canonical_runtime_helpers.R",
+  "ratb_canonical_runtime_helpers script"
+)
+orchidee_source_required_script(
   "ratb_report_helpers.R",
   "ratb_report_helpers script"
 )
@@ -267,6 +271,12 @@ if (is.null(ratb_scope_cache_payload) || is.null(ratb_scope_cache_meta)) {
 
 invisible(list2env(ratb_scope_cache_payload, envir = environment()))
 
+if (!exists("incidence_denominator_by_year") && exists("denominator_bundle")) {
+  incidence_denominator_by_year <- extract_incidence_denominator_by_year(
+    denominator_bundle
+  )
+}
+
 stopifnot(
   is.list(dedup_results),
   length(dedup_results) > 0L,
@@ -277,7 +287,7 @@ stopifnot(
   )),
   exists("sir_wide_ratb_scope"),
   exists("ratb_episode_scope_audit"),
-  exists("hospital_days_year_summary_provisional")
+  exists("incidence_denominator_by_year")
 )
 
 ```
@@ -617,7 +627,7 @@ stopifnot(
   exists("build_ratb_indicator_panel_incidence_annual", mode = "function"),
   is.list(dedup_results),
   all(ratb_indicator_datasets %in% names(dedup_results)),
-  is.data.frame(hospital_days_year_summary_provisional)
+  is.data.frame(incidence_denominator_by_year)
 )
 
 ratb_indicator_panel_incidence_annual <- build_ratb_indicator_panel_incidence_annual(
@@ -626,7 +636,7 @@ ratb_indicator_panel_incidence_annual <- build_ratb_indicator_panel_incidence_an
   atb_cols = atb_cols,
   supported_atb_cols = supported_atb_cols,
   bact_order_map = bact_order_map,
-  hospital_days_year_summary_provisional = hospital_days_year_summary_provisional
+  incidence_denominator_by_year = incidence_denominator_by_year
 )
 
 ratb_indicator_panel_incidence_annual <- ratb_indicator_panel_incidence_annual %>%

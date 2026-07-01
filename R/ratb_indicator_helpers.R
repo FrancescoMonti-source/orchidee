@@ -532,30 +532,74 @@ build_ratb_indicator_panel_annual <- function(
     )
 }
 
+normalise_ratb_incidence_denominator <- function(
+    incidence_denominator_by_year = NULL,
+    hospital_days_year_summary_provisional = NULL
+  ) {
+  denominator <- incidence_denominator_by_year
+  if (is.null(denominator)) {
+    denominator <- hospital_days_year_summary_provisional
+  }
+
+  if (!is.data.frame(denominator)) {
+    stop(
+      "Incidence denominator must be a data frame.",
+      call. = FALSE
+    )
+  }
+
+  if (all(c("calendar_year", "hospital_nights") %in% names(denominator))) {
+    return(
+      denominator %>%
+        transmute(
+          dedup_year = as.integer(calendar_year),
+          hospital_nights = as.numeric(hospital_nights),
+          denominator_source = "hospital_nights_provisional"
+        ) %>%
+        arrange(dedup_year)
+    )
+  }
+
+  if (all(
+    c("calendar_year", "hospital_nights_provisional") %in%
+      names(denominator)
+  )) {
+    return(
+      denominator %>%
+        transmute(
+          dedup_year = as.integer(calendar_year),
+          hospital_nights = as.numeric(hospital_nights_provisional),
+          denominator_source = "hospital_nights_provisional"
+        ) %>%
+        arrange(dedup_year)
+    )
+  }
+
+  stop(
+    "Incidence denominator must contain calendar_year with either ",
+    "hospital_nights or hospital_nights_provisional.",
+    call. = FALSE
+  )
+}
+
 build_ratb_indicator_panel_incidence_annual <- function(
     dedup_results,
     spec,
     atb_cols,
     supported_atb_cols = atb_cols,
     bact_order_map,
-    hospital_days_year_summary_provisional
+    incidence_denominator_by_year = NULL,
+    hospital_days_year_summary_provisional = NULL
   ) {
   if (nrow(spec) == 0L) {
     return(tibble())
   }
 
-  stopifnot(
-    is.list(dedup_results),
-    all(c("calendar_year", "hospital_nights_provisional") %in% names(hospital_days_year_summary_provisional))
+  stopifnot(is.list(dedup_results))
+  denominator_years <- normalise_ratb_incidence_denominator(
+    incidence_denominator_by_year = incidence_denominator_by_year,
+    hospital_days_year_summary_provisional = hospital_days_year_summary_provisional
   )
-
-  denominator_years <- hospital_days_year_summary_provisional %>%
-    transmute(
-      dedup_year = as.integer(calendar_year),
-      hospital_nights = as.numeric(hospital_nights_provisional),
-      denominator_source = "hospital_nights_provisional"
-    ) %>%
-    arrange(dedup_year)
 
   panels <- purrr::imap_dfr(
     dedup_results,
