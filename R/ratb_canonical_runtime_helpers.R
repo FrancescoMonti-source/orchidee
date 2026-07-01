@@ -222,38 +222,6 @@ validate_ratb_canonical_runtime_inputs <- function(runtime_inputs, sir_wide = NU
     }
   }
 
-  hospital_days_year_summary_provisional <- runtime_inputs$hospital_days_year_summary_provisional
-  if (!is.null(hospital_days_year_summary_provisional) &&
-      !is.data.frame(hospital_days_year_summary_provisional)) {
-    errors <- ratb_runtime_add_issue(
-      errors,
-      "hospital_days_year_summary_provisional is not a data frame."
-    )
-  } else if (is.data.frame(hospital_days_year_summary_provisional)) {
-    required_runtime_denominator_cols <- c(
-      "calendar_year",
-      "hospital_nights_provisional"
-    )
-    missing_runtime_denominator_cols <- setdiff(
-      required_runtime_denominator_cols,
-      names(hospital_days_year_summary_provisional)
-    )
-    if (length(missing_runtime_denominator_cols) > 0L) {
-      errors <- ratb_runtime_add_issue(
-        errors,
-        paste0(
-          "hospital_days_year_summary_provisional is missing columns: ",
-          paste(missing_runtime_denominator_cols, collapse = ", ")
-        )
-      )
-    } else if (any(hospital_days_year_summary_provisional$hospital_nights_provisional < 0)) {
-      errors <- ratb_runtime_add_issue(
-        errors,
-        "hospital_days_year_summary_provisional contains negative nights."
-      )
-    }
-  }
-
   list(
     ok = length(errors) == 0L,
     errors = unique(errors)
