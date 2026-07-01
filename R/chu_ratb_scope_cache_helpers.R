@@ -244,6 +244,37 @@ build_chu_legacy_hospital_days_year_summary <- function(
   )
 }
 
+build_chu_canonical_denominator_bundle <- function(denominator_bundle) {
+  if (!is.list(denominator_bundle)) {
+    stop("CHU denominator bundle must be a list.", call. = FALSE)
+  }
+
+  if (is.data.frame(denominator_bundle$incidence_denominator_by_year)) {
+    return(list(
+      incidence_denominator_by_year =
+        denominator_bundle$incidence_denominator_by_year
+    ))
+  }
+
+  legacy_tbl <- denominator_bundle$hospital_days_year_summary_provisional
+  if (!is.data.frame(legacy_tbl) ||
+      !all(c("calendar_year", "hospital_nights_provisional") %in% names(legacy_tbl))) {
+    stop(
+      "CHU denominator bundle must contain incidence_denominator_by_year ",
+      "or hospital_days_year_summary_provisional.",
+      call. = FALSE
+    )
+  }
+
+  list(
+    incidence_denominator_by_year = data.frame(
+      calendar_year = legacy_tbl$calendar_year,
+      hospital_nights = legacy_tbl$hospital_nights_provisional,
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
 build_chu_ratb_runtime_payload_from_cache_payload <- function(payload, sir_wide) {
   stopifnot(
     is.list(payload),
@@ -269,10 +300,14 @@ build_chu_ratb_runtime_payload_from_cache_payload <- function(payload, sir_wide)
       dplyr::select(-dplyr::all_of(overlapping_scope_cols))
   }
 
+  runtime_denominator_bundle <- build_chu_canonical_denominator_bundle(
+    payload$denominator_bundle
+  )
+
   runtime_scope <- build_ratb_downstream_scope_from_canonical_inputs(
     sir_wide = runtime_base,
     sample_scope_reference = payload$sample_scope_reference,
-    denominator_bundle = payload$denominator_bundle
+    denominator_bundle = runtime_denominator_bundle
   )
 
   payload$sir_wide_ratb_scope_base <- runtime_base
