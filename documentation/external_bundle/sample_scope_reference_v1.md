@@ -49,7 +49,9 @@ scope reference and is therefore rejected.
 - `sample_uf_ta_de_reason`
 
 Optional audit columns, such as `sample_consores_uf_label`, may be present.
-The validator warns about extra columns but does not reject them.
+The validator warns about extra columns but does not reject them. Loader and
+materialization helpers retain only the required v1 columns at the portable
+ORCHIDEE boundary.
 
 ## Expected types
 
