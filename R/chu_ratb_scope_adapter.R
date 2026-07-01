@@ -21,6 +21,27 @@ load_chu_pmsi_main <- function(
   )
 }
 
+build_chu_incidence_denominator_by_year <- function(
+    hospital_days_year_summary_provisional
+  ) {
+  stopifnot(is.data.frame(hospital_days_year_summary_provisional))
+  required_cols <- c("calendar_year", "hospital_nights_provisional")
+  missing_cols <- setdiff(required_cols, names(hospital_days_year_summary_provisional))
+  if (length(missing_cols) > 0L) {
+    stop(
+      "CHU provisional denominator is missing columns: ",
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  hospital_days_year_summary_provisional |>
+    dplyr::transmute(
+      calendar_year = as.integer(.data$calendar_year),
+      hospital_nights = as.integer(.data$hospital_nights_provisional)
+    )
+}
+
 build_chu_native_ratb_scope_cache_payload <- function(
     sir_wide,
     pmsi_path_candidates = c("pmsi", file.path("data", "pmsi")),
@@ -56,7 +77,11 @@ build_chu_native_ratb_scope_cache_payload <- function(
   sample_scope_reference <- build_ratb_sample_scope_reference(
     ratb_provisional_perimeter_objects$ratb_uf_ta_de_reference
   )
+  incidence_denominator_by_year <- build_chu_incidence_denominator_by_year(
+    ratb_provisional_perimeter_objects$hospital_days_year_summary_provisional
+  )
   denominator_bundle <- list(
+    incidence_denominator_by_year = incidence_denominator_by_year,
     hospital_days_year_summary = hospital_days_objects$hospital_days_year_summary,
     hospital_days_year_summary_provisional =
       ratb_provisional_perimeter_objects$hospital_days_year_summary_provisional
