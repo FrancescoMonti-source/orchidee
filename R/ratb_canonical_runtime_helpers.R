@@ -72,19 +72,8 @@ extract_incidence_denominator_by_year <- function(denominator_bundle) {
     return(denominator_bundle$incidence_denominator_by_year)
   }
 
-  legacy_tbl <- denominator_bundle$hospital_days_year_summary_provisional
-  if (is.data.frame(legacy_tbl) &&
-      all(c("calendar_year", "hospital_nights_provisional") %in% names(legacy_tbl))) {
-    return(data.frame(
-      calendar_year = legacy_tbl$calendar_year,
-      hospital_nights = legacy_tbl$hospital_nights_provisional,
-      stringsAsFactors = FALSE
-    ))
-  }
-
   stop(
-    "denominator_bundle must contain incidence_denominator_by_year ",
-    "or compatible hospital_days_year_summary_provisional.",
+    "denominator_bundle must contain incidence_denominator_by_year.",
     call. = FALSE
   )
 }
