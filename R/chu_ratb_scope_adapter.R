@@ -81,10 +81,7 @@ build_chu_native_ratb_scope_cache_payload <- function(
     ratb_provisional_perimeter_objects$hospital_days_year_summary_provisional
   )
   denominator_bundle <- list(
-    incidence_denominator_by_year = incidence_denominator_by_year,
-    hospital_days_year_summary = hospital_days_objects$hospital_days_year_summary,
-    hospital_days_year_summary_provisional =
-      ratb_provisional_perimeter_objects$hospital_days_year_summary_provisional
+    incidence_denominator_by_year = incidence_denominator_by_year
   )
   list(
     payload = list(
