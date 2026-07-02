@@ -77,7 +77,11 @@ saveRDS(
   file.path(output_bundle_dir, contract$bundle$preferred_denominator_file)
 )
 
-report <- validate_external_input_bundle(output_bundle_dir, contract = contract)
+report <- validate_external_input_bundle(
+  output_bundle_dir,
+  contract = contract,
+  strict_preferred = TRUE
+)
 if (!isTRUE(report$ok)) {
   cat("FAIL: materialized bundle does not validate.\n")
   if (length(report$errors) > 0L) {
