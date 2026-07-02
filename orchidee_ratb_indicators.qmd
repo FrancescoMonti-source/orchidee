@@ -116,6 +116,10 @@ orchidee_source_required_script(
   "ratb_canonical_runtime_helpers script"
 )
 orchidee_source_required_script(
+  "chu_ratb_scope_cache_helpers.R",
+  "CHU native RATB scope cache helpers"
+)
+orchidee_source_required_script(
   "ratb_report_helpers.R",
   "ratb_report_helpers script"
 )
@@ -269,11 +273,26 @@ if (is.null(ratb_scope_cache_payload) || is.null(ratb_scope_cache_meta)) {
   )
 }
 
+stopifnot(
+  exists("build_chu_ratb_runtime_payload_from_cache_payload", mode = "function"),
+  exists("validate_ratb_canonical_runtime_inputs", mode = "function")
+)
+
+ratb_scope_cache_payload <- build_chu_ratb_runtime_payload_from_cache_payload(
+  payload = ratb_scope_cache_payload,
+  sir_wide = sir_wide
+)
 invisible(list2env(ratb_scope_cache_payload, envir = environment()))
 
-if (!exists("incidence_denominator_by_year") && exists("denominator_bundle")) {
-  incidence_denominator_by_year <- extract_incidence_denominator_by_year(
-    denominator_bundle
+ratb_runtime_validation <- validate_ratb_canonical_runtime_inputs(
+  runtime_inputs = ratb_scope_cache_payload,
+  sir_wide = sir_wide
+)
+if (!isTRUE(ratb_runtime_validation$ok)) {
+  stop(
+    "Canonical RATB runtime inputs are invalid:\n - ",
+    paste(ratb_runtime_validation$errors, collapse = "\n - "),
+    call. = FALSE
   )
 }
 
