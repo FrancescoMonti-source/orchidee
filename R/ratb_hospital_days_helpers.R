@@ -748,7 +748,7 @@ build_ratb_pmsi_ta_de_denominator <- function(
   stopifnot(is.data.frame(pmsi_main), is.data.frame(status_lookup))
   stopifnot(is.list(refs), is.data.frame(consores_ta_de_ref))
   stopifnot(all(c("uf_ref", "uf2um_ref", "um_ref") %in% names(refs)))
-  stopifnot(all(c("PATID", "EVTID", "PMSISTATUT", "DATENT", "DATSORT", "SEJUM", "SEJUF", "GHM") %in% names(pmsi_main)))
+  stopifnot(all(c("PATID", "EVTID", "DATENT", "DATSORT", "SEJUM", "SEJUF", "GHM") %in% names(pmsi_main)))
 
   scope_status_lookup <- status_lookup %>%
     select(
@@ -761,7 +761,6 @@ build_ratb_pmsi_ta_de_denominator <- function(
     transmute(
       PATID = as.character(PATID),
       EVTID = as.character(EVTID),
-      PMSISTATUT_norm = ratb_normalize_pmsi_status(PMSISTATUT),
       DATENT = DATENT,
       DATSORT = DATSORT,
       SEJUM = ratb_trim_or_na_local(SEJUM),
@@ -939,7 +938,14 @@ build_ratb_provisional_perimeter_audit <- function(
   ) {
   stopifnot(is.data.frame(sir_wide_ratb_scope), is.data.frame(pmsi_main))
   stopifnot(all(c("PATID", "EVTID", "ELTID", "SEJUF", "SEJUM") %in% names(sir_wide_ratb_scope)))
-  stopifnot(all(c("PATID", "EVTID", "PMSISTATUT", "DATENT", "DATSORT", "SEJUM", "SEJUF", "GHM") %in% names(pmsi_main)))
+  stopifnot(all(c("PATID", "EVTID", "DATENT", "DATSORT", "SEJUM", "SEJUF", "GHM") %in% names(pmsi_main)))
+
+  if (is.null(status_lookup) && !"PMSISTATUT" %in% names(pmsi_main)) {
+    stop(
+      "PMSISTATUT is required only when status_lookup must be built for QA.",
+      call. = FALSE
+    )
+  }
 
   if (is.null(status_lookup)) {
     status_lookup <- build_pmsi_status_lookup(pmsi_main)
