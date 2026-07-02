@@ -29,9 +29,9 @@ if (length(args) > 1L || any(args %in% c("-h", "--help"))) {
 }
 
 bundle_dir <- if (length(args) == 0L) file.path("data") else args[[1]]
-report <- validate_external_input_bundle(bundle_dir)
-if (isTRUE(strict_preferred)) {
-  report <- external_bundle_enforce_preferred_sources(report)
-}
+report <- validate_external_input_bundle(
+  bundle_dir = bundle_dir,
+  strict_preferred = strict_preferred
+)
 print_external_input_bundle_validation(report)
 quit(status = if (isTRUE(report$ok)) 0L else 1L)
