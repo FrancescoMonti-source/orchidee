@@ -141,6 +141,11 @@ ratb_runtime_add_issue <- function(issues, text) {
   c(issues, text)
 }
 
+ratb_runtime_is_integerish <- function(x) {
+  is.numeric(x) &&
+    all(is.na(x) | abs(x - round(x)) < sqrt(.Machine$double.eps))
+}
+
 validate_ratb_canonical_runtime_inputs <- function(runtime_inputs, sir_wide = NULL) {
   errors <- character(0)
 
@@ -244,11 +249,44 @@ validate_ratb_canonical_runtime_inputs <- function(runtime_inputs, sir_wide = NU
           paste(missing_runtime_denominator_cols, collapse = ", ")
         )
       )
-    } else if (any(incidence_denominator_by_year$hospital_nights < 0)) {
-      errors <- ratb_runtime_add_issue(
-        errors,
-        "incidence_denominator_by_year contains negative nights."
-      )
+    } else {
+      bad_integerish <- required_runtime_denominator_cols[
+        !vapply(
+          incidence_denominator_by_year[required_runtime_denominator_cols],
+          ratb_runtime_is_integerish,
+          logical(1)
+        )
+      ]
+      if (length(bad_integerish) > 0L) {
+        errors <- ratb_runtime_add_issue(
+          errors,
+          paste0(
+            "incidence_denominator_by_year columns must be integer-like: ",
+            paste(bad_integerish, collapse = ", ")
+          )
+        )
+      }
+      if (any(is.na(incidence_denominator_by_year$calendar_year))) {
+        errors <- ratb_runtime_add_issue(
+          errors,
+          "incidence_denominator_by_year$calendar_year contains missing values."
+        )
+      }
+      denominator_years <- incidence_denominator_by_year$calendar_year
+      denominator_years <- denominator_years[!is.na(denominator_years)]
+      if (any(duplicated(denominator_years))) {
+        errors <- ratb_runtime_add_issue(
+          errors,
+          "incidence_denominator_by_year contains duplicate calendar_year values."
+        )
+      }
+      if (is.numeric(incidence_denominator_by_year$hospital_nights) &&
+          any(incidence_denominator_by_year$hospital_nights < 0, na.rm = TRUE)) {
+        errors <- ratb_runtime_add_issue(
+          errors,
+          "incidence_denominator_by_year contains negative nights."
+        )
+      }
     }
   }
 
