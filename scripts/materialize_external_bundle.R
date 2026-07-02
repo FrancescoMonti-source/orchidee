@@ -45,8 +45,7 @@ contract <- orchidee_external_contract_v1()
 output_files <- file.path(
   output_bundle_dir,
   c(
-    "sir_wide.rds",
-    "sir_wide_meta.rds",
+    unname(contract$bundle$required_files),
     contract$bundle$preferred_sample_scope_reference_file,
     contract$bundle$preferred_denominator_file
   )
@@ -66,8 +65,14 @@ if (length(existing_output) > 0L && !isTRUE(force)) {
   )
 }
 
-saveRDS(bundle$sir_wide, file.path(output_bundle_dir, "sir_wide.rds"))
-saveRDS(bundle$sir_wide_meta, file.path(output_bundle_dir, "sir_wide_meta.rds"))
+saveRDS(
+  bundle$sir_wide,
+  file.path(output_bundle_dir, contract$bundle$required_files[["sir_wide"]])
+)
+saveRDS(
+  bundle$sir_wide_meta,
+  file.path(output_bundle_dir, contract$bundle$required_files[["sir_wide_meta"]])
+)
 saveRDS(
   bundle$sample_scope_reference,
   file.path(output_bundle_dir, contract$bundle$preferred_sample_scope_reference_file)
