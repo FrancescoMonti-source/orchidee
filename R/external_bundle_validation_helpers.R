@@ -1,7 +1,8 @@
 # External bundle validation helpers for Orchidee.
 #
-# This layer is intentionally additive. It documents and validates a future
-# external input contract without changing the current runtime path.
+# This layer documents and validates the canonical external input contract.
+# The scope/denominator boundary is executable today; full external notebook
+# execution remains future work.
 
 orchidee_external_contract_v1 <- function() {
   atb_cols <- c(
@@ -45,7 +46,10 @@ orchidee_external_contract_v1 <- function() {
   list(
     version = "v1",
     bundle = list(
-      required_files = c("sir_wide.rds", "sir_wide_meta.rds"),
+      required_files = c(
+        sir_wide = "sir_wide.rds",
+        sir_wide_meta = "sir_wide_meta.rds"
+      ),
       preferred_sample_scope_reference_file = "sample_scope_reference.rds",
       compatibility_sample_scope_reference_files = c("ratb_scope_cache", "ratb_scope_cache.rds"),
       preferred_denominator_file = "denominator_bundle.rds",
@@ -175,14 +179,16 @@ external_bundle_validate_paths <- function(bundle_dir, contract = orchidee_exter
     return(list(ok = FALSE, errors = errors, warnings = warnings, paths = NULL))
   }
 
-  sir_wide_path <- file.path(bundle_dir, "sir_wide.rds")
-  sir_wide_meta_path <- file.path(bundle_dir, "sir_wide_meta.rds")
-
-  if (!file.exists(sir_wide_path)) {
-    errors <- external_bundle_add_issue(errors, paste0("Missing required file: ", sir_wide_path))
-  }
-  if (!file.exists(sir_wide_meta_path)) {
-    errors <- external_bundle_add_issue(errors, paste0("Missing required file: ", sir_wide_meta_path))
+  required_file_paths <- stats::setNames(
+    file.path(bundle_dir, contract$bundle$required_files),
+    names(contract$bundle$required_files)
+  )
+  missing_required <- required_file_paths[!file.exists(required_file_paths)]
+  if (length(missing_required) > 0L) {
+    errors <- c(
+      errors,
+      paste0("Missing required file: ", unname(missing_required))
+    )
   }
 
   sample_scope_path <- file.path(bundle_dir, contract$bundle$preferred_sample_scope_reference_file)
@@ -249,8 +255,8 @@ external_bundle_validate_paths <- function(bundle_dir, contract = orchidee_exter
     warnings = unique(warnings),
     paths = list(
       bundle_dir = normalizePath(bundle_dir, winslash = "/", mustWork = FALSE),
-      sir_wide = sir_wide_path,
-      sir_wide_meta = sir_wide_meta_path,
+      sir_wide = unname(required_file_paths[["sir_wide"]]),
+      sir_wide_meta = unname(required_file_paths[["sir_wide_meta"]]),
       sample_scope_reference = sample_scope_path,
       sample_scope_reference_source = sample_scope_source,
       denominator_bundle = denominator_path,
