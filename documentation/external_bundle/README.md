@@ -125,8 +125,9 @@ Current CHU artifacts still validate through compatibility sources such as
 
 This writes `sir_wide.rds`, `sir_wide_meta.rds`,
 `sample_scope_reference.rds`, and `denominator_bundle.rds` to the output
-directory, then validates that output directory against the external
-contract.
+directory, then validates that output directory in strict preferred mode.
+This means the materialized output must contain the four preferred files
+and must not rely on CHU compatibility sources such as `ratb_scope_cache`.
 
 ## Runtime smoke test
 
