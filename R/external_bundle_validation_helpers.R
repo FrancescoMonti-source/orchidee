@@ -781,20 +781,29 @@ external_bundle_subset_denominator_bundle <- function(
   denominator_bundle
 }
 
-validate_external_input_bundle <- function(bundle_dir = file.path("data"), contract = orchidee_external_contract_v1()) {
+validate_external_input_bundle <- function(
+    bundle_dir = file.path("data"),
+    contract = orchidee_external_contract_v1(),
+    strict_preferred = FALSE
+  ) {
   path_validation <- external_bundle_validate_paths(bundle_dir, contract = contract)
   errors <- path_validation$errors
   warnings <- path_validation$warnings
 
   if (!isTRUE(path_validation$ok)) {
-    return(list(
+    report <- list(
       ok = FALSE,
       bundle_dir = normalizePath(bundle_dir, winslash = "/", mustWork = FALSE),
       errors = unique(errors),
       warnings = unique(warnings),
       paths = path_validation$paths,
-      denominator_source = NA_character_
-    ))
+      denominator_source = NA_character_,
+      contract_version = contract$version
+    )
+    if (isTRUE(strict_preferred) && !is.null(report$paths)) {
+      report <- external_bundle_enforce_preferred_sources(report)
+    }
+    return(report)
   }
 
   loaded <- external_bundle_load_bundle(path_validation$paths)
@@ -815,7 +824,7 @@ validate_external_input_bundle <- function(bundle_dir = file.path("data"), contr
   errors <- c(errors, sir_wide_validation$errors, sample_scope_validation$errors, denominator_validation$errors)
   warnings <- c(warnings, sir_wide_validation$warnings, sample_scope_validation$warnings, denominator_validation$warnings)
 
-  list(
+  report <- list(
     ok = length(errors) == 0L,
     bundle_dir = normalizePath(bundle_dir, winslash = "/", mustWork = FALSE),
     errors = unique(errors),
@@ -825,6 +834,11 @@ validate_external_input_bundle <- function(bundle_dir = file.path("data"), contr
     denominator_source = basename(path_validation$paths$denominator_bundle),
     contract_version = contract$version
   )
+  if (isTRUE(strict_preferred)) {
+    report <- external_bundle_enforce_preferred_sources(report)
+  }
+
+  report
 }
 
 external_bundle_enforce_preferred_sources <- function(report) {
@@ -861,9 +875,18 @@ external_bundle_enforce_preferred_sources <- function(report) {
 
 load_validated_external_input_bundle <- function(
     bundle_dir = file.path("data"),
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v1(),
+    strict_preferred = FALSE,
+    validation_report = NULL
   ) {
-  report <- validate_external_input_bundle(bundle_dir = bundle_dir, contract = contract)
+  report <- validation_report
+  if (is.null(report)) {
+    report <- validate_external_input_bundle(
+      bundle_dir = bundle_dir,
+      contract = contract,
+      strict_preferred = strict_preferred
+    )
+  }
   if (!isTRUE(report$ok)) {
     stop(
       "External input bundle does not match the ORCHIDEE contract:\n",
@@ -872,8 +895,7 @@ load_validated_external_input_bundle <- function(
     )
   }
 
-  path_validation <- external_bundle_validate_paths(bundle_dir, contract = contract)
-  loaded <- external_bundle_load_bundle(path_validation$paths)
+  loaded <- external_bundle_load_bundle(report$paths)
 
   list(
     sir_wide = external_bundle_subset_sir_wide(
