@@ -91,6 +91,10 @@ layout, run:
 Rscript scripts/materialize_external_bundle.R <source_bundle_dir> <output_bundle_dir>
 ```
 
+The materializer accepts a compatible source bundle, but validates the
+output directory in strict preferred mode. The produced bundle must therefore
+contain the four preferred files and cannot depend on `ratb_scope_cache`.
+
 ## What is not canonical input
 
 These objects are CHU/local implementation details, not portable ORCHIDEE
