@@ -9,6 +9,32 @@ ratb_canonical_trim_or_na <- function(x) {
   x
 }
 
+ratb_canonical_prepare_sample_scope_reference <- function(sample_scope_reference) {
+  sample_scope_reference <- sample_scope_reference %>%
+    dplyr::mutate(SEJUF = ratb_canonical_trim_or_na(SEJUF))
+
+  if (any(is.na(sample_scope_reference$SEJUF))) {
+    stop(
+      "Sample scope reference contains missing SEJUF values.",
+      call. = FALSE
+    )
+  }
+
+  duplicate_sejuf <- unique(sample_scope_reference$SEJUF[
+    duplicated(sample_scope_reference$SEJUF)
+  ])
+  if (length(duplicate_sejuf) > 0L) {
+    stop(
+      "Sample scope reference contains duplicate SEJUF values: ",
+      paste(utils::head(duplicate_sejuf, 10L), collapse = ", "),
+      if (length(duplicate_sejuf) > 10L) ", ..." else "",
+      call. = FALSE
+    )
+  }
+
+  sample_scope_reference
+}
+
 apply_ratb_sample_ta_de_scope <- function(sir_wide, sample_scope_reference) {
   stopifnot(is.data.frame(sir_wide), is.data.frame(sample_scope_reference))
   stopifnot(all(c("PATID", "EVTID", "SEJUF") %in% names(sir_wide)))
@@ -29,6 +55,10 @@ apply_ratb_sample_ta_de_scope <- function(sir_wide, sample_scope_reference) {
     )
   }
 
+  sample_scope_reference <- ratb_canonical_prepare_sample_scope_reference(
+    sample_scope_reference
+  )
+
   sir_wide %>%
     dplyr::mutate(
       PATID = as.character(PATID),
@@ -36,7 +66,7 @@ apply_ratb_sample_ta_de_scope <- function(sir_wide, sample_scope_reference) {
       SEJUF = ratb_canonical_trim_or_na(SEJUF)
     ) %>%
     dplyr::left_join(
-      sample_scope_reference %>% dplyr::distinct(SEJUF, .keep_all = TRUE),
+      sample_scope_reference,
       by = "SEJUF"
     ) %>%
     dplyr::mutate(
