@@ -239,7 +239,7 @@ chargés hors notebook.
     -   validateur CLI autonome pour les bundles externes
 -   `scripts/materialize_external_bundle.R`
     -   écrit un bundle externe préféré à partir d'artefacts compatibles
-        puis revalide le résultat
+        puis revalide strictement le résultat
 -   `scripts/smoke_external_runtime_inputs.R`
     -   smoke test CLI vérifiant qu'un bundle validé peut construire les
         entrées aval minimales du coeur RATB
