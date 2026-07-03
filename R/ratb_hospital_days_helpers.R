@@ -591,6 +591,77 @@ ratb_split_one_stay_by_year <- function(patid, evtid, datent_min, datsort_max, c
   })
 }
 
+ratb_split_stays_days_by_year <- function(stays) {
+  stopifnot(all(c("PATID", "EVTID", "datent_min", "datsort_max", "cross_year") %in% names(stays)))
+
+  tz <- ratb_resolve_posix_tz(stays$datent_min)
+  empty_result <- tibble(
+    PATID = character(),
+    EVTID = character(),
+    calendar_year = integer(),
+    overlap_start = as.POSIXct(character(), tz = tz),
+    overlap_end = as.POSIXct(character(), tz = tz),
+    overlap_days_exact = numeric(),
+    overlap_days_floor = numeric(),
+    overlap_days_ceiling = numeric(),
+    overlap_days_round = numeric(),
+    cross_year = logical()
+  )
+
+  if (nrow(stays) == 0L) {
+    return(empty_result)
+  }
+
+  stays <- stays %>%
+    mutate(
+      .row_id = dplyr::row_number(),
+      datent_min = as.POSIXct(datent_min, tz = tz),
+      datsort_max = as.POSIXct(datsort_max, tz = tz),
+      start_year = lubridate::year(datent_min),
+      end_year = lubridate::year(datsort_max)
+    ) %>%
+    filter(!is.na(datent_min), !is.na(datsort_max), datsort_max >= datent_min)
+
+  if (nrow(stays) == 0L) {
+    return(empty_result)
+  }
+
+  year_range <- seq.int(
+    min(lubridate::year(stays$datent_min), na.rm = TRUE),
+    max(lubridate::year(stays$datsort_max), na.rm = TRUE)
+  )
+  years <- tibble(
+    calendar_year = year_range,
+    year_start = as.POSIXct(
+      sprintf("%04d-01-01 00:00:00", year_range),
+      tz = tz
+    ),
+    next_year_start = as.POSIXct(
+      sprintf("%04d-01-01 00:00:00", year_range + 1L),
+      tz = tz
+    )
+  )
+
+  tidyr::expand_grid(stays, years) %>%
+    filter(calendar_year >= start_year, calendar_year <= end_year) %>%
+    mutate(
+      overlap_start = pmax(datent_min, year_start),
+      overlap_end = pmin(datsort_max, next_year_start),
+      overlap_days_exact = as.numeric(
+        difftime(overlap_end, overlap_start, units = "days")
+      ),
+      overlap_days_floor = floor(overlap_days_exact),
+      overlap_days_ceiling = ceiling(overlap_days_exact),
+      overlap_days_round = round(overlap_days_exact)
+    ) %>%
+    arrange(.row_id, calendar_year) %>%
+    select(
+      PATID, EVTID, calendar_year, overlap_start, overlap_end,
+      overlap_days_exact, overlap_days_floor, overlap_days_ceiling,
+      overlap_days_round, cross_year
+    )
+}
+
 build_hospital_stays_raw <- function(pmsi_main, status_lookup = NULL) {
   stopifnot(is.data.frame(pmsi_main))
   stopifnot(all(c("PATID", "EVTID", "PMSISTATUT", "DATENT", "DATSORT", "SEJDUR") %in% names(pmsi_main)))
@@ -664,18 +735,9 @@ build_hospital_days_validation <- function(pmsi_main, status_lookup = NULL) {
   hospital_stays_validated <- hospital_stays_raw %>%
     filter(valid_for_denominator)
 
-  hospital_days_year_split <- purrr::pmap_dfr(
+  hospital_days_year_split <- ratb_split_stays_days_by_year(
     hospital_stays_validated %>%
-      select(PATID, EVTID, datent_min, datsort_max, cross_year),
-    function(PATID, EVTID, datent_min, datsort_max, cross_year) {
-      ratb_split_one_stay_by_year(
-        patid = PATID,
-        evtid = EVTID,
-        datent_min = datent_min,
-        datsort_max = datsort_max,
-        cross_year = cross_year
-      )
-    }
+      select(PATID, EVTID, datent_min, datsort_max, cross_year)
   )
 
   hospital_days_year_summary <- hospital_days_year_split %>%
