@@ -327,7 +327,7 @@ resolve_table_note_lines <- function(file_stem, caption = NULL) {
       "This table summarizes how PMSI episodes move through the TA/DE denominator perimeter.",
       "Use it to see which exclusion reasons dominate before interpreting incidence denominators."
     ),
-    hospital_days_year_summary_provisional = c(
+    incidence_denominator_pmsi_ta_de_audit = c(
       "This table reports annual eligible hospital nights after applying TA/DE to PMSI activity independently from microbiology rows.",
       "Use it to inspect denominator magnitude by year while the night-count rule remains under review."
     ),

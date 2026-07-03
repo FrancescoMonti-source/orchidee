@@ -274,7 +274,7 @@ stopifnot(
   all(hospital_stays_validated$validation_status == "validated"),
   all(!hospital_stays_validated$missing_bounds),
   all(!hospital_stays_validated$negative_elapsed),
-  all(hospital_days_year_summary_provisional$hospital_nights_provisional >= 0)
+  all(incidence_denominator_pmsi_ta_de_audit$hospital_nights >= 0)
 )
 
 cat("recompute_ratb_scope: ", isTRUE(recompute_ratb_scope), "\n", sep = "")
@@ -432,7 +432,7 @@ Operational RATB inputs:
 - `sir_wide_ratb_scope`, the broad microbiology table annotated with
   sample-level TA/DE scope and CHU join audit context;
 - `sir_wide_ratb_analytic_scope`, the sample-level TA/DE microbiology perimeter used for completion, deduplication, proportions, and incidence numerators;
-- `hospital_days_year_summary_provisional`, the PMSI TA/DE denominator built independently from microbiology rows.
+- `incidence_denominator_pmsi_ta_de_audit`, the PMSI TA/DE denominator audit built independently from microbiology rows.
 
 Reader roadmap:
 - derive and audit the sample-level microbiology TA/DE scope from the broad artifact;
@@ -3362,10 +3362,10 @@ show_audit_table(
 ```
 
 ```{r}
-#| label: hospital_days_year_summary_provisional_table
+#| label: incidence_denominator_pmsi_ta_de_audit_table
 show_audit_table(
-  data = hospital_days_year_summary_provisional,
-  file_stem = "hospital_days_year_summary_provisional",
+  data = incidence_denominator_pmsi_ta_de_audit,
+  file_stem = "incidence_denominator_pmsi_ta_de_audit",
   caption = "Annual eligible hospital nights from PMSI TA/DE activity",
   page_length = 20,
   scroll_y = "260px",
