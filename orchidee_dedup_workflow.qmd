@@ -259,7 +259,52 @@ ratb_scope_cache_meta <- ratb_scope_cache_result$meta
 ratb_scope_cache_source <- ratb_scope_cache_result$source
 ratb_scope_cache_decision <- ratb_scope_cache_result$decision
 
-list2env(ratb_scope_cache_payload, envir = environment())
+required_ratb_scope_payload_objects <- c(
+  "sir_wide_ratb_analytic_scope",
+  "ratb_scope_exclusion_summary",
+  "ratb_scope_join_audit",
+  "ratb_perimeter_rules",
+  "ratb_uf_ta_de_reference",
+  "ratb_episode_exclusion_summary",
+  "incidence_denominator_pmsi_ta_de_audit",
+  "ratb_numerator_scope_impact_audit",
+  "ratb_episode_scope_audit",
+  "hospital_stay_validation_summary",
+  "hospital_days_year_summary",
+  "hospital_stays_raw",
+  "hospital_stays_validated"
+)
+missing_ratb_scope_payload_objects <- setdiff(
+  required_ratb_scope_payload_objects,
+  names(ratb_scope_cache_payload)
+)
+if (length(missing_ratb_scope_payload_objects) > 0L) {
+  stop(
+    "RATB scope cache payload is missing notebook objects: ",
+    paste(missing_ratb_scope_payload_objects, collapse = ", "),
+    call. = FALSE
+  )
+}
+
+sir_wide_ratb_analytic_scope <-
+  ratb_scope_cache_payload$sir_wide_ratb_analytic_scope
+ratb_scope_exclusion_summary <-
+  ratb_scope_cache_payload$ratb_scope_exclusion_summary
+ratb_scope_join_audit <- ratb_scope_cache_payload$ratb_scope_join_audit
+ratb_perimeter_rules <- ratb_scope_cache_payload$ratb_perimeter_rules
+ratb_uf_ta_de_reference <- ratb_scope_cache_payload$ratb_uf_ta_de_reference
+ratb_episode_exclusion_summary <-
+  ratb_scope_cache_payload$ratb_episode_exclusion_summary
+incidence_denominator_pmsi_ta_de_audit <-
+  ratb_scope_cache_payload$incidence_denominator_pmsi_ta_de_audit
+ratb_numerator_scope_impact_audit <-
+  ratb_scope_cache_payload$ratb_numerator_scope_impact_audit
+ratb_episode_scope_audit <- ratb_scope_cache_payload$ratb_episode_scope_audit
+hospital_stay_validation_summary <-
+  ratb_scope_cache_payload$hospital_stay_validation_summary
+hospital_days_year_summary <- ratb_scope_cache_payload$hospital_days_year_summary
+hospital_stays_raw <- ratb_scope_cache_payload$hospital_stays_raw
+hospital_stays_validated <- ratb_scope_cache_payload$hospital_stays_validated
 
 stop_if_invalid_ratb_canonical_runtime_inputs(
   runtime_inputs = ratb_scope_cache_payload,
