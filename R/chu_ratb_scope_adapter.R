@@ -54,20 +54,20 @@ build_chu_native_ratb_scope_cache_payload <- function(
 
   pmsi <- load_chu_pmsi_main(path_candidates = pmsi_path_candidates)
 
-  ratb_scope_objects <- build_ratb_scope_tables(
+  chu_pmsi_join_audit <- build_chu_microbiology_pmsi_join_audit(
     sir_wide = sir_wide,
     pmsi_main = pmsi$main
   )
 
   hospital_days_objects <- build_hospital_days_validation(
     pmsi_main = pmsi$main,
-    status_lookup = ratb_scope_objects$pmsi_status_lookup
+    status_lookup = chu_pmsi_join_audit$pmsi_status_lookup
   )
 
   ratb_provisional_perimeter_objects <- build_ratb_provisional_perimeter_audit(
-    sir_wide_ratb_scope = ratb_scope_objects$sir_wide_ratb_scope,
+    sir_wide_ratb_scope = chu_pmsi_join_audit$sir_wide_ratb_scope,
     pmsi_main = pmsi$main,
-    status_lookup = ratb_scope_objects$pmsi_status_lookup,
+    status_lookup = chu_pmsi_join_audit$pmsi_status_lookup,
     structure_path = structure_path,
     codes_ta_path = codes_ta_path,
     codes_de_path = codes_de_path,
@@ -87,9 +87,9 @@ build_chu_native_ratb_scope_cache_payload <- function(
     payload = list(
       sample_scope_reference = sample_scope_reference,
       denominator_bundle = denominator_bundle,
-      sir_wide_ratb_scope_base = ratb_scope_objects$sir_wide_ratb_scope,
-      ratb_scope_join_audit = ratb_scope_objects$ratb_scope_join_audit,
-      ratb_scope_exclusion_summary = ratb_scope_objects$ratb_scope_exclusion_summary,
+      sir_wide_ratb_scope_base = chu_pmsi_join_audit$sir_wide_ratb_scope,
+      ratb_scope_join_audit = chu_pmsi_join_audit$ratb_scope_join_audit,
+      ratb_scope_exclusion_summary = chu_pmsi_join_audit$ratb_scope_exclusion_summary,
       hospital_stays_raw = hospital_days_objects$hospital_stays_raw,
       hospital_stays_validated = hospital_days_objects$hospital_stays_validated,
       hospital_stay_validation_summary =
