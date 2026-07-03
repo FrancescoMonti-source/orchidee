@@ -275,7 +275,7 @@ if (is.null(ratb_scope_cache_payload) || is.null(ratb_scope_cache_meta)) {
 
 stopifnot(
   exists("build_chu_ratb_runtime_payload_from_cache_payload", mode = "function"),
-  exists("validate_ratb_canonical_runtime_inputs", mode = "function")
+  exists("stop_if_invalid_ratb_canonical_runtime_inputs", mode = "function")
 )
 
 ratb_scope_cache_payload <- build_chu_ratb_runtime_payload_from_cache_payload(
@@ -284,17 +284,10 @@ ratb_scope_cache_payload <- build_chu_ratb_runtime_payload_from_cache_payload(
 )
 invisible(list2env(ratb_scope_cache_payload, envir = environment()))
 
-ratb_runtime_validation <- validate_ratb_canonical_runtime_inputs(
+stop_if_invalid_ratb_canonical_runtime_inputs(
   runtime_inputs = ratb_scope_cache_payload,
   sir_wide = sir_wide
 )
-if (!isTRUE(ratb_runtime_validation$ok)) {
-  stop(
-    "Canonical RATB runtime inputs are invalid:\n - ",
-    paste(ratb_runtime_validation$errors, collapse = "\n - "),
-    call. = FALSE
-  )
-}
 
 stopifnot(
   is.list(dedup_results),
