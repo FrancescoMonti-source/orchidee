@@ -282,7 +282,28 @@ ratb_scope_cache_payload <- build_chu_ratb_runtime_payload_from_cache_payload(
   payload = ratb_scope_cache_payload,
   sir_wide = sir_wide
 )
-invisible(list2env(ratb_scope_cache_payload, envir = environment()))
+
+required_ratb_scope_payload_objects <- c(
+  "sir_wide_ratb_scope",
+  "ratb_episode_scope_audit",
+  "incidence_denominator_by_year"
+)
+missing_ratb_scope_payload_objects <- setdiff(
+  required_ratb_scope_payload_objects,
+  names(ratb_scope_cache_payload)
+)
+if (length(missing_ratb_scope_payload_objects) > 0L) {
+  stop(
+    "RATB scope cache payload is missing report objects: ",
+    paste(missing_ratb_scope_payload_objects, collapse = ", "),
+    call. = FALSE
+  )
+}
+
+sir_wide_ratb_scope <- ratb_scope_cache_payload$sir_wide_ratb_scope
+ratb_episode_scope_audit <- ratb_scope_cache_payload$ratb_episode_scope_audit
+incidence_denominator_by_year <-
+  ratb_scope_cache_payload$incidence_denominator_by_year
 
 stop_if_invalid_ratb_canonical_runtime_inputs(
   runtime_inputs = ratb_scope_cache_payload,
