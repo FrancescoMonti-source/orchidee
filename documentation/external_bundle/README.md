@@ -35,6 +35,31 @@ Instead, the site should provide a canonical bundle made of:
 Once those artifacts match the contract, the shared Orchidee downstream
 core can be plugged later without changing the artifact contract again.
 
+## Minimum site handoff checklist
+
+For a new hospital, the practical handoff question is: can the local team
+produce these canonical artifacts with the expected grain and meaning?
+
+- `sir_wide.rds`
+  - one row per microbiology sample / identified bacterium observation in
+    the canonical wide S/I/R shape;
+  - broad enough to let ORCHIDEE apply the RATB TA/DE scope, not
+    pre-filtered to hide out-of-scope rows.
+- `sample_scope_reference.rds`
+  - one row per sample unit `SEJUF`;
+  - final RATB TA/DE eligibility flag plus status/reason fields derived from
+    the local unit mapping.
+- `denominator_bundle.rds`
+  - annual `incidence_denominator_by_year` table;
+  - PMSI/activity hospital nights for the RATB TA/DE perimeter, computed
+    independently from microbiology rows.
+- `sir_wide_meta.rds`
+  - metadata matching the `sir_wide` artifact, including supported
+    antibiotics and phenotype columns.
+
+The site-specific work is the raw-to-canonical mapping. The shared ORCHIDEE
+work starts after these files validate.
+
 ## Normalization philosophy
 
 Orchidee owns the canonical target schema.
