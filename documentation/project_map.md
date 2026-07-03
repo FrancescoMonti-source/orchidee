@@ -24,6 +24,47 @@ Ce document s'adresse aux mainteneurs. Il répond à deux questions :
 6.  Rendre le rapport produit et les documents méthodologiques de
     support.
 
+## Frontière actuelle CHU -> coeur ORCHIDEE
+
+Le workflow courant n'est pas encore un mode d'exécution externe complet :
+les notebooks continuent à charger le cache natif CHU pour conserver les
+tables de QA locales. En revanche, le périmètre microbiologique aval et le
+dénominateur d'incidence passent déjà par les objets canoniques attendus
+par le futur contrat externe.
+
+```text
+Données CHU / EDSaN / PMSI / référentiels TA-DE
+        |
+        v
+Adaptateur CHU
+R/chu_ratb_scope_adapter.R
+R/chu_ratb_scope_cache_helpers.R
+        |
+        | produit les objets canoniques et le contexte de QA local
+        v
+Objets canoniques de frontière
+- sir_wide
+- sample_scope_reference
+- denominator_bundle
+        |
+        v
+Coeur runtime indépendant de l'entrepôt
+R/ratb_canonical_runtime_helpers.R
+        |
+        v
+Objets consommés par les notebooks
+- sir_wide_ratb_scope
+- sir_wide_ratb_analytic_scope
+- incidence_denominator_by_year
+```
+
+À retenir pour un autre entrepôt : le site doit produire les objets
+canoniques, pas reproduire l'extraction CHU. Les tables comme
+`ratb_scope_join_audit`, `hospital_stays_validated`,
+`hospital_days_year_summary` ou `incidence_denominator_pmsi_ta_de_audit`
+restent du contexte de QA natif CHU ; elles peuvent aider à comprendre le
+workflow actuel, mais elles ne font pas partie du contrat portable minimal.
+
 ## Notebooks principaux
 
 ### `orchidee_dedup_workflow.qmd`
