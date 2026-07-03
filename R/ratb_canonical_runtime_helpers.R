@@ -41,7 +41,6 @@ apply_ratb_sample_ta_de_scope <- function(sir_wide, sample_scope_reference) {
 
   required_ref_cols <- c(
     "SEJUF",
-    "sample_CODE_TA",
     "sample_uf_is_eligible_by_ta_de",
     "sample_uf_ta_de_status",
     "sample_uf_ta_de_reason"
@@ -57,7 +56,8 @@ apply_ratb_sample_ta_de_scope <- function(sir_wide, sample_scope_reference) {
 
   sample_scope_reference <- ratb_canonical_prepare_sample_scope_reference(
     sample_scope_reference
-  )
+  ) %>%
+    dplyr::mutate(.orchidee_scope_reference_matched = TRUE)
 
   sir_wide %>%
     dplyr::mutate(
@@ -73,15 +73,16 @@ apply_ratb_sample_ta_de_scope <- function(sir_wide, sample_scope_reference) {
       sample_uf_is_eligible_by_ta_de = dplyr::coalesce(sample_uf_is_eligible_by_ta_de, FALSE),
       sample_uf_ta_de_status = dplyr::case_when(
         is.na(SEJUF) ~ "review_missing_sample_uf",
-        is.na(sample_CODE_TA) ~ "review_unmapped_uf",
+        !(.orchidee_scope_reference_matched %in% TRUE) ~ "review_unmapped_uf",
         TRUE ~ sample_uf_ta_de_status
       ),
       sample_uf_ta_de_reason = dplyr::case_when(
         is.na(SEJUF) ~ "missing_sample_uf",
-        is.na(sample_CODE_TA) ~ "uf_absent_from_consores_structure",
+        !(.orchidee_scope_reference_matched %in% TRUE) ~ "uf_absent_from_consores_structure",
         TRUE ~ sample_uf_ta_de_reason
       )
-    )
+    ) %>%
+    dplyr::select(-.orchidee_scope_reference_matched)
 }
 
 build_ratb_analytic_scope_dataset <- function(sir_wide_ratb_scope) {
