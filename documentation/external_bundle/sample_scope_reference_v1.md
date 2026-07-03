@@ -41,27 +41,25 @@ scope reference and is therefore rejected.
 ## Required columns
 
 - `SEJUF`
-- `sample_CODE_TA`
-- `sample_CODE_DE`
-- `sample_de_domain_ref`
 - `sample_uf_is_eligible_by_ta_de`
 - `sample_uf_ta_de_status`
 - `sample_uf_ta_de_reason`
 
-Optional audit columns, such as `sample_consores_uf_label`, may be present.
-The validator warns about extra columns but does not reject them. Loader and
+Optional audit columns, such as `sample_CODE_TA`, `sample_CODE_DE`,
+`sample_de_domain_ref` or `sample_consores_uf_label`, may be present. The
+validator warns about extra columns but does not reject them. Loader and
 materialization helpers retain only the required v1 columns at the portable
 ORCHIDEE boundary.
 
 ## Expected types
 
 - `SEJUF`: character
-- `sample_CODE_TA`: character
-- `sample_CODE_DE`: character
-- `sample_de_domain_ref`: character
 - `sample_uf_is_eligible_by_ta_de`: logical
 - `sample_uf_ta_de_status`: character
 - `sample_uf_ta_de_reason`: character
+
+When present as audit context, `sample_CODE_TA`, `sample_CODE_DE` and
+`sample_de_domain_ref` should be character columns.
 
 ## Allowed values
 
@@ -90,6 +88,11 @@ ORCHIDEE boundary.
 The reference does not remove rows from `sir_wide` by itself. It provides
 the mapped eligibility information that ORCHIDEE uses to decide which
 microbiology rows contribute to RATB numerators and proportions.
+
+The portable core consumes the final eligibility flag plus status/reason
+fields. TA/DE codes may be useful audit context for a local adapter, but the
+shared core does not need them once the adapter has produced the final scope
+decision.
 
 For the portable workflow, a site adapter should provide the broad canonical
 `sir_wide` artifact plus this scope reference. The adapter should not

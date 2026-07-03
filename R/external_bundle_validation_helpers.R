@@ -105,18 +105,12 @@ orchidee_external_contract_v1 <- function() {
     sample_scope_reference = list(
       required_columns = c(
         "SEJUF",
-        "sample_CODE_TA",
-        "sample_CODE_DE",
-        "sample_de_domain_ref",
         "sample_uf_is_eligible_by_ta_de",
         "sample_uf_ta_de_status",
         "sample_uf_ta_de_reason"
       ),
       character_columns = c(
         "SEJUF",
-        "sample_CODE_TA",
-        "sample_CODE_DE",
-        "sample_de_domain_ref",
         "sample_uf_ta_de_status",
         "sample_uf_ta_de_reason"
       ),
