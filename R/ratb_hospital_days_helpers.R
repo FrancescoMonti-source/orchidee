@@ -478,7 +478,7 @@ build_pmsi_status_lookup <- function(pmsi_main) {
     )
 }
 
-build_ratb_scope_tables <- function(sir_wide, pmsi_main) {
+build_chu_microbiology_pmsi_join_audit <- function(sir_wide, pmsi_main) {
   stopifnot(is.data.frame(sir_wide), is.data.frame(pmsi_main))
   stopifnot(all(c("PATID", "EVTID", "ELTID") %in% names(sir_wide)))
 
