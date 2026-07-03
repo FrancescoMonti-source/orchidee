@@ -255,6 +255,25 @@ build_chu_legacy_hospital_days_year_summary <- function(
   )
 }
 
+build_chu_incidence_denominator_pmsi_ta_de_audit <- function(
+    hospital_days_year_summary_provisional
+  ) {
+  required_cols <- c("calendar_year", "hospital_nights_provisional")
+  missing_cols <- setdiff(required_cols, names(hospital_days_year_summary_provisional))
+  if (length(missing_cols) > 0L) {
+    stop(
+      "CHU denominator audit table is missing columns: ",
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  hospital_days_year_summary_provisional %>%
+    dplyr::rename(
+      hospital_nights = hospital_nights_provisional
+    )
+}
+
 build_chu_canonical_denominator_bundle <- function(denominator_bundle) {
   if (!is.list(denominator_bundle)) {
     stop("CHU denominator bundle must be a list.", call. = FALSE)
@@ -336,6 +355,10 @@ build_chu_ratb_runtime_payload_from_cache_payload <- function(payload, sir_wide)
   payload$denominator_bundle <- runtime_denominator_bundle
   payload$incidence_denominator_by_year <- runtime_scope$incidence_denominator_by_year
   payload$hospital_days_year_summary_provisional <- legacy_denominator_summary
+  payload$incidence_denominator_pmsi_ta_de_audit <-
+    build_chu_incidence_denominator_pmsi_ta_de_audit(
+      legacy_denominator_summary
+    )
 
   payload
 }
