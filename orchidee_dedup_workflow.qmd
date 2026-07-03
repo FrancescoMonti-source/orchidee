@@ -238,7 +238,7 @@ recompute_ratb_scope <- orchidee_config$cache$recompute_ratb_scope
 
 stopifnot(
   exists("load_or_build_chu_ratb_scope_cache", mode = "function"),
-  exists("validate_ratb_canonical_runtime_inputs", mode = "function")
+  exists("stop_if_invalid_ratb_canonical_runtime_inputs", mode = "function")
 )
 
 ratb_scope_cache_result <- load_or_build_chu_ratb_scope_cache(
@@ -261,17 +261,10 @@ ratb_scope_cache_decision <- ratb_scope_cache_result$decision
 
 list2env(ratb_scope_cache_payload, envir = environment())
 
-ratb_runtime_validation <- validate_ratb_canonical_runtime_inputs(
+stop_if_invalid_ratb_canonical_runtime_inputs(
   runtime_inputs = ratb_scope_cache_payload,
   sir_wide = sir_wide
 )
-if (!isTRUE(ratb_runtime_validation$ok)) {
-  stop(
-    "Canonical RATB runtime inputs are invalid:\n - ",
-    paste(ratb_runtime_validation$errors, collapse = "\n - "),
-    call. = FALSE
-  )
-}
 
 stopifnot(
   all(
