@@ -77,6 +77,7 @@ Required columns:
 - `sample_type_local`
 - `antibiotic_local`
 - `sir_result`
+- `ratb_diagnostic_scope`
 
 Optional columns:
 
@@ -97,6 +98,10 @@ Interpretation:
   when the laboratory distinguishes several isolates for the same sample.
   If neither column is present, ORCHIDEE derives a `souche_id` and assumes
   one isolate per sample, sample type and bacterium.
+- `ratb_diagnostic_scope` must identify rows that belong to the diagnostic
+  RATB microbiology scope. TRUE rows are pivoted into `sir_wide`; FALSE rows
+  are excluded before pivoting. Accepted values include `TRUE`/`FALSE` and
+  `1`/`0`.
 - `sir_result` is normalized by ORCHIDEE:
   - `S` and `SFP` become `S`;
   - `R` and `---R` become `R`;
@@ -112,6 +117,11 @@ Mapping dictionaries:
 The local values are hospital-owned. The mapped values must be ORCHIDEE
 canonical values. The builder fails if a local value is not mapped or if an
 antibiotic maps outside the v1 supported antibiotic set.
+
+`ratb_diagnostic_scope` is not the hospital TA/DE perimeter. It is the
+site-owned classification that keeps screening or other non-diagnostic
+microbiology material out of RATB indicators before ORCHIDEE applies the
+sample-UF TA/DE scope.
 
 Phenotype statuses are optional in this handoff. If absent, ORCHIDEE records
 `no_signal` for BLSE and carbapenemase at row level. If present, allowed
