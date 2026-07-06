@@ -49,6 +49,7 @@ Invariants:
 - no duplicate `calendar_year`
 - no negative `hospital_nights`
 - no missing `calendar_year`
+- no missing `hospital_nights`
 
 ## Extra elements
 
