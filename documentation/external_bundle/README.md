@@ -85,8 +85,8 @@ The intended split is:
 
 - `site_handoff_inputs_v1.md`
   - human-facing input blocks expected from a new hospital before ORCHIDEE
-    derives the non-microbiology runtime artifacts and assembles a strict
-    canonical bundle
+    derives the four runtime artifacts and assembles a strict canonical
+    bundle
 - `canonical_inputs_v1.md`
   - boundary between site-specific adapter work and shared ORCHIDEE core
 - `sir_wide_v1.md`
