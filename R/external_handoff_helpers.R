@@ -271,7 +271,7 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
   }
 
   required_obs_cols <- c(
-    "PATID", "ELTID", "DATEPRELEV", "souche_id", "SEJUF",
+    "PATID", "ELTID", "DATEPRELEV", "SEJUF",
     "bacteria_local", "sample_type_local", "antibiotic_local", "sir_result"
   )
   missing_obs_cols <- setdiff(required_obs_cols, names(microbiology_observations))
@@ -316,7 +316,13 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
   } else {
     as.difftime(rep(NA_real_, nrow(obs)), units = "secs")
   }
-  obs$souche_id <- orchidee_handoff_trim_or_na(obs$souche_id)
+  obs$souche_id <- if ("souche_id" %in% names(obs)) {
+    orchidee_handoff_trim_or_na(obs$souche_id)
+  } else if ("isolate_local_id" %in% names(obs)) {
+    orchidee_handoff_trim_or_na(obs$isolate_local_id)
+  } else {
+    rep(NA_character_, nrow(obs))
+  }
   obs$SEJUF <- orchidee_handoff_trim_or_na(obs$SEJUF)
   obs$bact_norm <- orchidee_handoff_map_values(
     obs$bacteria_local,
@@ -334,6 +340,14 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     "microbiology_observations$antibiotic_local"
   )
   obs$sir_result <- orchidee_handoff_normalize_sir(obs$sir_result)
+
+  missing_souche <- is.na(obs$souche_id)
+  obs$souche_id[missing_souche] <- paste(
+    "derived",
+    obs$naturepvt_norm[missing_souche],
+    obs$bact_norm[missing_souche],
+    sep = "__"
+  )
 
   non_missing_key_cols <- c("PATID", "ELTID", "DATEPRELEV", "souche_id", "SEJUF", "bact_norm", "naturepvt_norm")
   key_na <- vapply(non_missing_key_cols, function(col) any(is.na(obs[[col]])), logical(1))
@@ -406,6 +420,8 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
         stop(
           "Conflicting S/I/R results for the same row key and antibiotic: ",
           paste(vals, collapse = "/"),
+          ". If the lab reports multiple isolates of the same species in ",
+          "one sample, provide souche_id or isolate_local_id.",
           call. = FALSE
         )
       }

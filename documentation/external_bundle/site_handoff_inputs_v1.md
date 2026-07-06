@@ -72,7 +72,6 @@ Required columns:
 - `PATID`
 - `ELTID`
 - `DATEPRELEV`
-- `souche_id`
 - `SEJUF`
 - `bacteria_local`
 - `sample_type_local`
@@ -83,6 +82,7 @@ Optional columns:
 
 - `EVTID`
 - `HEUREPRELEV`
+- `souche_id` or `isolate_local_id`
 - `blse_status_row` or `blse_status`
 - `carbapenemase_status_row` or `carbapenemase_status`
 
@@ -93,6 +93,10 @@ Interpretation:
   accepted.
 - `HEUREPRELEV`, when present in delimited files, must use `HH:MM` or
   `HH:MM:SS`.
+- `souche_id` / `isolate_local_id` identifies the local bacterial isolate
+  when the laboratory distinguishes several isolates for the same sample.
+  If neither column is present, ORCHIDEE derives a `souche_id` and assumes
+  one isolate per sample, sample type and bacterium.
 - `sir_result` is normalized by ORCHIDEE:
   - `S` and `SFP` become `S`;
   - `R` and `---R` become `R`;
@@ -218,7 +222,9 @@ From those inputs, ORCHIDEE derives:
 - `denominator_bundle.rds`
   - generated from the annual denominator table.
 
-The original `sir_wide.rds` is copied into the output bundle.
+In the preferred path, `sir_wide.rds` is generated from the long
+microbiology observations. In the compatibility path, a prebuilt
+`sir_wide.rds` is copied into the output bundle.
 
 ## Command-line builder
 
