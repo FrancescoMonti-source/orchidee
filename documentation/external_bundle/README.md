@@ -26,7 +26,7 @@ For now, this is not a full external execution mode:
 Another hospital should not be asked to reproduce the full Orchidee raw
 extraction pipeline.
 
-Instead, the site should provide a canonical bundle made of:
+The machine/runtime boundary remains the canonical bundle made of:
 - `sir_wide.rds`
 - `sir_wide_meta.rds`
 - `sample_scope_reference.rds`
@@ -34,6 +34,13 @@ Instead, the site should provide a canonical bundle made of:
 
 Once those artifacts match the contract, the shared Orchidee downstream
 core can be plugged later without changing the artifact contract again.
+
+For onboarding, a site does not need to hand-author all four files. The
+handoff layer described in `site_handoff_inputs_v1.md` starts one level
+upstream for the less human-facing runtime artifacts: the site provides
+simpler local blocks, then ORCHIDEE derives `sir_wide_meta.rds`,
+`sample_scope_reference.rds`, and `denominator_bundle.rds`. In this v1,
+`sir_wide.rds` remains the microbiology source block.
 
 ## Minimum site handoff checklist
 
@@ -78,6 +85,10 @@ The intended split is:
 
 ## Documents in this folder
 
+- `site_handoff_inputs_v1.md`
+  - human-facing input blocks expected from a new hospital before ORCHIDEE
+    derives the non-microbiology runtime artifacts and assembles a strict
+    canonical bundle
 - `canonical_inputs_v1.md`
   - boundary between site-specific adapter work and shared ORCHIDEE core
 - `sir_wide_v1.md`
@@ -92,6 +103,7 @@ The intended split is:
 The v1 contract has two surfaces:
 
 - human-facing contract:
+  - `documentation/external_bundle/site_handoff_inputs_v1.md`
   - `documentation/external_bundle/canonical_inputs_v1.md`
   - `documentation/external_bundle/sir_wide_v1.md`
   - `documentation/external_bundle/sample_scope_reference_v1.md`
@@ -107,6 +119,11 @@ reference implementation for the CHU artifact, but it is not the external
 adapter contract. A future hospital adapter should produce artifacts that
 match the external contract; it should not be required to reproduce the CHU
 raw extraction path.
+
+For a Rennes-style handoff, start one level upstream with
+`site_handoff_inputs_v1.md`: the site provides elementary source blocks,
+ORCHIDEE derives the non-microbiology runtime artifacts, and the original
+`sir_wide.rds` is assembled with them into a validated canonical bundle.
 
 ## Validator
 

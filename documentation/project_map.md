@@ -65,6 +65,15 @@ canoniques, pas reproduire l'extraction CHU. Les tables comme
 restent du contexte de QA natif CHU ; elles peuvent aider à comprendre le
 workflow actuel, mais elles ne font pas partie du contrat portable minimal.
 
+Pour un site comme Rennes, le point d'échange humain est situé un cran plus
+en amont : `documentation/external_bundle/site_handoff_inputs_v1.md`
+décrit les blocs élémentaires à fournir, puis
+`scripts/build_external_bundle_from_handoff_inputs.R` dérive le bundle
+canonique validé.
+Dans cette v1, le bloc microbiologique reste `sir_wide.rds` : la
+construction générique depuis des exports microbiologiques bruts et des
+dictionnaires locaux reste une étape d'adaptation de site séparée.
+
 ## Notebooks principaux
 
 ### `orchidee_dedup_workflow.qmd`
@@ -218,6 +227,13 @@ chargés hors notebook.
     -   transformation des références CONSORES TA/DE locales vers la
         `sample_scope_reference` canonique
     -   découpage inter-annuel
+-   `R/external_handoff_helpers.R`
+    -   helpers de handoff pour un site externe : dérive les métadonnées
+        de `sir_wide`, construit la `sample_scope_reference` depuis un
+        mapping simple UF/TA-DE et enveloppe le dénominateur annuel en
+        `denominator_bundle`
+    -   ne constitue pas un connecteur universel d'entrepôt ; il attend
+        des blocs locaux déjà compréhensibles et mappés par le site
 
 ### Indicateurs et couche rapport
 
@@ -281,13 +297,18 @@ chargés hors notebook.
 -   `scripts/materialize_external_bundle.R`
     -   écrit un bundle externe préféré à partir d'artefacts compatibles
         puis revalide strictement le résultat
+-   `scripts/build_external_bundle_from_handoff_inputs.R`
+    -   construit un bundle externe préféré depuis les blocs élémentaires
+        de handoff d'un site externe
+    -   dérive `sir_wide_meta.rds`, `sample_scope_reference.rds` et
+        `denominator_bundle.rds`, puis lance la validation stricte
 -   `scripts/smoke_external_runtime_inputs.R`
     -   smoke test CLI vérifiant qu'un bundle validé peut construire les
         entrées aval minimales du coeur RATB
 -   `documentation/external_bundle/`
-    -   documentation du contrat pour les entrées canoniques,
-        `sir_wide`, la référence de périmètre au prélèvement et le
-        bundle de dénominateur
+    -   documentation du handoff site externe, du contrat pour les
+        entrées canoniques, de `sir_wide`, de la référence de périmètre au
+        prélèvement et du bundle de dénominateur
     -   à maintenir en cohérence avec
         `R/external_bundle_validation_helpers.R` quand le schéma v1
         change

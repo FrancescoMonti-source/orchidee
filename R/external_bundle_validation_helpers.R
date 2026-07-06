@@ -147,6 +147,10 @@ orchidee_external_contract_v1 <- function() {
             "calendar_year",
             "hospital_nights"
           ),
+          non_missing_columns = c(
+            "calendar_year",
+            "hospital_nights"
+          ),
           non_negative_columns = c(
             "hospital_nights"
           )
@@ -669,6 +673,18 @@ external_bundle_validate_denominator_table <- function(tbl, table_name, table_sp
       )
     }
 
+    non_missing_columns <- table_spec$non_missing_columns
+    if (is.null(non_missing_columns)) non_missing_columns <- character()
+    missing_value_cols <- non_missing_columns[
+      vapply(tbl[non_missing_columns], function(x) any(is.na(x)), logical(1))
+    ]
+    if (length(missing_value_cols) > 0L) {
+      errors <- external_bundle_add_issue(
+        errors,
+        paste0(table_name, " columns must not contain NA values: ", paste(missing_value_cols, collapse = ", "))
+      )
+    }
+
     for (col in table_spec$non_negative_columns) {
       if (!is.numeric(tbl[[col]])) {
         errors <- external_bundle_add_issue(errors, paste0(table_name, "$", col, " must be numeric."))
@@ -677,9 +693,6 @@ external_bundle_validate_denominator_table <- function(tbl, table_name, table_sp
       }
     }
 
-    if (any(is.na(tbl$calendar_year))) {
-      errors <- external_bundle_add_issue(errors, paste0(table_name, "$calendar_year contains NA values."))
-    }
     if (any(duplicated(tbl$calendar_year))) {
       errors <- external_bundle_add_issue(errors, paste0(table_name, " contains duplicate calendar_year values."))
     }

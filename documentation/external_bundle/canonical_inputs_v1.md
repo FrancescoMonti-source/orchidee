@@ -14,6 +14,10 @@ responsible for extracting and mapping its own local data. ORCHIDEE starts
 only once those local data have been converted into the canonical inputs
 listed here.
 
+For a Rennes-style handoff, the human-facing exchange can happen one level
+upstream. `site_handoff_inputs_v1.md` describes elementary source blocks
+that ORCHIDEE can convert into this canonical runtime bundle.
+
 ## Boundary
 
 ### Site adapter responsibility

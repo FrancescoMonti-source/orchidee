@@ -104,6 +104,7 @@ partagée, sans être encore un mode d'exécution externe complet.
 La documentation de l'externalisation future se trouve dans `documentation/external_bundle/` :
 
 -   `documentation/external_bundle/README.md`
+-   `documentation/external_bundle/site_handoff_inputs_v1.md`
 -   `documentation/external_bundle/canonical_inputs_v1.md`
 -   `documentation/external_bundle/sir_wide_v1.md`
 -   `documentation/external_bundle/sample_scope_reference_v1.md`
@@ -115,6 +116,10 @@ Elle sert déjà de frontière interne pour le périmètre et le dénominateur :
 chemin CHU produit les objets canoniques et le notebook les consomme pour
 construire les entrées RATB aval. Le notebook principal ne propose toutefois
 pas encore un mode d'exécution externe complet.
+
+Pour un échange avec un autre établissement, le point d'entrée le plus lisible
+est `site_handoff_inputs_v1.md` : il décrit les blocs élémentaires à fournir
+avant que ORCHIDEE ne dérive le bundle canonique utilisé par le runtime.
 
 ## Conseils immédiats de maintenance
 
