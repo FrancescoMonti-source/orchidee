@@ -549,7 +549,7 @@ normalise_ratb_incidence_denominator <- function(
         transmute(
           dedup_year = as.integer(calendar_year),
           hospital_nights = as.numeric(hospital_nights),
-          denominator_source = "hospital_nights_provisional"
+          denominator_source = "hospital_nights"
         ) %>%
         arrange(dedup_year)
     )
