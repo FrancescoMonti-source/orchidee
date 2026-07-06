@@ -29,6 +29,8 @@ The site adapter owns all raw-to-canonical work:
   sample types and phenotypes;
 - identifying diagnostic microbiology rows and excluding local screening
   material that should not enter RATB indicators;
+- exposing that diagnostic/non-screening decision in the site handoff via
+  `ratb_diagnostic_scope`;
 - mapping local units to the TA/DE perimeter used for RATB surveillance;
 - building the annual PMSI/activity denominator table expected by
   ORCHIDEE.

@@ -100,6 +100,34 @@ orchidee_handoff_integerish_vector <- function(x, col_name) {
   stop(col_name, " must be numeric/integer-like or character integer values.", call. = FALSE)
 }
 
+orchidee_handoff_logical_vector <- function(x, col_name) {
+  if (is.logical(x)) {
+    if (any(is.na(x))) {
+      stop(col_name, " must not contain missing values.", call. = FALSE)
+    }
+    return(x)
+  }
+
+  if (is.numeric(x)) {
+    bad <- is.na(x) | !x %in% c(0, 1)
+    if (any(bad)) {
+      stop(col_name, " must contain TRUE/FALSE or 1/0 values.", call. = FALSE)
+    }
+    return(x == 1)
+  }
+
+  x_chr <- orchidee_handoff_ascii_lower(x)
+  out <- dplyr::case_when(
+    x_chr %in% c("true", "t", "1", "yes", "y", "oui", "o") ~ TRUE,
+    x_chr %in% c("false", "f", "0", "no", "n", "non") ~ FALSE,
+    TRUE ~ NA
+  )
+  if (any(is.na(out))) {
+    stop(col_name, " must contain TRUE/FALSE or 1/0 values.", call. = FALSE)
+  }
+  out
+}
+
 orchidee_handoff_domain_key <- function(x) {
   x <- orchidee_handoff_trim_or_na(x)
   x <- iconv(x, from = "", to = "ASCII//TRANSLIT")
@@ -282,6 +310,15 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
       call. = FALSE
     )
   }
+  diagnostic_cols <- c("ratb_diagnostic_scope", "diagnostic_scope", "is_diagnostic")
+  diagnostic_col <- diagnostic_cols[diagnostic_cols %in% names(microbiology_observations)][1]
+  if (is.na(diagnostic_col)) {
+    stop(
+      "microbiology_observations must contain ratb_diagnostic_scope ",
+      "(or diagnostic_scope/is_diagnostic) so screening rows are explicit.",
+      call. = FALSE
+    )
+  }
 
   bacteria_map <- orchidee_handoff_prepare_mapping(
     bacteria_mapping,
@@ -303,6 +340,19 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
   )
 
   obs <- microbiology_observations
+  diagnostic_scope <- orchidee_handoff_logical_vector(
+    obs[[diagnostic_col]],
+    paste0("microbiology_observations$", diagnostic_col)
+  )
+  obs <- obs[diagnostic_scope, , drop = FALSE]
+  if (nrow(obs) == 0L) {
+    stop(
+      "No rows remain after filtering microbiology_observations to ",
+      diagnostic_col, " == TRUE.",
+      call. = FALSE
+    )
+  }
+
   obs$PATID <- orchidee_handoff_trim_or_na(obs$PATID)
   obs$EVTID <- if ("EVTID" %in% names(obs)) {
     orchidee_handoff_trim_or_na(obs$EVTID)
@@ -349,7 +399,7 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     sep = "__"
   )
 
-  non_missing_key_cols <- c("PATID", "ELTID", "DATEPRELEV", "souche_id", "SEJUF", "bact_norm", "naturepvt_norm")
+  non_missing_key_cols <- c("PATID", "ELTID", "DATEPRELEV", "souche_id", "bact_norm", "naturepvt_norm")
   key_na <- vapply(non_missing_key_cols, function(col) any(is.na(obs[[col]])), logical(1))
   if (any(key_na)) {
     stop(
@@ -402,6 +452,16 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     "PATID", "EVTID", "ELTID", "DATEPRELEV", "HEUREPRELEV", "souche_id",
     "naturepvt_norm", "bact_norm", "SEJUF"
   ), drop = FALSE]
+  sir_wide$SEJUF <- vapply(seq_along(row_key_levels), function(i) {
+    vals <- obs$SEJUF[row_id == i]
+    vals <- vals[!is.na(vals)]
+    if (length(vals) == 0L) NA_character_ else vals[[1L]]
+  }, character(1))
+  sir_wide$HEUREPRELEV <- as.difftime(vapply(seq_along(row_key_levels), function(i) {
+    vals <- obs$HEUREPRELEV[row_id == i]
+    vals <- vals[!is.na(vals)]
+    if (length(vals) == 0L) NA_real_ else as.numeric(vals[[1L]], units = "secs")
+  }, numeric(1)), units = "secs")
 
   sir_matrix <- matrix(
     NA_character_,
@@ -493,13 +553,18 @@ orchidee_handoff_build_sir_wide_meta <- function(
 
   sir_spec <- contract$sir_wide
   supported_atb_cols <- sir_spec$atb_cols
+  observed_atb_cols <- supported_atb_cols[vapply(
+    supported_atb_cols,
+    function(col) any(sir_wide[[col]] %in% sir_spec$allowed_atb_values, na.rm = TRUE),
+    logical(1)
+  )]
 
   list(
     artifact_version = as.integer(artifact_version),
     created_at = as.character(created_at),
     sir_wide_n_rows = nrow(sir_wide),
     sir_wide_n_eltid = length(unique(sir_wide$ELTID)),
-    atb_cols = intersect(supported_atb_cols, names(sir_wide)),
+    atb_cols = observed_atb_cols,
     supported_atb_cols = supported_atb_cols,
     phenotype_status_cols = sir_spec$phenotype_status_cols,
     phenotype_flag_cols = sir_spec$phenotype_flag_cols,

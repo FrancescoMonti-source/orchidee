@@ -51,6 +51,8 @@ produce these elementary blocks with the expected grain and meaning?
 
 - microbiology observations
   - long S/I/R result table at sample / bacterium / antibiotic grain;
+  - diagnostic/non-screening scope made explicit with
+    `ratb_diagnostic_scope`;
   - broad enough to let ORCHIDEE apply the RATB TA/DE scope, not
     pre-filtered to hide out-of-scope rows.
 - microbiology mapping dictionaries
