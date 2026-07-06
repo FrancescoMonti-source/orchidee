@@ -70,9 +70,12 @@ en amont : `documentation/external_bundle/site_handoff_inputs_v1.md`
 décrit les blocs élémentaires à fournir, puis
 `scripts/build_external_bundle_from_handoff_inputs.R` dérive le bundle
 canonique validé.
-Dans cette v1, le bloc microbiologique reste `sir_wide.rds` : la
-construction générique depuis des exports microbiologiques bruts et des
-dictionnaires locaux reste une étape d'adaptation de site séparée.
+Le chemin préféré passe par `scripts/build_external_bundle_from_site_inputs.R` :
+les observations microbiologiques longues et les dictionnaires locaux
+dérivent `sir_wide.rds`, puis les mappings UF/TA-DE et le dénominateur
+annuel dérivent les autres objets du bundle canonique. Le script
+`build_external_bundle_from_handoff_inputs.R` reste disponible quand un site
+a déjà construit un `sir_wide.rds` canonique.
 
 ## Notebooks principaux
 
@@ -229,9 +232,10 @@ chargés hors notebook.
     -   découpage inter-annuel
 -   `R/external_handoff_helpers.R`
     -   helpers de handoff pour un site externe : dérive les métadonnées
-        de `sir_wide`, construit la `sample_scope_reference` depuis un
-        mapping simple UF/TA-DE et enveloppe le dénominateur annuel en
-        `denominator_bundle`
+        de `sir_wide`, construit `sir_wide` depuis des observations
+        microbiologiques longues et des dictionnaires locaux, construit la
+        `sample_scope_reference` depuis un mapping simple UF/TA-DE et
+        enveloppe le dénominateur annuel en `denominator_bundle`
     -   ne constitue pas un connecteur universel d'entrepôt ; il attend
         des blocs locaux déjà compréhensibles et mappés par le site
 
@@ -299,9 +303,15 @@ chargés hors notebook.
         puis revalide strictement le résultat
 -   `scripts/build_external_bundle_from_handoff_inputs.R`
     -   construit un bundle externe préféré depuis les blocs élémentaires
-        de handoff d'un site externe
+        de handoff d'un site externe qui fournit déjà un `sir_wide.rds`
     -   dérive `sir_wide_meta.rds`, `sample_scope_reference.rds` et
         `denominator_bundle.rds`, puis lance la validation stricte
+-   `scripts/build_external_bundle_from_site_inputs.R`
+    -   construit un bundle externe préféré depuis les blocs élémentaires
+        complets d'un site externe
+    -   dérive `sir_wide.rds`, `sir_wide_meta.rds`,
+        `sample_scope_reference.rds` et `denominator_bundle.rds`, puis
+        lance la validation stricte
 -   `scripts/smoke_external_runtime_inputs.R`
     -   smoke test CLI vérifiant qu'un bundle validé peut construire les
         entrées aval minimales du coeur RATB

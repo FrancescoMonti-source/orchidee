@@ -37,35 +37,33 @@ core can be plugged later without changing the artifact contract again.
 
 For onboarding, a site does not need to hand-author all four files. The
 handoff layer described in `site_handoff_inputs_v1.md` starts one level
-upstream for the less human-facing runtime artifacts: the site provides
-simpler local blocks, then ORCHIDEE derives `sir_wide_meta.rds`,
-`sample_scope_reference.rds`, and `denominator_bundle.rds`. In this v1,
-`sir_wide.rds` remains the microbiology source block.
+upstream: the site provides simpler local blocks, then ORCHIDEE derives
+`sir_wide.rds`, `sir_wide_meta.rds`, `sample_scope_reference.rds`, and
+`denominator_bundle.rds`.
+
+If a site already has a canonical `sir_wide.rds`, the older prebuilt
+microbiology path remains available as a compatibility shortcut.
 
 ## Minimum site handoff checklist
 
 For a new hospital, the practical handoff question is: can the local team
-produce these canonical artifacts with the expected grain and meaning?
+produce these elementary blocks with the expected grain and meaning?
 
-- `sir_wide.rds`
-  - one row per microbiology sample / identified bacterium observation in
-    the canonical wide S/I/R shape;
+- microbiology observations
+  - long S/I/R result table at sample / bacterium / antibiotic grain;
   - broad enough to let ORCHIDEE apply the RATB TA/DE scope, not
     pre-filtered to hide out-of-scope rows.
-- `sample_scope_reference.rds`
-  - one row per sample unit `SEJUF`;
-  - final RATB TA/DE eligibility flag plus status/reason fields derived from
-    the local unit mapping.
-- `denominator_bundle.rds`
-  - annual `incidence_denominator_by_year` table;
+- microbiology mapping dictionaries
+  - local bacteria, sample-type and antibiotic labels mapped to ORCHIDEE
+    canonical values.
+- unit / structure / TA-DE mapping
+  - one row per sample unit `SEJUF`, with TA/DE information.
+- annual denominator table
   - PMSI/activity hospital nights for the RATB TA/DE perimeter, computed
     independently from microbiology rows.
-- `sir_wide_meta.rds`
-  - metadata matching the `sir_wide` artifact, including supported
-    antibiotics and phenotype columns.
 
-The site-specific work is the raw-to-canonical mapping. The shared ORCHIDEE
-work starts after these files validate.
+ORCHIDEE turns those blocks into the canonical runtime bundle and validates
+that bundle before it crosses into the shared downstream core.
 
 ## Normalization philosophy
 
@@ -122,8 +120,8 @@ raw extraction path.
 
 For a Rennes-style handoff, start one level upstream with
 `site_handoff_inputs_v1.md`: the site provides elementary source blocks,
-ORCHIDEE derives the non-microbiology runtime artifacts, and the original
-`sir_wide.rds` is assembled with them into a validated canonical bundle.
+ORCHIDEE derives the runtime artifacts, and the resulting four files are
+assembled into a validated canonical bundle.
 
 ## Validator
 
@@ -170,6 +168,29 @@ This writes `sir_wide.rds`, `sir_wide_meta.rds`,
 directory, then validates that output directory in strict preferred mode.
 This means the materialized output must contain the four preferred files
 and must not rely on CHU compatibility sources such as `ratb_scope_cache`.
+
+## Build a bundle from site handoff inputs
+
+For a Rennes-style handoff, build the preferred bundle directly from the
+elementary local blocks:
+
+```powershell
+& 'C:\Program Files\R\R-4.5.2\bin\Rscript.exe' `
+  scripts/build_external_bundle_from_site_inputs.R `
+  <microbiology_observations.rds|csv|tsv> `
+  <bacteria_mapping.rds|csv|tsv> `
+  <sample_type_mapping.rds|csv|tsv> `
+  <antibiotic_mapping.rds|csv|tsv> `
+  <unit_mapping.rds|csv|tsv> `
+  <denominator_by_year.rds|csv|tsv> `
+  <output_bundle_dir> `
+  [de_reference.rds|csv|tsv] `
+  [--force]
+```
+
+This writes the same four preferred files and validates them in strict
+preferred mode. It is not a universal HDW connector: the hospital still owns
+local extraction and mapping into these simple handoff blocks.
 
 ## Runtime smoke test
 
