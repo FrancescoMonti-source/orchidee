@@ -99,6 +99,24 @@ The materializer accepts a compatible source bundle, but validates the
 output directory in strict preferred mode. The produced bundle must therefore
 contain the four preferred files and cannot depend on `ratb_scope_cache`.
 
+To build the preferred four-file bundle from Rennes-style elementary handoff
+inputs, run:
+
+```powershell
+Rscript scripts/build_external_bundle_from_site_inputs.R `
+  <microbiology_observations> `
+  <bacteria_mapping> `
+  <sample_type_mapping> `
+  <antibiotic_mapping> `
+  <unit_mapping> `
+  <denominator_by_year> `
+  <output_bundle_dir>
+```
+
+That script derives `sir_wide.rds`, `sir_wide_meta.rds`,
+`sample_scope_reference.rds`, and `denominator_bundle.rds`, then validates
+the output in strict preferred mode.
+
 ## What is not canonical input
 
 These objects are CHU/local implementation details, not portable ORCHIDEE

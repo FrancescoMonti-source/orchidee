@@ -119,7 +119,10 @@ pas encore un mode d'exécution externe complet.
 
 Pour un échange avec un autre établissement, le point d'entrée le plus lisible
 est `site_handoff_inputs_v1.md` : il décrit les blocs élémentaires à fournir
-avant que ORCHIDEE ne dérive le bundle canonique utilisé par le runtime.
+avant que ORCHIDEE ne dérive le bundle canonique utilisé par le runtime. Le
+script `scripts/build_external_bundle_from_site_inputs.R` construit ce bundle
+depuis les observations microbiologiques longues, les dictionnaires locaux, le
+mapping UF/TA-DE et le dénominateur annuel.
 
 ## Conseils immédiats de maintenance
 
