@@ -111,7 +111,7 @@ function finalSlide() {
   ctx.addText(slide, { x: 86, y: 132, w: 930, h: 150, text: "ORCHIDEE montre qu'une production semi-automatisée d'indicateurs RATB à partir des données hospitalières est possible.", fontSize: 40, bold: true, color: T.ink, typeface: T.title });
   ctx.addText(slide, { x: 90, y: 330, w: 900, h: 92, text: "La valeur du travail repose autant sur les résultats produits que sur la traçabilité des choix méthodologiques.", fontSize: 28, color: T.muted });
   ctx.addShape(slide, { x: 88, y: 490, w: 1020, h: 2, fill: T.line });
-  ctx.addText(slide, { x: 90, y: 526, w: 900, h: 48, text: "Prochaine étape : stabiliser les arbitrages avec SPF/SPARES avant d'élargir les stratifications et les usages.", fontSize: 23, color: T.accent, bold: true });
+  ctx.addText(slide, { x: 90, y: 526, w: 900, h: 48, text: "Étape 1 : noyau annuel gelé ; les extensions doivent préserver cette base validée ou documenter explicitement tout changement de méthode.", fontSize: 23, color: T.accent, bold: true });
 `;
 }
 
@@ -126,7 +126,7 @@ const slides = [
     title: "ORCHIDEE rend explicites les choix qui transforment les données hospitalières en indicateurs",
     body: "ORCHIDEE vise à utiliser les entrepôts de données de santé hospitaliers pour produire des indicateurs de surveillance en routine.",
     items: [
-      "reproduire, documenter et discuter les indicateurs attendus par Santé publique France ;",
+      "produire et documenter les indicateurs attendus dans le premier périmètre RATB ;",
       "rester cohérent avec la méthodologie SPARES ;",
       "rendre traçables les choix de périmètre, de comptage et de restitution."
     ],
@@ -165,7 +165,7 @@ const slides = [
   }),
   textSlide({
     kicker: "PÉRIMÈTRE BIOLOGIQUE",
-    title: "Les premiers travaux reprennent les micro-organismes ciblés dans l'expression de besoins SPF",
+    title: "Les premiers travaux reprennent les micro-organismes ciblés dans l'expression de besoins",
     items: [
       "Staphylococcus aureus ;",
       "Escherichia coli ;",
@@ -259,7 +259,7 @@ const slides = [
     items: [
       "option 1 : dédoublonner d'abord, puis décrire les souches selon une variable ;",
       "option 2 : définir d'abord les strates, puis dédoublonner séparément dans chaque strate ;",
-      "cet arbitrage concerne notamment le trimestre, le site de prélèvement, le service ou l'établissement ;",
+      "ce choix méthodologique concerne notamment le trimestre, le site de prélèvement, le service ou l'établissement ;",
       "le choix peut changer les souches retenues, les numérateurs et parfois les dénominateurs."
     ],
   }),

@@ -20,7 +20,6 @@ Ce dépôt a actuellement 3 publics principaux :
 
 -   maintenance du pipeline
 -   production des rapports et livrables
--   discussion méthodologique avec SPF
 
 ## Modèle opératoire actuel
 
@@ -41,6 +40,10 @@ Concrètement, le point d'entrée microbiologique canonique est `data/sir_wide.r
 Autour de cet artefact, le workflow produit ensuite des artefacts intermédiaires de périmètre hospitalier, de complétion et de dédoublonnage, qui servent à calculer les indicateurs puis à alimenter le rapport.
 
 Pour le détail de ces artefacts et de leur rôle exact, se reporter à `documentation/project_map.md`.
+
+Le noyau de l'étape 1 est considéré comme gelé : les changements courants
+doivent prioritairement préserver les sorties validées, sauf décision explicite
+de modifier la méthode ou le périmètre publié.
 
 Pour une réutilisation future par d'autres établissements, un contrat
 externe d'entrée est documenté dans `documentation/external_bundle/`. Le
@@ -67,8 +70,6 @@ partagée, sans être encore un mode d'exécution externe complet.
 -   `documentation/ratb_implementation_decisions.qmd`
     -   source méthodologique de référence pour les choix
         d'implémentation
--   `documentation/ratb_meeting_prep_spf.qmd`
-    -   note de support pour les échanges avec SPF
 
 ## Répertoires clés
 
@@ -102,8 +103,8 @@ partagée, sans être encore un mode d'exécution externe complet.
     -   espace local ignoré par Git pour brouillons, inspections et
         artefacts temporaires ; ne pas l'utiliser comme source canonique
 -   `documentation/`
-    -   mémo, note de réunion, documentation du contrat externe,
-        documents d'entrée et de référence
+    -   mémo méthodologique, documentation du contrat externe, documents
+        d'entrée et de référence
 -   `archive/backups/`
     -   sauvegardes manuelles mises en quarantaine
 
