@@ -8,6 +8,14 @@ editor_options:
 
 Orchidee est le dépôt de travail pour le workflow de résistance SPARES/RATB.
 
+Le dépôt canonique est versionné sur GitHub :
+`https://github.com/FrancescoMonti-source/orchidee`.
+
+La copie de travail locale recommandée est `~/Documents/Git/orchidee`.
+Les artefacts générés ou locaux (`data/`, `downloads/`, `outputs/`,
+`archive/`) ne sont pas versionnés ; un clone frais ne contient donc pas les
+caches, les exports ou les rendus locaux.
+
 Ce dépôt a actuellement 3 publics principaux :
 
 -   maintenance du pipeline
