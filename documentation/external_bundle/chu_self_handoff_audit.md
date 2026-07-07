@@ -52,11 +52,18 @@ The script has two steps.
 
 1. It exports CHU-derived elementary source blocks from existing local
    artifacts in `data/`.
-2. It tries to run those blocks through
+2. It filters the CHU long microbiology rows to antibiotic columns supported
+   by the v1 ORCHIDEE contract.
+3. It tries to run those blocks through
    `scripts/build_external_bundle_from_site_inputs.R` logic.
 
-A `pass` status means the CHU-derived blocks satisfy the same handoff
+A `pass` build status means the CHU-derived blocks satisfy the same handoff
 builder expected from an external hospital.
+
+The script also reports source alignment between `data/sir_long` and the
+current `data/sir_wide.rds`. If alignment is `mismatch`, the handoff builder
+is executable but the generated bundle should not be read as exact
+reproduction of the frozen CHU artifact.
 
 A `build_fail` or `validation_fail` status is diagnostic evidence, not a
 pipeline failure. Read `outputs/chu_site_inputs/build_attempt.rds` and
@@ -68,10 +75,10 @@ act as a hard gate.
 ## Current Boundary To Watch
 
 The `sir_wide` v1 contract allows missing `naturepvt_norm`, because the
-current CHU artifact already contains that pattern. The site-input builder is
-stricter because it asks for a local `sample_type_mapping` dictionary.
+current CHU artifact already contains that pattern. The site-input builder
+therefore preserves missing sample-type canonical values instead of forcing a
+classification.
 
-If this audit fails on sample-type mapping, it means the human-facing
-handoff is stricter than the current validated CHU artifact. That mismatch
-must be resolved deliberately before asking another hospital to satisfy the
-same interface.
+The audit still reports how many local sample-type mappings are blank. A
+passing audit means the interface is executable; it does not mean the
+sample-type mapping is complete enough for every by-sample-type analysis.

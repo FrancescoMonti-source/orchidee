@@ -209,7 +209,13 @@ orchidee_handoff_normalize_sir <- function(x) {
   )
 }
 
-orchidee_handoff_prepare_mapping <- function(mapping, local_col, canonical_col, label) {
+orchidee_handoff_prepare_mapping <- function(
+    mapping,
+    local_col,
+    canonical_col,
+    label,
+    allow_missing_canonical = FALSE
+  ) {
   if (!is.data.frame(mapping)) {
     stop(label, " must be a data frame.", call. = FALSE)
   }
@@ -229,25 +235,38 @@ orchidee_handoff_prepare_mapping <- function(mapping, local_col, canonical_col, 
     stringsAsFactors = FALSE
   )
   out <- out[!is.na(out$local_key), , drop = FALSE]
-  if (any(is.na(out$canonical_value))) {
+  if (!isTRUE(allow_missing_canonical) && any(is.na(out$canonical_value))) {
     stop(label, " contains missing canonical values.", call. = FALSE)
   }
   duplicated_keys <- unique(out$local_key[duplicated(out$local_key)])
   if (length(duplicated_keys) > 0L) {
-    stop(
-      label, " contains duplicate local keys: ",
-      paste(utils::head(duplicated_keys, 10L), collapse = ", "),
-      if (length(duplicated_keys) > 10L) ", ..." else "",
-      call. = FALSE
-    )
+    conflicting_keys <- duplicated_keys[vapply(duplicated_keys, function(key) {
+      values <- out$canonical_value[out$local_key == key]
+      values_for_compare <- ifelse(is.na(values), "<missing>", values)
+      length(unique(values_for_compare)) > 1L
+    }, logical(1))]
+    if (length(conflicting_keys) > 0L) {
+      stop(
+        label, " contains duplicate local keys with conflicting canonical values: ",
+        paste(utils::head(conflicting_keys, 10L), collapse = ", "),
+        if (length(conflicting_keys) > 10L) ", ..." else "",
+        call. = FALSE
+      )
+    }
+    out <- out[!duplicated(out$local_key), , drop = FALSE]
   }
   out
 }
 
-orchidee_handoff_map_values <- function(x, mapping, label) {
+orchidee_handoff_map_values <- function(
+    x,
+    mapping,
+    label,
+    allow_missing_canonical = FALSE
+  ) {
   x_key <- orchidee_handoff_trim_or_na(x)
-  mapped <- mapping$canonical_value[match(x_key, mapping$local_key)]
-  missing_map <- is.na(mapped) & !is.na(x_key)
+  match_idx <- match(x_key, mapping$local_key)
+  missing_map <- is.na(match_idx) & !is.na(x_key)
   if (any(missing_map)) {
     missing_values <- sort(unique(x_key[missing_map]))
     stop(
@@ -257,6 +276,21 @@ orchidee_handoff_map_values <- function(x, mapping, label) {
       call. = FALSE
     )
   }
+
+  mapped <- mapping$canonical_value[match_idx]
+  if (!isTRUE(allow_missing_canonical)) {
+    missing_canonical <- is.na(mapped) & !is.na(x_key)
+    if (any(missing_canonical)) {
+      missing_values <- sort(unique(x_key[missing_canonical]))
+      stop(
+        label, " maps to missing canonical values: ",
+        paste(utils::head(missing_values, 10L), collapse = ", "),
+        if (length(missing_values) > 10L) ", ..." else "",
+        call. = FALSE
+      )
+    }
+  }
+
   mapped
 }
 
@@ -330,7 +364,8 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     sample_type_mapping,
     "sample_type_local",
     "naturepvt_norm",
-    "sample_type_mapping"
+    "sample_type_mapping",
+    allow_missing_canonical = TRUE
   )
   antibiotic_map <- orchidee_handoff_prepare_mapping(
     antibiotic_mapping,
@@ -382,7 +417,8 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
   obs$naturepvt_norm <- orchidee_handoff_ascii_lower(orchidee_handoff_map_values(
     obs$sample_type_local,
     sample_type_map,
-    "microbiology_observations$sample_type_local"
+    "microbiology_observations$sample_type_local",
+    allow_missing_canonical = TRUE
   ))
   obs$atb_norm <- orchidee_handoff_map_values(
     obs$antibiotic_local,
@@ -392,14 +428,20 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
   obs$sir_result <- orchidee_handoff_normalize_sir(obs$sir_result)
 
   missing_souche <- is.na(obs$souche_id)
-  obs$souche_id[missing_souche] <- paste(
-    "derived",
-    obs$naturepvt_norm[missing_souche],
-    obs$bact_norm[missing_souche],
-    sep = "__"
-  )
+  if (any(missing_souche)) {
+    sample_type_for_souche <- dplyr::coalesce(
+      obs$naturepvt_norm[missing_souche],
+      "missing_sample_type"
+    )
+    obs$souche_id[missing_souche] <- paste(
+      "derived",
+      sample_type_for_souche,
+      obs$bact_norm[missing_souche],
+      sep = "__"
+    )
+  }
 
-  non_missing_key_cols <- c("PATID", "ELTID", "DATEPRELEV", "souche_id", "bact_norm", "naturepvt_norm")
+  non_missing_key_cols <- c("PATID", "ELTID", "DATEPRELEV", "souche_id", "bact_norm")
   key_na <- vapply(non_missing_key_cols, function(col) any(is.na(obs[[col]])), logical(1))
   if (any(key_na)) {
     stop(
@@ -474,19 +516,11 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     result_key <- paste(row_id[result_rows], obs$atb_norm[result_rows], sep = "\r")
     split_rows <- split(result_rows, result_key)
     for (idx in split_rows) {
-      vals <- unique(obs$sir_result[idx])
+      # Mirror the current CHU pivot rule: keep the last non-missing value.
+      vals <- obs$sir_result[idx]
       vals <- vals[!is.na(vals)]
-      if (length(vals) > 1L) {
-        stop(
-          "Conflicting S/I/R results for the same row key and antibiotic: ",
-          paste(vals, collapse = "/"),
-          ". If the lab reports multiple isolates of the same species in ",
-          "one sample, provide souche_id or isolate_local_id.",
-          call. = FALSE
-        )
-      }
-      if (length(vals) == 1L) {
-        sir_matrix[row_id[idx[[1L]]], obs$atb_norm[idx[[1L]]]] <- vals[[1L]]
+      if (length(vals) > 0L) {
+        sir_matrix[row_id[idx[[1L]]], obs$atb_norm[idx[[1L]]]] <- vals[[length(vals)]]
       }
     }
   }

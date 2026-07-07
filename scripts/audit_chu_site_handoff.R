@@ -154,6 +154,22 @@ build_two_column_mapping <- function(df, local_col, canonical_col, output_local,
   out
 }
 
+build_source_alignment <- function(sir_long, sir_wide) {
+  require_columns(sir_long, "ELTID", "sir_long")
+  require_columns(sir_wide, "ELTID", "sir_wide")
+  sir_long_eltid <- unique(as.character(sir_long$ELTID))
+  sir_wide_eltid <- unique(as.character(sir_wide$ELTID))
+  overlap <- length(intersect(sir_long_eltid, sir_wide_eltid))
+  overlap_ratio <- if (length(sir_wide_eltid) == 0L) NA_real_ else overlap / length(sir_wide_eltid)
+  list(
+    status = if (!is.na(overlap_ratio) && overlap_ratio >= 0.95) "aligned" else "mismatch",
+    sir_long_distinct_eltid = length(sir_long_eltid),
+    current_sir_wide_distinct_eltid = length(sir_wide_eltid),
+    eltid_overlap = overlap,
+    eltid_overlap_ratio = overlap_ratio
+  )
+}
+
 build_audit_summary <- function(
     microbiology_observations,
     bacteria_mapping,
@@ -161,7 +177,9 @@ build_audit_summary <- function(
     antibiotic_mapping,
     unit_mapping,
     denominator_by_year,
-    sir_wide
+    sir_wide,
+    unsupported_antibiotic_rows_removed = 0L,
+    source_alignment = NULL
   ) {
   nonmissing_sample_local <- !is.na(sample_type_mapping$sample_type_local) &
     nzchar(as.character(sample_type_mapping$sample_type_local))
@@ -171,6 +189,7 @@ build_audit_summary <- function(
   data.frame(
     metric = c(
       "microbiology_observations_rows",
+      "microbiology_observations_unsupported_antibiotic_rows_removed",
       "bacteria_mapping_rows",
       "sample_type_mapping_rows",
       "sample_type_mapping_missing_canonical_rows",
@@ -179,10 +198,15 @@ build_audit_summary <- function(
       "unit_mapping_rows",
       "denominator_by_year_rows",
       "current_sir_wide_rows",
-      "current_sir_wide_missing_naturepvt_norm_rows"
+      "current_sir_wide_missing_naturepvt_norm_rows",
+      "source_sir_long_distinct_eltid",
+      "source_current_sir_wide_distinct_eltid",
+      "source_eltid_overlap",
+      "source_eltid_overlap_ratio"
     ),
     value = c(
       nrow(microbiology_observations),
+      as.integer(unsupported_antibiotic_rows_removed),
       nrow(bacteria_mapping),
       nrow(sample_type_mapping),
       sum(sample_missing_canonical),
@@ -191,17 +215,22 @@ build_audit_summary <- function(
       nrow(unit_mapping),
       nrow(denominator_by_year),
       nrow(sir_wide),
-      sum(is.na(sir_wide$naturepvt_norm))
+      sum(is.na(sir_wide$naturepvt_norm)),
+      source_alignment$sir_long_distinct_eltid,
+      source_alignment$current_sir_wide_distinct_eltid,
+      source_alignment$eltid_overlap,
+      source_alignment$eltid_overlap_ratio
     ),
     stringsAsFactors = FALSE
   )
 }
 
-build_status_report <- function(status, message, validation_report = NULL) {
+build_status_report <- function(status, message, validation_report = NULL, source_alignment = NULL) {
   report <- list(
     status = status,
     message = message,
     created_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    source_alignment = source_alignment,
     validation_ok = NA,
     validation_errors = character(),
     validation_warnings = character()
@@ -229,6 +258,8 @@ if (!is.data.frame(ratb_scope_cache$incidence_denominator_by_year)) {
   stop("ratb_scope_cache$incidence_denominator_by_year is required for denominator_by_year.", call. = FALSE)
 }
 
+source_alignment <- build_source_alignment(sir_long, sir_wide)
+
 microbiology_observations <- build_chu_microbiology_observations(sir_long, sir_wide)
 bacteria_mapping <- build_two_column_mapping(
   sir_long,
@@ -245,6 +276,26 @@ antibiotic_mapping <- build_two_column_mapping(
   "LBLANA", "atb_norm",
   "antibiotic_local", "atb_norm"
 )
+
+supported_atb <- orchidee_external_contract_v1()$sir_wide$atb_cols
+supported_antibiotic_local <- antibiotic_mapping$antibiotic_local[
+  antibiotic_mapping$atb_norm %in% supported_atb
+]
+unsupported_antibiotic_rows_removed <- sum(
+  !microbiology_observations$antibiotic_local %in% supported_antibiotic_local
+)
+microbiology_observations <- microbiology_observations[
+  microbiology_observations$antibiotic_local %in% supported_antibiotic_local,
+  ,
+  drop = FALSE
+]
+antibiotic_mapping <- antibiotic_mapping[
+  antibiotic_mapping$atb_norm %in% supported_atb,
+  ,
+  drop = FALSE
+]
+row.names(microbiology_observations) <- NULL
+row.names(antibiotic_mapping) <- NULL
 
 unit_mapping_cols <- c("SEJUF", "CODE_TA", "de_domain_ref")
 require_columns(ratb_scope_cache$ratb_uf_ta_de_reference, unit_mapping_cols, "ratb_uf_ta_de_reference")
@@ -284,7 +335,9 @@ audit_summary <- build_audit_summary(
   antibiotic_mapping = antibiotic_mapping,
   unit_mapping = unit_mapping,
   denominator_by_year = denominator_by_year,
-  sir_wide = sir_wide
+  sir_wide = sir_wide,
+  unsupported_antibiotic_rows_removed = unsupported_antibiotic_rows_removed,
+  source_alignment = source_alignment
 )
 
 write_rds(microbiology_observations, file.path(site_input_dir, "microbiology_observations.rds"))
@@ -315,12 +368,22 @@ build_attempt <- tryCatch({
     strict_preferred = TRUE
   )
   if (isTRUE(validation_report$ok)) {
-    build_status_report("pass", "CHU-derived site handoff builds and validates.", validation_report)
+    build_status_report(
+      "pass",
+      "CHU-derived site handoff builds and validates.",
+      validation_report,
+      source_alignment = source_alignment
+    )
   } else {
-    build_status_report("validation_fail", "Built bundle did not validate.", validation_report)
+    build_status_report(
+      "validation_fail",
+      "Built bundle did not validate.",
+      validation_report,
+      source_alignment = source_alignment
+    )
   }
 }, error = function(e) {
-  build_status_report("build_fail", conditionMessage(e))
+  build_status_report("build_fail", conditionMessage(e), source_alignment = source_alignment)
 })
 
 write_rds(build_attempt, file.path(site_input_dir, "build_attempt.rds"))
@@ -330,6 +393,15 @@ cat("Site input dir: ", site_input_dir, "\n", sep = "")
 cat("Bundle dir: ", bundle_dir, "\n", sep = "")
 cat("Build status: ", build_attempt$status, "\n", sep = "")
 cat("Message: ", build_attempt$message, "\n", sep = "")
+if (!is.null(build_attempt$source_alignment)) {
+  cat(
+    "Source alignment: ", build_attempt$source_alignment$status,
+    " (ELTID overlap ", build_attempt$source_alignment$eltid_overlap,
+    "/", build_attempt$source_alignment$current_sir_wide_distinct_eltid,
+    ")\n",
+    sep = ""
+  )
+}
 cat("Audit summary: ", file.path(site_input_dir, "audit_summary.csv"), "\n", sep = "")
 
 if (!identical(build_attempt$status, "pass") && isTRUE(fail_on_build_failure)) {

@@ -89,6 +89,11 @@ Important: `ratb_diagnostic_scope` is not the TA/DE hospital perimeter. It is
 the local microbiology decision that keeps screening and other non-diagnostic
 material out before ORCHIDEE applies the hospital-unit perimeter.
 
+If several rows map to the same ORCHIDEE row key and antibiotic, ORCHIDEE keeps
+the last non-missing S/I/R value in input order. If the laboratory reports
+several isolates of the same species in one sample, provide `souche_id` or
+`isolate_local_id` so those isolates remain separate.
+
 ## File 2: bacteria_mapping
 
 This file maps local bacterium labels to ORCHIDEE bacterium names.
@@ -127,6 +132,11 @@ Urine,urine
 Hemoculture,hemoculture
 ```
 
+`naturepvt_norm` may be left blank when a local sample type cannot be
+classified reliably. Those rows remain available for global indicators, but
+cannot contribute to analyses that require a known sample type. The number of
+blank mappings should be reviewed during onboarding.
+
 ## File 4: antibiotic_mapping
 
 This file maps local antibiotic labels to ORCHIDEE antibiotic columns.
@@ -146,8 +156,8 @@ Amoxicilline acide clavulanique,amoxicilline_acide_clavulanique
 Cefotaxime,cefotaxime
 ```
 
-The builder fails if `atb_norm` is not one of the supported ORCHIDEE antibiotic
-columns.
+Only include antibiotic result rows that map to supported ORCHIDEE antibiotic
+columns. The builder fails if `atb_norm` is not one of those columns.
 
 ## File 5: unit_mapping
 
