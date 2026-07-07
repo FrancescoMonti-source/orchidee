@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [ValidateSet('memo','meeting','docs','indicators','full')]
+  [ValidateSet('memo','docs','indicators','full')]
   [string]$Target = 'docs',
   [switch]$DryRun
 )
@@ -50,14 +50,8 @@ $targets = switch ($Target) {
   'memo' {
     @('documentation/ratb_implementation_decisions.qmd')
   }
-  'meeting' {
-    @('documentation/ratb_meeting_prep_spf.qmd')
-  }
   'docs' {
-    @(
-      'documentation/ratb_implementation_decisions.qmd',
-      'documentation/ratb_meeting_prep_spf.qmd'
-    )
+    @('documentation/ratb_implementation_decisions.qmd')
   }
   'indicators' {
     @('orchidee_ratb_indicators.qmd')

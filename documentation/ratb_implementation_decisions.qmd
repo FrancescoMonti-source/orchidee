@@ -40,7 +40,7 @@ exploratoire de l'impact de la complétion sur les sorties dédupliquées.
 
 Ce document décrit ce qui est déjà livré et interprétable, l'architecture générale de la
 chaîne, les principales conventions d'implémentation retenues, puis les limites qui restent
-à confirmer ou à stabiliser avec SPF.
+hors noyau gelé de l'étape 1.
 
 # Objet et positionnement du document
 
@@ -51,9 +51,9 @@ Son rôle est de décrire, dans un langage métier, les conventions d'implément
 pour produire les résultats actuellement publiés, ainsi que les principales limites de la
 chaîne actuelle de traitement.
 
-Il constitue le mémo méthodologique canonique pour le volet RATB. La logique de réunion et
-les arbitrages à porter avec SPF sont documentés séparément dans
-`documentation/ratb_meeting_prep_spf.qmd`.
+Il constitue le mémo méthodologique canonique pour le volet RATB. Il décrit
+le noyau gelé de l'étape 1 et distingue les sorties publiées des limites ou
+extensions qui relèvent d'une phase ultérieure.
 
 Le catalogue des indicateurs biologiques de référence est maintenu dans
 `documentation/ratb_indicator_spec.csv`. Les audits détaillés de qualité, de périmètre et
@@ -133,7 +133,7 @@ Chacun de ces jeux est ensuite soumis à la même logique de déduplication.
 La stratégie `completion_patid_30d` ignore explicitement `EVTID` : elle raisonne au niveau `PATID, naturepvt_norm, bact_norm`, avec un garde-fou temporel de `30` jours sur `DATEPRELEV`, sans reconstituer pour autant un séjour PMSI autonome.
 
 La complétion doit être lue comme une convention ORCHIDEE exploratoire. Elle ne constitue
-ni une exigence explicite de SPF, ni une règle SPARES stricte. Sa fonction n'est pas de
+ni une exigence explicite de l'expression de besoins, ni une règle SPARES stricte. Sa fonction n'est pas de
 produire cinq livrables concurrents, mais de déterminer si son impact sur les sorties
  dédupliquées est suffisamment important pour justifier son maintien.
 
@@ -332,20 +332,19 @@ malgré sa prise en charge.
   `cote blse` ou `cote carba` ;
 - la déclinaison trimestrielle et les autres stratifications demandées dans l'expression de
   besoins ne sont pas encore publiées dans le produit actuel ;
-- le statut de la complétion doit encore être discuté avec SPF : ORCHIDEE la documente
-  aujourd'hui comme une convention exploratoire, et non comme une règle métier
-  définitivement stabilisée.
+- la complétion reste documentée comme une convention exploratoire hors noyau
+  gelé de l'étape 1, et non comme une règle métier définitivement stabilisée.
 
 # Conclusion opérationnelle
 
-À ce stade, SPF peut interpréter les proportions annuelles de résistance et la densité
-d'incidence globale comme les sorties opérationnelles annuelles du noyau actuellement
-publié par la chaîne ORCHIDEE.
+À ce stade, les proportions annuelles de résistance et la densité d'incidence
+globale constituent les sorties opérationnelles annuelles du noyau gelé de
+l'étape 1 ORCHIDEE.
 
 En revanche, certaines conventions doivent encore être lues comme des choix
  d'implémentation documentés : en particulier la formalisation du périmètre analytique
 hospitalisation, la traduction opérationnelle des journées d'hospitalisation en nuits
 éligibles et le statut exploratoire de la complétion. Ces choix sont désormais explicites,
-ce qui permet une discussion méthodologique transparente plutôt qu'une interprétation
-implicite des résultats.
+ce qui rend leur statut méthodologique explicite plutôt que de laisser une
+interprétation implicite des résultats.
 

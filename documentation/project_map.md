@@ -117,16 +117,6 @@ Rôle :
 -   mémo méthodologique
 -   justification des choix d'implémentation
 
-### `documentation/ratb_meeting_prep_spf.qmd`
-
-Rôle :
-
--   support de réunion
--   questions pour SPF, points d'arbitrage, notes CONSORES
-
-À utiliser pour l'ordre de présentation et la préparation des échanges,
-pas comme source méthodologique de référence.
-
 ## Fichiers R principaux
 
 Les notebooks chargent ces fichiers en deux temps : `R/setup.R` est sourcé
@@ -445,10 +435,3 @@ Commencer par :
 
 -   `documentation/ratb_implementation_decisions.qmd`
 -   rerendre `memo`
-
-### Changer uniquement la préparation de réunion
-
-Commencer par :
-
--   `documentation/ratb_meeting_prep_spf.qmd`
--   rerendre `meeting`

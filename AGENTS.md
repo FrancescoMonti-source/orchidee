@@ -60,7 +60,7 @@ Notes:
 ## Rendering And Verification
 
 - Use `scripts/render_orchidee.ps1` for routine renders.
-- Available targets are `memo`, `meeting`, `docs`, `indicators`, and `full`.
+- Available targets are `memo`, `docs`, `indicators`, and `full`.
 - Use `full` after changes to upstream pipeline, completion, deduplication,
   perimeter, denominator, or indicator logic.
 - Before changing code because a report looks wrong, determine whether the

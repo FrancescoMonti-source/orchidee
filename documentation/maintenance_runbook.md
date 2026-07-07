@@ -19,7 +19,6 @@ Utiliser le wrapper plutôt que des commandes de rendu ad hoc :
 Cibles disponibles :
 
 -   `memo`
--   `meeting`
 -   `docs`
 -   `indicators`
 -   `full`
@@ -70,14 +69,6 @@ Commande :
 
 ```powershell
 & .\scripts\render_orchidee.ps1 -Target memo
-```
-
-### Si seule la note de réunion SPF a changé
-
-Commande :
-
-```powershell
-& .\scripts\render_orchidee.ps1 -Target meeting
 ```
 
 ### Si les deux documents méthodologiques ont changé
