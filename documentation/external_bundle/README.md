@@ -59,6 +59,9 @@ The command examples and required columns are in `site_handoff_inputs_v1.md`.
 These scripts are useful for ORCHIDEE maintainers, but they are not the first
 path for a new hospital team:
 
+- `scripts/audit_chu_site_handoff.R`
+  - diagnostic: exports CHU-derived handoff blocks and checks whether they
+    satisfy the same site-input builder requested from another hospital.
 - `scripts/validate_external_bundle.R`
   - validates an already built ORCHIDEE input bundle.
 - `scripts/smoke_external_runtime_inputs.R`
@@ -68,6 +71,9 @@ path for a new hospital team:
 - `scripts/build_external_bundle_from_handoff_inputs.R`
   - builder for the advanced case where a site already has a valid
     `sir_wide.rds`.
+
+For the CHU self-handoff diagnostic, see
+`chu_self_handoff_audit.md`.
 
 ## Ownership rule
 

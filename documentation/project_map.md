@@ -292,6 +292,11 @@ chargés hors notebook.
     -   dérive `sir_wide.rds`, `sir_wide_meta.rds`,
         `sample_scope_reference.rds` et `denominator_bundle.rds`, puis
         lance la validation stricte
+-   `scripts/audit_chu_site_handoff.R`
+    -   diagnostic mainteneur : exporte les blocs élémentaires CHU dans
+        `outputs/chu_site_inputs/`, tente de les reconstruire avec la
+        logique de handoff site externe et écrit un rapport local sans
+        modifier le workflow de production CHU
 -   `scripts/smoke_external_runtime_inputs.R`
     -   smoke test CLI vérifiant qu'un bundle validé peut construire les
         entrées aval minimales du coeur RATB

@@ -1,0 +1,77 @@
+---
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+# CHU Self-Handoff Audit
+
+This maintainer diagnostic checks whether the current CHU artifacts can be
+expressed as the same elementary source blocks requested from Rennes or
+another hospital data warehouse.
+
+It is not a production path and it does not replace the current CHU workflow.
+It writes local artifacts under `outputs/`, which is ignored by Git.
+
+## Command
+
+From the repository root:
+
+```powershell
+Rscript scripts/audit_chu_site_handoff.R --force
+```
+
+If `Rscript` is not available in `PATH`, use the full local Rscript path.
+
+By default, the script writes:
+
+- `outputs/chu_site_inputs/`
+  - `microbiology_observations.rds`
+  - `bacteria_mapping.rds`
+  - `sample_type_mapping.rds`
+  - `antibiotic_mapping.rds`
+  - `unit_mapping.rds`
+  - `denominator_by_year.rds`
+  - `audit_summary.csv`
+  - `build_attempt.rds`
+- `outputs/chu_site_bundle/`
+  - the four internal ORCHIDEE files, only if the build succeeds.
+
+Use custom output directories when needed:
+
+```powershell
+Rscript scripts/audit_chu_site_handoff.R `
+  outputs/chu_site_inputs `
+  outputs/chu_site_bundle `
+  --force
+```
+
+## How To Read It
+
+The script has two steps.
+
+1. It exports CHU-derived elementary source blocks from existing local
+   artifacts in `data/`.
+2. It tries to run those blocks through
+   `scripts/build_external_bundle_from_site_inputs.R` logic.
+
+A `pass` status means the CHU-derived blocks satisfy the same handoff
+builder expected from an external hospital.
+
+A `build_fail` or `validation_fail` status is diagnostic evidence, not a
+pipeline failure. Read `outputs/chu_site_inputs/build_attempt.rds` and
+`outputs/chu_site_inputs/audit_summary.csv` to identify the mismatch.
+
+Use `--fail-on-build-failure` only when you deliberately want the command to
+act as a hard gate.
+
+## Current Boundary To Watch
+
+The `sir_wide` v1 contract allows missing `naturepvt_norm`, because the
+current CHU artifact already contains that pattern. The site-input builder is
+stricter because it asks for a local `sample_type_mapping` dictionary.
+
+If this audit fails on sample-type mapping, it means the human-facing
+handoff is stricter than the current validated CHU artifact. That mismatch
+must be resolved deliberately before asking another hospital to satisfy the
+same interface.
