@@ -6,283 +6,300 @@ editor_options:
 
 # Site Handoff Inputs v1
 
-This document describes the human-facing input blocks expected from another
-hospital, such as Rennes.
+This is the first document a hospital data-warehouse team should read when it
+wants to connect local data to ORCHIDEE.
 
-These inputs are deliberately one level upstream from the canonical
-ORCHIDEE runtime bundle. Rennes should not be asked to author
-`sir_wide_meta.rds`, `sample_scope_reference.rds`, or
-`denominator_bundle.rds` by hand. The site provides elementary local inputs;
-ORCHIDEE derives those runtime files internally.
+You do not need to reproduce the CHU extraction path. You prepare the simple
+input files below; ORCHIDEE turns them into its internal validated files.
 
-## Relationship to the canonical bundle
+## What you need to provide
 
-The canonical runtime bundle remains:
+Prepare these six required files:
+
+1. `microbiology_observations`
+2. `bacteria_mapping`
+3. `sample_type_mapping`
+4. `antibiotic_mapping`
+5. `unit_mapping`
+6. `denominator_by_year`
+
+You may also provide a seventh optional file:
+
+7. `de_reference`
+
+Accepted formats are `.rds`, `.csv`, `.tsv`, `.tab`, or `.txt`. CSV files can
+use commas or semicolons. Text files must be UTF-8.
+
+ORCHIDEE writes these internal files after validation:
 
 - `sir_wide.rds`
 - `sir_wide_meta.rds`
 - `sample_scope_reference.rds`
 - `denominator_bundle.rds`
 
-That bundle is the machine/runtime contract. It is not the best onboarding
-format for a new hospital.
+Do not build those four files by hand for a first handoff.
 
-The Rennes-facing handoff is:
+## File 1: microbiology_observations
 
-```text
-local site inputs
-        |
-        v
-site handoff builder
-        |
-        v
-canonical ORCHIDEE runtime bundle
-        |
-        v
-existing validator and runtime smoke test
-```
-
-The preferred handoff now starts from elementary microbiology observations
-plus local mapping dictionaries. ORCHIDEE derives `sir_wide.rds` and the
-other runtime artifacts from those inputs.
-
-For sites that have already built the canonical wide microbiology artifact,
-the older prebuilt-`sir_wide.rds` builder remains available as a compatibility
-path.
-
-## Input 1: microbiology source block
-
-Preferred files:
-
-- `microbiology_observations.rds`, `microbiology_observations.csv`, or
-  `microbiology_observations.tsv`
-- `bacteria_mapping.rds`, `bacteria_mapping.csv`, or
-  `bacteria_mapping.tsv`
-- `sample_type_mapping.rds`, `sample_type_mapping.csv`, or
-  `sample_type_mapping.tsv`
-- `antibiotic_mapping.rds`, `antibiotic_mapping.csv`, or
-  `antibiotic_mapping.tsv`
-
-`microbiology_observations` is a long table. It should contain one row per
-local microbiology S/I/R result for a sample, an identified bacterium and an
-antibiotic.
+This file contains one row per local S/I/R result for one sample, one bacterium
+and one antibiotic.
 
 Required columns:
 
-- `PATID`
-- `ELTID`
-- `DATEPRELEV`
-- `SEJUF`
-- `bacteria_local`
-- `sample_type_local`
-- `antibiotic_local`
-- `sir_result`
-- `ratb_diagnostic_scope`
+| Column | Meaning |
+| --- | --- |
+| `PATID` | Patient identifier. |
+| `ELTID` | Sample / microbiology event identifier. |
+| `DATEPRELEV` | Sample date. Use `YYYY-MM-DD` or `DD/MM/YYYY` in text files. |
+| `SEJUF` | Sample unit. ORCHIDEE uses this to apply the RATB TA/DE perimeter. |
+| `bacteria_local` | Local bacterium label. |
+| `sample_type_local` | Local sample-type label. |
+| `antibiotic_local` | Local antibiotic label. |
+| `sir_result` | Local S/I/R result. |
+| `ratb_diagnostic_scope` | TRUE if the row belongs to diagnostic RATB microbiology, FALSE for screening / non-diagnostic rows. |
+
+Accepted aliases for `ratb_diagnostic_scope` are `diagnostic_scope` and
+`is_diagnostic`, but `ratb_diagnostic_scope` is preferred.
 
 Optional columns:
 
-- `EVTID`
-- `HEUREPRELEV`
-- `souche_id` or `isolate_local_id`
-- `blse_status_row` or `blse_status`
-- `carbapenemase_status_row` or `carbapenemase_status`
+| Column | Meaning |
+| --- | --- |
+| `EVTID` | Hospital stay / encounter identifier, if available. |
+| `HEUREPRELEV` | Sample time, `HH:MM` or `HH:MM:SS`. |
+| `souche_id` or `isolate_local_id` | Local isolate identifier when the lab distinguishes several isolates for the same sample. |
+| `blse_status_row` or `blse_status` | Optional BLSE status: `positive`, `negative`, `unknown`, `no_signal`. |
+| `carbapenemase_status_row` or `carbapenemase_status` | Optional carbapenemase status: `positive`, `negative`, `unknown`, `no_signal`. |
 
-Interpretation:
+Accepted `sir_result` values:
 
-- `DATEPRELEV` must be an R `Date` in RDS files, or an ISO date
-  (`YYYY-MM-DD`) in delimited files; French dates (`DD/MM/YYYY`) are also
-  accepted.
-- `HEUREPRELEV`, when present in delimited files, must use `HH:MM` or
-  `HH:MM:SS`.
-- `souche_id` / `isolate_local_id` identifies the local bacterial isolate
-  when the laboratory distinguishes several isolates for the same sample.
-  If neither column is present, ORCHIDEE derives a `souche_id` and assumes
-  one isolate per sample, sample type and bacterium.
-- `ratb_diagnostic_scope` must identify rows that belong to the diagnostic
-  RATB microbiology scope. TRUE rows are pivoted into `sir_wide`; FALSE rows
-  are excluded before pivoting. Accepted values include `TRUE`/`FALSE` and
-  `1`/`0`.
-- `sir_result` is normalized by ORCHIDEE:
-  - `S` and `SFP` become `S`;
-  - `R` and `---R` become `R`;
-  - `I` and `ZIT` become `ZIT`;
-  - `NC` or blank values become missing.
+- `S` and `SFP` become `S`;
+- `R` and `---R` become `R`;
+- `I` and `ZIT` become `ZIT`;
+- `NC`, `NA`, `N/A` or blank values become missing.
 
-Mapping dictionaries:
+Minimal example:
 
-- `bacteria_mapping` requires `bacteria_local` and `bact_norm`.
-- `sample_type_mapping` requires `sample_type_local` and `naturepvt_norm`.
-- `antibiotic_mapping` requires `antibiotic_local` and `atb_norm`.
+```csv
+PATID,EVTID,ELTID,DATEPRELEV,HEUREPRELEV,SEJUF,bacteria_local,sample_type_local,antibiotic_local,sir_result,ratb_diagnostic_scope
+P001,S001,MIC001,2024-03-12,09:15,UF1234,Escherichia coli,Urine,Amoxicilline acide clavulanique,R,TRUE
+```
 
-The local values are hospital-owned. The mapped values must be ORCHIDEE
-canonical values. The builder fails if a local value is not mapped or if an
-antibiotic maps outside the v1 supported antibiotic set.
+Important: `ratb_diagnostic_scope` is not the TA/DE hospital perimeter. It is
+the local microbiology decision that keeps screening and other non-diagnostic
+material out before ORCHIDEE applies the hospital-unit perimeter.
 
-`ratb_diagnostic_scope` is not the hospital TA/DE perimeter. It is the
-site-owned classification that keeps screening or other non-diagnostic
-microbiology material out of RATB indicators before ORCHIDEE applies the
-sample-UF TA/DE scope.
+## File 2: bacteria_mapping
 
-Phenotype statuses are optional in this handoff. If absent, ORCHIDEE records
-`no_signal` for BLSE and carbapenemase at row level. If present, allowed
-statuses are the values documented in `sir_wide_v1.md`.
-
-Compatibility path:
-
-- `sir_wide.rds`
-  - prebuilt canonical wide microbiology artifact;
-  - schema defined in `sir_wide_v1.md`;
-  - still accepted by `build_external_bundle_from_handoff_inputs.R`.
-
-## Input 2: unit mapping
-
-Preferred file:
-
-- `unit_mapping.rds`, `unit_mapping.csv`, or `unit_mapping.tsv`
+This file maps local bacterium labels to ORCHIDEE bacterium names.
 
 Required columns:
 
-- `SEJUF`
-- `CODE_TA`
+| Column | Meaning |
+| --- | --- |
+| `bacteria_local` | Local bacterium label as it appears in `microbiology_observations`. |
+| `bact_norm` | ORCHIDEE bacterium name. |
+
+Example:
+
+```csv
+bacteria_local,bact_norm
+Escherichia coli,Escherichia coli
+Klebsiella pneumoniae,Klebsiella pneumoniae
+```
+
+## File 3: sample_type_mapping
+
+This file maps local sample-type labels to ORCHIDEE sample types.
+
+Required columns:
+
+| Column | Meaning |
+| --- | --- |
+| `sample_type_local` | Local sample-type label as it appears in `microbiology_observations`. |
+| `naturepvt_norm` | ORCHIDEE sample type. |
+
+Example:
+
+```csv
+sample_type_local,naturepvt_norm
+Urine,urine
+Hemoculture,hemoculture
+```
+
+## File 4: antibiotic_mapping
+
+This file maps local antibiotic labels to ORCHIDEE antibiotic columns.
+
+Required columns:
+
+| Column | Meaning |
+| --- | --- |
+| `antibiotic_local` | Local antibiotic label as it appears in `microbiology_observations`. |
+| `atb_norm` | ORCHIDEE antibiotic column. |
+
+Example:
+
+```csv
+antibiotic_local,atb_norm
+Amoxicilline acide clavulanique,amoxicilline_acide_clavulanique
+Cefotaxime,cefotaxime
+```
+
+The builder fails if `atb_norm` is not one of the supported ORCHIDEE antibiotic
+columns.
+
+## File 5: unit_mapping
+
+This file tells ORCHIDEE which local sample units belong to the RATB TA/DE
+perimeter.
+
+Required columns:
+
+| Column | Meaning |
+| --- | --- |
+| `SEJUF` | Sample unit. Must match `SEJUF` in `microbiology_observations`. |
+| `CODE_TA` | TA code for the unit. |
 
 The file must also provide either:
 
-- `de_domain_ref`
+- `de_domain_ref`, directly in `unit_mapping`;
+- or `CODE_DE`, together with a separate `de_reference` file.
 
-or:
+Expected grain: one row per `SEJUF`.
 
-- `CODE_DE`, together with a separate DE reference dictionary.
+Example with `de_domain_ref` directly included:
 
-Expected grain:
+```csv
+SEJUF,CODE_TA,de_domain_ref
+UF1234,03,MÉDECINE
+UF5678,20,URGENCES
+```
 
-- one row per `SEJUF`
+Example with `CODE_DE` instead:
 
-Interpretation:
+```csv
+SEJUF,CODE_TA,CODE_DE
+UF1234,03,001
+UF5678,20,002
+```
 
-- the site owns the mapping from local units to TA/DE information;
-- ORCHIDEE owns the RATB rule that turns that mapping into eligibility.
+In the second case, also provide `de_reference`.
 
-Included `de_domain_ref` values are the CONSORES/SPARES domains used by the
-current RATB perimeter:
+## Optional file 7: de_reference
 
-- `MÉDECINE`
-- `URGENCES`
-- `CHIRURGIE`
-- `RÉANIMATION`
-- `PÉDIATRIE`
-- `GYNÉCOLOGIE-OBSTÉTRIQUE`
-- `SOINS MÉDICAUX ET DE RÉADAPTATION`
-- `SOINS DE LONGUE DURÉE`
-- `PSYCHIATRIE`
-- `ÉTABLISSEMENT D'HÉBERGEMENT POUR PERSONNES ÂGÉES DÉPENDANTES`
-
-The builder normalizes case and accents for these included labels. Other
-local domain labels are not guessed; they remain excluded unless the site maps
-them to the expected vocabulary.
-
-## Input 3: optional DE reference dictionary
-
-Preferred file:
-
-- `de_reference.rds`, `de_reference.csv`, or `de_reference.tsv`
-
-Required columns:
-
-- `CODE_DE`
-- `de_domain_ref` or `DOMAINE`
-
-This file is optional when `unit_mapping` already contains
+This file is only needed when `unit_mapping` provides `CODE_DE` but not
 `de_domain_ref`.
 
-## Input 4: incidence denominator by year
+Required columns:
 
-Preferred file:
+| Column | Meaning |
+| --- | --- |
+| `CODE_DE` | DE code. |
+| `de_domain_ref` or `DOMAINE` | Domain label for the DE code. |
 
-- `denominator_by_year.rds`, `denominator_by_year.csv`, or
-  `denominator_by_year.tsv`
+Example:
+
+```csv
+CODE_DE,de_domain_ref
+001,MÉDECINE
+002,URGENCES
+```
+
+## File 6: denominator_by_year
+
+This file contains the annual denominator for incidence indicators.
 
 Required columns:
 
-- `calendar_year`
-- `hospital_nights`
+| Column | Meaning |
+| --- | --- |
+| `calendar_year` | Calendar year. |
+| `hospital_nights` | Hospital nights in the RATB TA/DE perimeter. |
 
-Expected grain:
+Expected grain: one row per calendar year.
 
-- one row per calendar year
+Example:
 
-Interpretation:
+```csv
+calendar_year,hospital_nights
+2024,363728
+```
 
-- `hospital_nights` is the PMSI/activity denominator for the RATB TA/DE
-  perimeter;
-- it must be computed independently from microbiology rows.
+This denominator must be computed independently from microbiology rows.
 
-## Derived canonical files
+## Build and validate the ORCHIDEE input files
 
-From those inputs, ORCHIDEE derives:
-
-- `sir_wide.rds`
-  - generated by pivoting microbiology observations through the local
-    mapping dictionaries.
-- `sir_wide_meta.rds`
-  - generated from `sir_wide`;
-  - not requested from the site.
-- `sample_scope_reference.rds`
-  - generated from the unit mapping and DE reference;
-  - contains the final RATB sample-UF eligibility fields.
-- `denominator_bundle.rds`
-  - generated from the annual denominator table.
-
-In the preferred path, `sir_wide.rds` is generated from the long
-microbiology observations. In the compatibility path, a prebuilt
-`sir_wide.rds` is copied into the output bundle.
-
-## Command-line builder
-
-Build a strict preferred bundle from elementary site inputs:
+From the repository root:
 
 ```powershell
-& 'C:\Program Files\R\R-4.5.2\bin\Rscript.exe' `
+Rscript `
   scripts/build_external_bundle_from_site_inputs.R `
-  <microbiology_observations.rds|csv|tsv> `
-  <bacteria_mapping.rds|csv|tsv> `
-  <sample_type_mapping.rds|csv|tsv> `
-  <antibiotic_mapping.rds|csv|tsv> `
-  <unit_mapping.rds|csv|tsv> `
-  <denominator_by_year.rds|csv|tsv> `
-  <output_bundle_dir> `
-  [de_reference.rds|csv|tsv] `
-  [--force]
+  inputs/microbiology_observations.csv `
+  inputs/bacteria_mapping.csv `
+  inputs/sample_type_mapping.csv `
+  inputs/antibiotic_mapping.csv `
+  inputs/unit_mapping.csv `
+  inputs/denominator_by_year.csv `
+  outputs/site_bundle `
+  inputs/de_reference.csv `
+  --force
 ```
 
-Build a strict preferred bundle from an already built `sir_wide.rds`:
+If `unit_mapping` already contains `de_domain_ref`, omit the `de_reference`
+argument:
 
 ```powershell
-& 'C:\Program Files\R\R-4.5.2\bin\Rscript.exe' `
-  scripts/build_external_bundle_from_handoff_inputs.R `
-  <sir_wide.rds> `
-  <unit_mapping.rds|csv|tsv> `
-  <denominator_by_year.rds|csv|tsv> `
-  <output_bundle_dir> `
-  [de_reference.rds|csv|tsv] `
-  [--force]
+Rscript `
+  scripts/build_external_bundle_from_site_inputs.R `
+  inputs/microbiology_observations.csv `
+  inputs/bacteria_mapping.csv `
+  inputs/sample_type_mapping.csv `
+  inputs/antibiotic_mapping.csv `
+  inputs/unit_mapping.csv `
+  inputs/denominator_by_year.csv `
+  outputs/site_bundle `
+  --force
 ```
 
-The script writes:
+A successful run validates the inputs and writes the four ORCHIDEE internal
+files to `outputs/site_bundle`.
 
-- `sir_wide.rds`
-- `sir_wide_meta.rds`
-- `sample_scope_reference.rds`
-- `denominator_bundle.rds`
+## If validation fails
 
-It then runs the existing external-bundle validator in strict preferred
-mode. A produced bundle is accepted only if it satisfies the canonical
-runtime contract.
+Read the first error message. The most common failures are:
 
-## Boundary
+- a required column is missing;
+- a local bacterium, sample type or antibiotic has no mapping;
+- an antibiotic maps to an unsupported ORCHIDEE antibiotic column;
+- all microbiology rows are marked outside `ratb_diagnostic_scope`;
+- `SEJUF` is duplicated in `unit_mapping`;
+- `DATEPRELEV` or `HEUREPRELEV` has an unsupported format;
+- two rows give conflicting S/I/R results for the same sample, bacterium,
+  isolate and antibiotic.
 
-This handoff layer is not a universal HDW connector.
+If a lab reports multiple isolates of the same species in one sample, provide
+`souche_id` or `isolate_local_id` so ORCHIDEE can keep them distinct.
 
-It does not make Rennes reproduce the CHU extraction path.
+## Who owns what?
 
-It asks Rennes for elementary hospital-owned inputs and leaves ORCHIDEE to
-derive ORCHIDEE-owned runtime artifacts.
+The hospital owns:
+
+- extracting data from the local HDW or source systems;
+- deciding which microbiology rows are diagnostic RATB rows;
+- mapping local bacteria, sample types and antibiotics to ORCHIDEE values;
+- mapping local units to TA/DE information;
+- computing the annual hospital-night denominator.
+
+ORCHIDEE owns:
+
+- validating the input files;
+- deriving the four internal files;
+- applying the RATB perimeter;
+- running completion, deduplication and indicator calculation.
+
+## Advanced note
+
+If a site has already built a valid `sir_wide.rds`, maintainers can use
+`scripts/build_external_bundle_from_handoff_inputs.R`. This is not the preferred
+first handoff for a new hospital team.

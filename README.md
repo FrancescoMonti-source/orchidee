@@ -11,21 +11,17 @@ hospitalières.
 
 Ce dépôt a deux publics, dans cet ordre :
 
-1.  Rennes ou un autre entrepôt de données hospitalier qui veut brancher ses
-    données sur ORCHIDEE.
+1.  Un entrepôt de données hospitalier qui veut brancher ses données sur
+    ORCHIDEE.
 2.  Les mainteneurs ORCHIDEE qui doivent garder le noyau de l'étape 1 stable.
 
 Le principe pour un site externe est simple : le site ne reproduit pas le chemin
 d'extraction CHU. Il fournit des blocs locaux lisibles, puis ORCHIDEE dérive les
-objets canoniques utilisés par le runtime RATB.
+fichiers internes utilisés par ORCHIDEE.
 
 Le noyau actuel de l'étape 1 est gelé. Les changements courants doivent donc
 préserver les sorties validées, sauf décision explicite de modifier la méthode
 ou le périmètre publié.
-
-Dépôt GitHub : `https://github.com/FrancescoMonti-source/orchidee`.
-
-Copie de travail locale recommandée : `~/Documents/Git/orchidee`.
 
 Les artefacts générés ou locaux (`data/`, `downloads/`, `outputs/`, `archive/`)
 ne sont pas versionnés. Un clone frais ne contient donc pas les caches, les
@@ -55,8 +51,8 @@ ORCHIDEE dérive ensuite :
 -   `sample_scope_reference.rds`
 -   `denominator_bundle.rds`
 
-Ces quatre fichiers sont le contrat machine/runtime. Rennes ne doit pas les
-construire à la main.
+Ces quatre fichiers sont construits par ORCHIDEE. Un site externe ne doit pas
+les construire à la main.
 
 Le script de construction depuis les blocs site est :
 
@@ -70,7 +66,7 @@ dans `documentation/external_bundle/site_handoff_inputs_v1.md`.
 -   `documentation/external_bundle/site_handoff_inputs_v1.md`
     -   source de vérité pour ce qu'un site externe doit fournir ;
 -   `documentation/external_bundle/canonical_inputs_v1.md`
-    -   frontière entre adaptation locale et coeur ORCHIDEE ;
+    -   limite entre adaptation locale et coeur ORCHIDEE ;
 -   `documentation/external_bundle/sir_wide_v1.md`
     -   schéma de l'artefact microbiologique canonique ;
 -   `documentation/external_bundle/sample_scope_reference_v1.md`
@@ -92,10 +88,11 @@ Le chemin CHU fonctionne aujourd'hui à partir d'artefacts internes stockés dan
 `data/`. Les notebooks utilisent encore ce chemin CHU pour conserver les audits
 locaux et les tables de QA.
 
-Le contrat externe est déjà exécutable jusqu'au bundle canonique validé. Le mode
-notebook entièrement externe n'est pas encore câblé.
+Le contrat externe est déjà exécutable jusqu'aux fichiers internes validés. Le
+mode notebook entièrement externe n'est pas encore câblé.
 
-Pour comprendre la frontière technique actuelle, lire `documentation/project_map.md`.
+Pour comprendre la frontière technique actuelle, lire
+`documentation/project_map.md`.
 Pour brancher un autre entrepôt, commencer par
 `documentation/external_bundle/site_handoff_inputs_v1.md`.
 
@@ -130,5 +127,7 @@ Pour brancher un autre entrepôt, commencer par
     la main.
 -   Pour un refactor sans changement attendu de résultats, utiliser
     `scripts/characterize_current_outputs.R` avant/après.
--   Pour savoir quel fichier modifier, commencer par `documentation/project_map.md`.
--   Pour savoir quoi rerendre, commencer par `documentation/maintenance_runbook.md`.
+-   Pour savoir quel fichier modifier, commencer par
+    `documentation/project_map.md`.
+-   Pour savoir quoi rerendre, commencer par
+    `documentation/maintenance_runbook.md`.
