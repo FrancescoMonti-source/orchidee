@@ -13,7 +13,7 @@ Ce document sert aux opérations de maintenance courante et au rendu.
 Utiliser le wrapper plutôt que des commandes de rendu ad hoc :
 
 ```powershell
-& '~\orchidee\scripts\render_orchidee.ps1' -Target <cible>
+& .\scripts\render_orchidee.ps1 -Target <cible>
 ```
 
 Cibles disponibles :
@@ -69,7 +69,7 @@ un changement non intentionnel ; elle ne remplace pas le rendu Quarto.
 Commande :
 
 ```powershell
-& '~\orchidee\scripts\render_orchidee.ps1' -Target memo
+& .\scripts\render_orchidee.ps1 -Target memo
 ```
 
 ### Si seule la note de réunion SPF a changé
@@ -77,7 +77,7 @@ Commande :
 Commande :
 
 ```powershell
-& '~\orchidee\scripts\render_orchidee.ps1' -Target meeting
+& .\scripts\render_orchidee.ps1 -Target meeting
 ```
 
 ### Si les deux documents méthodologiques ont changé
@@ -85,7 +85,7 @@ Commande :
 Commande :
 
 ```powershell
-& '~\orchidee\scripts\render_orchidee.ps1' -Target docs
+& .\scripts\render_orchidee.ps1 -Target docs
 ```
 
 ### Si seule la couche d'affichage du rapport d'indicateurs a changé
@@ -102,7 +102,7 @@ Exemples :
 Commande :
 
 ```powershell
-& '~\orchidee\scripts\render_orchidee.ps1' -Target indicators
+& .\scripts\render_orchidee.ps1 -Target indicators
 ```
 
 ### Si la logique amont a changé
@@ -119,7 +119,7 @@ Exemples :
 Commande :
 
 ```powershell
-& '~\orchidee\scripts\render_orchidee.ps1' -Target full
+& .\scripts\render_orchidee.ps1 -Target full
 ```
 
 `full` rend dans cet ordre :
@@ -129,8 +129,11 @@ Commande :
 
 ## Règles courantes de maintenance
 
--   Traiter la copie Desktop du dépôt comme la source de vérité de
-    travail.
+-   Traiter le checkout Git sous `~/Documents/Git/orchidee` comme la
+    source de vérité locale de travail ; `main` reflète le travail accepté
+    sur GitHub.
+-   Créer une branche `task/<slug>` pour les changements significatifs et
+    garder `main` propre.
 -   Traiter les sorties HTML comme des artefacts dérivés, pas comme la
     source.
 -   Garder `data/` pour les artefacts internes générés.
