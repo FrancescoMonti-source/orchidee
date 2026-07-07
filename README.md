@@ -9,189 +9,126 @@ editor_options:
 ORCHIDEE construit les indicateurs RATB/SPARES de l'étape 1 à partir de données
 hospitalières.
 
-Ce README est d'abord le point d'entrée pour Rennes ou pour tout autre entrepôt
-de données hospitalier qui veut brancher ses données sur ORCHIDEE. Il résume les
-blocs locaux à fournir, les objets qu'ORCHIDEE dérive ensuite, et les documents
-où lire le contrat détaillé.
+Ce dépôt a deux publics, dans cet ordre :
 
-Il sert aussi aux mainteneurs du dépôt : le noyau actuel de l'étape 1 est gelé,
-et les changements courants doivent préserver les sorties validées sauf décision
-explicite de modifier la méthode ou le périmètre publié.
+1.  Rennes ou un autre entrepôt de données hospitalier qui veut brancher ses
+    données sur ORCHIDEE.
+2.  Les mainteneurs ORCHIDEE qui doivent garder le noyau de l'étape 1 stable.
 
-Le dépôt canonique est versionné sur GitHub :
-`https://github.com/FrancescoMonti-source/orchidee`.
+Le principe pour un site externe est simple : le site ne reproduit pas le chemin
+d'extraction CHU. Il fournit des blocs locaux lisibles, puis ORCHIDEE dérive les
+objets canoniques utilisés par le runtime RATB.
 
-La copie de travail locale recommandée est `~/Documents/Git/orchidee`.
-Les artefacts générés ou locaux (`data/`, `downloads/`, `outputs/`,
-`archive/`) ne sont pas versionnés ; un clone frais ne contient donc pas les
-caches, les exports ou les rendus locaux.
+Le noyau actuel de l'étape 1 est gelé. Les changements courants doivent donc
+préserver les sorties validées, sauf décision explicite de modifier la méthode
+ou le périmètre publié.
 
-## À qui s'adresse ce dépôt ?
+Dépôt GitHub : `https://github.com/FrancescoMonti-source/orchidee`.
 
-Le premier public est une équipe entrepôt de données hospitalier. Pour ce public,
-l'idée principale est la suivante : il ne faut pas reproduire le chemin
-d'extraction CHU. Le site fournit des blocs locaux simples et compréhensibles,
-puis ORCHIDEE dérive le bundle canonique utilisé par le runtime RATB.
+Copie de travail locale recommandée : `~/Documents/Git/orchidee`.
 
-Les mainteneurs ORCHIDEE sont le deuxième public. Ils utilisent ce dépôt pour
-préserver le noyau gelé de l'étape 1, faire évoluer la documentation, contrôler
-les rendus et préparer les extensions futures sans casser les sorties validées.
+Les artefacts générés ou locaux (`data/`, `downloads/`, `outputs/`, `archive/`)
+ne sont pas versionnés. Un clone frais ne contient donc pas les caches, les
+exports ou les rendus locaux.
 
-## Ce qu'un site externe doit fournir
+## Rennes / autre entrepôt : commencer ici
 
-Le point d'entrée pour Rennes ou un autre entrepôt est :
-`documentation/external_bundle/site_handoff_inputs_v1.md`.
+La page à lire en premier est :
 
-Le site doit préparer quatre familles de données :
+`documentation/external_bundle/site_handoff_inputs_v1.md`
 
-1.  des observations microbiologiques longues, avec le statut
-    diagnostic/non-dépistage explicite ;
-2.  des dictionnaires de mapping microbiologique : bactéries, types de
-    prélèvements et antibiotiques locaux vers les valeurs ORCHIDEE ;
-3.  un mapping unité / structure / TA-DE, au niveau `SEJUF` ;
-4.  un dénominateur annuel d'activité hospitalière (`calendar_year`,
-    `hospital_nights`), calculé indépendamment des lignes microbiologiques.
+Elle décrit les fichiers élémentaires attendus d'un site externe. C'est la
+source de vérité pour l'onboarding Rennes.
 
-ORCHIDEE construit ensuite les quatre fichiers canoniques internes :
+En résumé, le site doit préparer :
+
+-   des observations microbiologiques longues ;
+-   des dictionnaires de mapping microbiologique ;
+-   un mapping unité / structure / TA-DE au niveau `SEJUF` ;
+-   un dénominateur annuel d'activité hospitalière, indépendant des lignes
+    microbiologiques.
+
+ORCHIDEE dérive ensuite :
 
 -   `sir_wide.rds`
 -   `sir_wide_meta.rds`
 -   `sample_scope_reference.rds`
 -   `denominator_bundle.rds`
 
-Ces quatre fichiers constituent le contrat machine/runtime. Ils ne doivent pas
-être construits à la main par le site externe.
+Ces quatre fichiers sont le contrat machine/runtime. Rennes ne doit pas les
+construire à la main.
 
-## Commande de construction du bundle externe
+Le script de construction depuis les blocs site est :
 
-Depuis la racine du dépôt :
+`scripts/build_external_bundle_from_site_inputs.R`
 
-```powershell
-& 'C:\Program Files\R\R-4.5.2\bin\Rscript.exe' `
-  scripts/build_external_bundle_from_site_inputs.R `
-  <microbiology_observations.rds|csv|tsv> `
-  <bacteria_mapping.rds|csv|tsv> `
-  <sample_type_mapping.rds|csv|tsv> `
-  <antibiotic_mapping.rds|csv|tsv> `
-  <unit_mapping.rds|csv|tsv> `
-  <denominator_by_year.rds|csv|tsv> `
-  <output_bundle_dir> `
-  [de_reference.rds|csv|tsv] `
-  [--force]
-```
+Le détail des colonnes, des valeurs attendues et de la commande complète est
+dans `documentation/external_bundle/site_handoff_inputs_v1.md`.
 
-Le script écrit le bundle canonique et lance la validation stricte. Pour le
-détail exact des colonnes, consulter `documentation/external_bundle/`.
+## Carte des documents
+
+-   `documentation/external_bundle/site_handoff_inputs_v1.md`
+    -   source de vérité pour ce qu'un site externe doit fournir ;
+-   `documentation/external_bundle/canonical_inputs_v1.md`
+    -   frontière entre adaptation locale et coeur ORCHIDEE ;
+-   `documentation/external_bundle/sir_wide_v1.md`
+    -   schéma de l'artefact microbiologique canonique ;
+-   `documentation/external_bundle/sample_scope_reference_v1.md`
+    -   schéma de la référence de périmètre au niveau prélèvement / `SEJUF` ;
+-   `documentation/external_bundle/denominator_bundle_v1.md`
+    -   schéma du dénominateur annuel d'incidence ;
+-   `documentation/project_map.md`
+    -   carte mainteneur : où se trouve la logique dans le code ;
+-   `documentation/maintenance_runbook.md`
+    -   commandes de rendu, validation locale et dépannage courant ;
+-   `documentation/ratb_implementation_decisions.qmd`
+    -   mémo méthodologique du noyau RATB gelé ;
+-   `documentation/ratb_indicator_spec.csv`
+    -   catalogue des indicateurs publiés.
 
 ## Modèle opératoire actuel
 
-Aujourd'hui, le chemin CHU fonctionne à partir d'artefacts internes canoniques
-stockés dans `data/`.
+Le chemin CHU fonctionne aujourd'hui à partir d'artefacts internes stockés dans
+`data/`. Les notebooks utilisent encore ce chemin CHU pour conserver les audits
+locaux et les tables de QA.
 
-En pratique, le workflow actuel est le suivant :
+Le contrat externe est déjà exécutable jusqu'au bundle canonique validé. Le mode
+notebook entièrement externe n'est pas encore câblé.
 
-1.  construire ou réutiliser l'artefact microbiologique canonique ;
-2.  construire ou réutiliser les artefacts de périmètre d'hospitalisation et
-    de dénominateur ;
-3.  calculer les jeux comparés et les indicateurs ;
-4.  rendre les sorties destinées au lecteur.
+Pour comprendre la frontière technique actuelle, lire `documentation/project_map.md`.
+Pour brancher un autre entrepôt, commencer par
+`documentation/external_bundle/site_handoff_inputs_v1.md`.
 
-Le point d'entrée microbiologique canonique est `data/sir_wide.rds`, accompagné
-de son fichier de métadonnées `data/sir_wide_meta.rds`.
-
-Autour de cet artefact, le workflow produit ensuite des artefacts intermédiaires
-de périmètre hospitalier, de complétion et de dédoublonnage, qui servent à
-calculer les indicateurs puis à alimenter le rapport.
-
-Pour le détail de ces artefacts et de leur rôle exact, se reporter à
-`documentation/project_map.md`.
-
-Le notebook principal ne propose pas encore un mode d'exécution externe complet.
-Le contrat externe est déjà exécutable jusqu'au bundle validé, et sert de
-frontière stable pour brancher un autre établissement sans importer les détails
-CHU dans le coeur partagé.
-
-## Premiers documents à lire
-
-Pour Rennes ou un autre site externe :
-
-1.  `documentation/external_bundle/README.md`
-2.  `documentation/external_bundle/site_handoff_inputs_v1.md`
-3.  `documentation/external_bundle/canonical_inputs_v1.md`
-4.  `documentation/external_bundle/sir_wide_v1.md`
-5.  `documentation/external_bundle/sample_scope_reference_v1.md`
-6.  `documentation/external_bundle/denominator_bundle_v1.md`
-
-Pour la maintenance ORCHIDEE :
-
-1.  `documentation/project_map.md`
-2.  `documentation/maintenance_runbook.md`
-3.  `documentation/ratb_implementation_decisions.qmd`
-4.  `documentation/ratb_indicator_spec.csv`
-
-## Points d'entrée principaux
-
--   `scripts/build_external_bundle_from_site_inputs.R`
-    -   point d'entrée privilégié pour construire un bundle externe depuis les
-        blocs fournis par un site ;
--   `scripts/validate_external_bundle.R`
-    -   validateur autonome du bundle canonique ;
--   `scripts/smoke_external_runtime_inputs.R`
-    -   vérifie qu'un bundle validé peut alimenter la frontière runtime
-        ORCHIDEE ;
--   `orchidee_dedup_workflow.qmd`
-    -   notebook socle du chemin CHU et des audits internes ;
--   `orchidee_ratb_indicators.qmd`
-    -   rapport RATB orienté produit ;
--   `documentation/ratb_implementation_decisions.qmd`
-    -   mémo méthodologique de référence pour le noyau gelé de l'étape 1.
-
-## Répertoires clés
+## Répertoires principaux
 
 -   `R/`
-    -   helpers R réutilisables, sourcés par les notebooks ou d'autres
-        scripts R ;
+    -   helpers R et logique réutilisable ;
 -   `scripts/`
-    -   points d'entrée en ligne de commande, dont le builder de bundle
-        externe, les validateurs et le wrapper de rendu ;
+    -   points d'entrée CLI : builder externe, validateurs, smoke test et
+        wrapper de rendu ;
 -   `documentation/external_bundle/`
     -   contrat d'entrée pour Rennes ou un autre entrepôt ;
--   `config/`
-    -   réglages opérationnels du pipeline : chemins, fenêtres de dates,
-        politiques de recompute et paramètres d'affichage ;
--   `assets/`
-    -   fichiers de présentation utilisés par les rendus Quarto ;
--   `rules/`
-    -   emplacement réservé aux tables de règles analytiques maintenues par le
-        projet ; aucune table active n'y est actuellement requise ;
--   `dictionaries/`
-    -   dictionnaires de normalisation et de taxonomie / antibiotiques ;
--   `ref/`
-    -   référentiels institutionnels importés, par exemple UF/UM et
-        référentiels CONSORES TA/DE utilisés pour le périmètre RATB ;
--   `data/`
-    -   artefacts internes canoniques et caches utilisés par le workflow CHU et
-        le rapport ;
--   `downloads/`
-    -   tableaux et figures exportés par le rapport d'indicateurs ;
--   `outputs/`
-    -   espace local ignoré par Git pour brouillons, inspections et artefacts
-        temporaires ; ne pas l'utiliser comme source canonique ;
 -   `documentation/`
-    -   mémo méthodologique, documentation du contrat externe, documents
-        d'entrée et de référence ;
--   `archive/backups/`
-    -   sauvegardes manuelles mises en quarantaine.
+    -   documentation de maintenance, décisions méthodologiques et specs ;
+-   `config/`
+    -   chemins, politiques de recompute et paramètres opérationnels ;
+-   `dictionaries/`
+    -   dictionnaires de normalisation microbiologique ;
+-   `ref/`
+    -   référentiels institutionnels importés, dont les références TA/DE ;
+-   `data/`
+    -   artefacts internes générés, ignorés par Git ;
+-   `downloads/`
+    -   exports de rapport, ignorés par Git ;
+-   `outputs/`
+    -   brouillons et inspections locales, ignorés par Git.
 
-## Conseils immédiats de maintenance
+## Maintenance rapide
 
--   Préférer le wrapper de rendu aux commandes `quarto render` lancées à la
-    main.
 -   Ne pas traiter les HTML rendus comme source de vérité.
--   Quand un rapport semble incorrect, commencer par déterminer si le problème
-    vient :
-    -   de la logique amont ou des données ;
-    -   de la spec des indicateurs ;
-    -   ou seulement de la couche de restitution.
--   Pour les rendus, la matrice de rerender et le dépannage courant, se reporter
-    à `documentation/maintenance_runbook.md`.
+-   Utiliser `scripts/render_orchidee.ps1` plutôt que lancer `quarto render` à
+    la main.
+-   Pour un refactor sans changement attendu de résultats, utiliser
+    `scripts/characterize_current_outputs.R` avant/après.
+-   Pour savoir quel fichier modifier, commencer par `documentation/project_map.md`.
+-   Pour savoir quoi rerendre, commencer par `documentation/maintenance_runbook.md`.

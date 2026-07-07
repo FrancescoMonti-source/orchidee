@@ -58,24 +58,14 @@ Objets consommés par les notebooks
 - incidence_denominator_by_year
 ```
 
-À retenir pour un autre entrepôt : le site doit produire les objets
-canoniques, pas reproduire l'extraction CHU. Les tables comme
-`ratb_scope_join_audit`, `hospital_stays_validated`,
+Les tables comme `ratb_scope_join_audit`, `hospital_stays_validated`,
 `hospital_days_year_summary` ou `incidence_denominator_pmsi_ta_de_audit`
-restent du contexte de QA natif CHU ; elles peuvent aider à comprendre le
-workflow actuel, mais elles ne font pas partie du contrat portable minimal.
+restent du contexte de QA natif CHU. Elles aident à comprendre le workflow
+actuel, mais elles ne font pas partie du contrat portable minimal.
 
-Pour un site comme Rennes, le point d'échange humain est situé un cran plus
-en amont : `documentation/external_bundle/site_handoff_inputs_v1.md`
-décrit les blocs élémentaires à fournir, puis
-`scripts/build_external_bundle_from_handoff_inputs.R` dérive le bundle
-canonique validé.
-Le chemin préféré passe par `scripts/build_external_bundle_from_site_inputs.R` :
-les observations microbiologiques longues et les dictionnaires locaux
-dérivent `sir_wide.rds`, puis les mappings UF/TA-DE et le dénominateur
-annuel dérivent les autres objets du bundle canonique. Le script
-`build_external_bundle_from_handoff_inputs.R` reste disponible quand un site
-a déjà construit un `sir_wide.rds` canonique.
+Pour brancher Rennes ou un autre entrepôt, ne pas utiliser cette carte comme
+contrat d'onboarding. La source de vérité est
+`documentation/external_bundle/site_handoff_inputs_v1.md`.
 
 ## Notebooks principaux
 
