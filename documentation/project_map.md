@@ -32,6 +32,11 @@ tables de QA locales. En revanche, le périmètre microbiologique aval et le
 dénominateur d'incidence passent déjà par les objets canoniques attendus
 par le futur contrat externe.
 
+La règle d'architecture est donc : plusieurs entrées locales peuvent exister
+(adaptateur natif CHU/Rouen, blocs de handoff pour Rennes ou un autre site),
+mais elles doivent converger vers les mêmes objets internes avant le coeur
+RATB partagé.
+
 ```text
 Données CHU / EDSaN / PMSI / référentiels TA-DE
         |

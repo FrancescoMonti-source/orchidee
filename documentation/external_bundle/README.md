@@ -12,6 +12,12 @@ ORCHIDEE RATB core.
 This file is only an index. It should not duplicate the detailed contract.
 When details differ, the contract files below are authoritative.
 
+ORCHIDEE can have different local entry adapters. The current CHU/Rouen
+workflow keeps its native adapter. Rennes or another hospital should use the
+site-handoff inputs described here. Both paths must converge to the same
+internal ORCHIDEE files before shared RATB scope, deduplication and indicator
+logic run.
+
 ## Start here
 
 For Rennes or another hospital HDW team, start with:
