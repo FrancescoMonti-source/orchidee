@@ -24,8 +24,9 @@ if (length(args) > 2L || any(args %in% c("-h", "--help"))) {
   cat("Default site_input_dir: outputs/chu_site_inputs\n")
   cat("Default bundle_dir: outputs/chu_site_bundle\n")
   cat("\n")
-  cat("This diagnostic script exports CHU-derived elementary handoff inputs,\n")
-  cat("then tries the same site-input builder used for external hospitals.\n")
+  cat("This diagnostic script derives elementary handoff inputs from current\n")
+  cat("data/sir_wide.rds, then tries the same site-input builder used for\n")
+  cat("external hospitals. It is a roundtrip proof, not a raw CHU extraction test.\n")
   quit(status = 0L)
 }
 
@@ -43,7 +44,6 @@ orchidee_source_required_script("ratb_hospital_days_helpers.R", "RATB hospital d
 orchidee_source_required_script("external_handoff_helpers.R", "external handoff helpers")
 
 required_paths <- c(
-  sir_long = file.path("data", "sir_long"),
   sir_wide = file.path("data", "sir_wide.rds"),
   ratb_scope_cache = file.path("data", "ratb_scope_cache")
 )
@@ -84,11 +84,6 @@ require_columns <- function(df, cols, label) {
   }
 }
 
-rename_column <- function(df, old, new) {
-  names(df)[names(df) == old] <- new
-  df
-}
-
 write_rds <- function(x, path) {
   saveRDS(x, path)
   invisible(path)
@@ -99,54 +94,10 @@ write_csv <- function(x, path) {
   invisible(path)
 }
 
-build_chu_microbiology_observations <- function(sir_long, sir_wide) {
-  core_cols <- c(
-    "PATID", "EVTID", "ELTID", "DATEPRELEV", "SEJUF", "souche_id",
-    "IDENTIFICATION", "NATUREPVT", "LBLANA", "STRRES",
-    "bact_norm", "naturepvt_norm"
-  )
-  require_columns(sir_long, core_cols, "sir_long")
-
-  optional_cols <- intersect("HEUREPRELEV", names(sir_long))
-  obs <- sir_long[, c(core_cols, optional_cols), drop = FALSE]
-  obs <- rename_column(obs, "IDENTIFICATION", "bacteria_local")
-  obs <- rename_column(obs, "NATUREPVT", "sample_type_local")
-  obs <- rename_column(obs, "LBLANA", "antibiotic_local")
-  obs <- rename_column(obs, "STRRES", "sir_result")
-
-  phenotype_key_cols <- c(
-    "PATID", "EVTID", "ELTID", "DATEPRELEV", "souche_id",
-    "bact_norm", "naturepvt_norm"
-  )
-  phenotype_cols <- c("blse_status_row", "carbapenemase_status_row")
-  if (all(c(phenotype_key_cols, phenotype_cols) %in% names(sir_wide))) {
-    phenotype_lookup <- unique(sir_wide[, c(phenotype_key_cols, phenotype_cols), drop = FALSE])
-    obs <- merge(
-      obs,
-      phenotype_lookup,
-      by = phenotype_key_cols,
-      all.x = TRUE,
-      sort = FALSE
-    )
-  }
-
-  obs$ratb_diagnostic_scope <- TRUE
-  output_cols <- c(
-    "PATID", "EVTID", "ELTID", "DATEPRELEV", optional_cols,
-    "SEJUF", "souche_id", "bacteria_local", "sample_type_local",
-    "antibiotic_local", "sir_result", "ratb_diagnostic_scope",
-    intersect(phenotype_cols, names(obs))
-  )
-  obs <- obs[, output_cols, drop = FALSE]
-  row.names(obs) <- NULL
-  obs
-}
-
-build_two_column_mapping <- function(df, local_col, canonical_col, output_local, output_canonical) {
-  require_columns(df, c(local_col, canonical_col), "mapping source")
+build_identity_mapping <- function(values, output_local, output_canonical) {
   out <- unique(data.frame(
-    local = df[[local_col]],
-    canonical = df[[canonical_col]],
+    local = as.character(values),
+    canonical = as.character(values),
     stringsAsFactors = FALSE
   ))
   names(out) <- c(output_local, output_canonical)
@@ -154,19 +105,113 @@ build_two_column_mapping <- function(df, local_col, canonical_col, output_local,
   out
 }
 
-build_source_alignment <- function(sir_long, sir_wide) {
-  require_columns(sir_long, "ELTID", "sir_long")
-  require_columns(sir_wide, "ELTID", "sir_wide")
-  sir_long_eltid <- unique(as.character(sir_long$ELTID))
-  sir_wide_eltid <- unique(as.character(sir_wide$ELTID))
-  overlap <- length(intersect(sir_long_eltid, sir_wide_eltid))
-  overlap_ratio <- if (length(sir_wide_eltid) == 0L) NA_real_ else overlap / length(sir_wide_eltid)
+build_chu_microbiology_observations <- function(sir_wide, supported_atb) {
+  row_cols <- c(
+    "PATID", "EVTID", "ELTID", "DATEPRELEV", "HEUREPRELEV", "SEJUF",
+    "souche_id", "bact_norm", "naturepvt_norm"
+  )
+  phenotype_cols <- c("blse_status_row", "carbapenemase_status_row")
+  require_columns(sir_wide, row_cols, "sir_wide")
+  require_columns(sir_wide, supported_atb, "sir_wide")
+
+  atb_values <- sir_wide[supported_atb]
+  has_result <- !is.na(atb_values) & atb_values != ""
+  result_idx <- which(as.matrix(has_result), arr.ind = TRUE)
+  if (nrow(result_idx) == 0L) {
+    stop("sir_wide contains no supported non-missing S/I/R values.", call. = FALSE)
+  }
+  result_idx <- result_idx[order(result_idx[, "row"], result_idx[, "col"]), , drop = FALSE]
+
+  base <- sir_wide[result_idx[, "row"], row_cols, drop = FALSE]
+  obs <- data.frame(
+    PATID = base$PATID,
+    EVTID = base$EVTID,
+    ELTID = base$ELTID,
+    DATEPRELEV = base$DATEPRELEV,
+    HEUREPRELEV = base$HEUREPRELEV,
+    SEJUF = base$SEJUF,
+    souche_id = base$souche_id,
+    bacteria_local = base$bact_norm,
+    sample_type_local = base$naturepvt_norm,
+    antibiotic_local = supported_atb[result_idx[, "col"]],
+    sir_result = as.character(as.matrix(atb_values)[result_idx]),
+    ratb_diagnostic_scope = TRUE,
+    stringsAsFactors = FALSE
+  )
+
+  for (col in intersect(phenotype_cols, names(sir_wide))) {
+    obs[[col]] <- sir_wide[[col]][result_idx[, "row"]]
+  }
+
+  row.names(obs) <- NULL
+  obs
+}
+
+make_row_key <- function(df, key_cols) {
+  parts <- lapply(df[key_cols], function(x) {
+    x <- as.character(x)
+    x[is.na(x)] <- "<NA>"
+    x
+  })
+  do.call(paste, c(parts, sep = "\r"))
+}
+
+normalize_compare_value <- function(x) {
+  if (inherits(x, "difftime")) {
+    x <- as.character(as.numeric(x, units = "secs"))
+  } else if (inherits(x, "Date")) {
+    x <- as.character(x)
+  } else {
+    x <- as.character(x)
+  }
+  x[is.na(x)] <- "<NA>"
+  x
+}
+
+build_roundtrip_report <- function(current_sir_wide, rebuilt_sir_wide, contract) {
+  key_cols <- contract$sir_wide$row_grain_key
+  supported_atb <- contract$sir_wide$atb_cols
+  compare_cols <- unique(c(
+    key_cols,
+    "HEUREPRELEV", "SEJUF", "nb_resultats",
+    supported_atb,
+    "blse_status_row", "carbapenemase_status_row",
+    "blse_flag", "carbapenemase_flag"
+  ))
+  compare_cols <- intersect(compare_cols, intersect(names(current_sir_wide), names(rebuilt_sir_wide)))
+
+  current_key <- make_row_key(current_sir_wide, key_cols)
+  rebuilt_key <- make_row_key(rebuilt_sir_wide, key_cols)
+  shared_key <- intersect(current_key, rebuilt_key)
+
+  current_only <- sum(!current_key %in% rebuilt_key)
+  rebuilt_only <- sum(!rebuilt_key %in% current_key)
+
+  value_mismatches <- 0L
+  mismatch_columns <- character()
+  if (length(shared_key) > 0L) {
+    current_aligned <- current_sir_wide[match(shared_key, current_key), compare_cols, drop = FALSE]
+    rebuilt_aligned <- rebuilt_sir_wide[match(shared_key, rebuilt_key), compare_cols, drop = FALSE]
+    mismatch_by_col <- vapply(compare_cols, function(col) {
+      sum(normalize_compare_value(current_aligned[[col]]) != normalize_compare_value(rebuilt_aligned[[col]]))
+    }, integer(1))
+    value_mismatches <- sum(mismatch_by_col)
+    mismatch_columns <- names(mismatch_by_col)[mismatch_by_col > 0L]
+  }
+
+  status <- if (
+    current_only == 0L && rebuilt_only == 0L && value_mismatches == 0L
+  ) "exact" else "mismatch"
+
   list(
-    status = if (!is.na(overlap_ratio) && overlap_ratio >= 0.95) "aligned" else "mismatch",
-    sir_long_distinct_eltid = length(sir_long_eltid),
-    current_sir_wide_distinct_eltid = length(sir_wide_eltid),
-    eltid_overlap = overlap,
-    eltid_overlap_ratio = overlap_ratio
+    status = status,
+    current_rows = nrow(current_sir_wide),
+    rebuilt_rows = nrow(rebuilt_sir_wide),
+    shared_keys = length(shared_key),
+    current_only_keys = current_only,
+    rebuilt_only_keys = rebuilt_only,
+    value_mismatches = value_mismatches,
+    mismatch_columns = mismatch_columns
   )
 }
 
@@ -177,9 +222,7 @@ build_audit_summary <- function(
     antibiotic_mapping,
     unit_mapping,
     denominator_by_year,
-    sir_wide,
-    unsupported_antibiotic_rows_removed = 0L,
-    source_alignment = NULL
+    sir_wide
   ) {
   nonmissing_sample_local <- !is.na(sample_type_mapping$sample_type_local) &
     nzchar(as.character(sample_type_mapping$sample_type_local))
@@ -189,7 +232,6 @@ build_audit_summary <- function(
   data.frame(
     metric = c(
       "microbiology_observations_rows",
-      "microbiology_observations_unsupported_antibiotic_rows_removed",
       "bacteria_mapping_rows",
       "sample_type_mapping_rows",
       "sample_type_mapping_missing_canonical_rows",
@@ -198,15 +240,10 @@ build_audit_summary <- function(
       "unit_mapping_rows",
       "denominator_by_year_rows",
       "current_sir_wide_rows",
-      "current_sir_wide_missing_naturepvt_norm_rows",
-      "source_sir_long_distinct_eltid",
-      "source_current_sir_wide_distinct_eltid",
-      "source_eltid_overlap",
-      "source_eltid_overlap_ratio"
+      "current_sir_wide_missing_naturepvt_norm_rows"
     ),
     value = c(
       nrow(microbiology_observations),
-      as.integer(unsupported_antibiotic_rows_removed),
       nrow(bacteria_mapping),
       nrow(sample_type_mapping),
       sum(sample_missing_canonical),
@@ -215,22 +252,18 @@ build_audit_summary <- function(
       nrow(unit_mapping),
       nrow(denominator_by_year),
       nrow(sir_wide),
-      sum(is.na(sir_wide$naturepvt_norm)),
-      source_alignment$sir_long_distinct_eltid,
-      source_alignment$current_sir_wide_distinct_eltid,
-      source_alignment$eltid_overlap,
-      source_alignment$eltid_overlap_ratio
+      sum(is.na(sir_wide$naturepvt_norm))
     ),
     stringsAsFactors = FALSE
   )
 }
 
-build_status_report <- function(status, message, validation_report = NULL, source_alignment = NULL) {
+build_status_report <- function(status, message, validation_report = NULL, roundtrip_report = NULL) {
   report <- list(
     status = status,
     message = message,
     created_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
-    source_alignment = source_alignment,
+    roundtrip = roundtrip_report,
     validation_ok = NA,
     validation_errors = character(),
     validation_warnings = character()
@@ -243,11 +276,11 @@ build_status_report <- function(status, message, validation_report = NULL, sourc
   report
 }
 
-sir_long <- readRDS(required_paths[["sir_long"]])
 sir_wide <- readRDS(required_paths[["sir_wide"]])
 ratb_scope_cache <- readRDS(required_paths[["ratb_scope_cache"]])
+contract <- orchidee_external_contract_v1()
+supported_atb <- contract$sir_wide$atb_cols
 
-if (!is.data.frame(sir_long)) stop("data/sir_long is not a data frame.", call. = FALSE)
 if (!is.data.frame(sir_wide)) stop("data/sir_wide.rds is not a data frame.", call. = FALSE)
 if (!is.list(ratb_scope_cache)) stop("data/ratb_scope_cache is not a list.", call. = FALSE)
 
@@ -258,44 +291,19 @@ if (!is.data.frame(ratb_scope_cache$incidence_denominator_by_year)) {
   stop("ratb_scope_cache$incidence_denominator_by_year is required for denominator_by_year.", call. = FALSE)
 }
 
-source_alignment <- build_source_alignment(sir_long, sir_wide)
-
-microbiology_observations <- build_chu_microbiology_observations(sir_long, sir_wide)
-bacteria_mapping <- build_two_column_mapping(
-  sir_long,
-  "IDENTIFICATION", "bact_norm",
+microbiology_observations <- build_chu_microbiology_observations(sir_wide, supported_atb)
+bacteria_mapping <- build_identity_mapping(
+  sir_wide$bact_norm,
   "bacteria_local", "bact_norm"
 )
-sample_type_mapping <- build_two_column_mapping(
-  sir_long,
-  "NATUREPVT", "naturepvt_norm",
+sample_type_mapping <- build_identity_mapping(
+  sir_wide$naturepvt_norm,
   "sample_type_local", "naturepvt_norm"
 )
-antibiotic_mapping <- build_two_column_mapping(
-  sir_long,
-  "LBLANA", "atb_norm",
+antibiotic_mapping <- build_identity_mapping(
+  supported_atb,
   "antibiotic_local", "atb_norm"
 )
-
-supported_atb <- orchidee_external_contract_v1()$sir_wide$atb_cols
-supported_antibiotic_local <- antibiotic_mapping$antibiotic_local[
-  antibiotic_mapping$atb_norm %in% supported_atb
-]
-unsupported_antibiotic_rows_removed <- sum(
-  !microbiology_observations$antibiotic_local %in% supported_antibiotic_local
-)
-microbiology_observations <- microbiology_observations[
-  microbiology_observations$antibiotic_local %in% supported_antibiotic_local,
-  ,
-  drop = FALSE
-]
-antibiotic_mapping <- antibiotic_mapping[
-  antibiotic_mapping$atb_norm %in% supported_atb,
-  ,
-  drop = FALSE
-]
-row.names(microbiology_observations) <- NULL
-row.names(antibiotic_mapping) <- NULL
 
 unit_mapping_cols <- c("SEJUF", "CODE_TA", "de_domain_ref")
 require_columns(ratb_scope_cache$ratb_uf_ta_de_reference, unit_mapping_cols, "ratb_uf_ta_de_reference")
@@ -335,9 +343,7 @@ audit_summary <- build_audit_summary(
   antibiotic_mapping = antibiotic_mapping,
   unit_mapping = unit_mapping,
   denominator_by_year = denominator_by_year,
-  sir_wide = sir_wide,
-  unsupported_antibiotic_rows_removed = unsupported_antibiotic_rows_removed,
-  source_alignment = source_alignment
+  sir_wide = sir_wide
 )
 
 write_rds(microbiology_observations, file.path(site_input_dir, "microbiology_observations.rds"))
@@ -367,23 +373,31 @@ build_attempt <- tryCatch({
     bundle_dir = bundle_dir,
     strict_preferred = TRUE
   )
-  if (isTRUE(validation_report$ok)) {
+  roundtrip_report <- build_roundtrip_report(sir_wide, bundle$sir_wide, contract)
+  if (isTRUE(validation_report$ok) && identical(roundtrip_report$status, "exact")) {
     build_status_report(
       "pass",
-      "CHU-derived site handoff builds and validates.",
+      "Current sir_wide roundtrip builds, validates and reproduces the canonical artifact.",
       validation_report,
-      source_alignment = source_alignment
+      roundtrip_report = roundtrip_report
+    )
+  } else if (isTRUE(validation_report$ok)) {
+    build_status_report(
+      "roundtrip_mismatch",
+      "Built bundle validates, but rebuilt sir_wide differs from current sir_wide.",
+      validation_report,
+      roundtrip_report = roundtrip_report
     )
   } else {
     build_status_report(
       "validation_fail",
       "Built bundle did not validate.",
       validation_report,
-      source_alignment = source_alignment
+      roundtrip_report = roundtrip_report
     )
   }
 }, error = function(e) {
-  build_status_report("build_fail", conditionMessage(e), source_alignment = source_alignment)
+  build_status_report("build_fail", conditionMessage(e))
 })
 
 write_rds(build_attempt, file.path(site_input_dir, "build_attempt.rds"))
@@ -393,11 +407,12 @@ cat("Site input dir: ", site_input_dir, "\n", sep = "")
 cat("Bundle dir: ", bundle_dir, "\n", sep = "")
 cat("Build status: ", build_attempt$status, "\n", sep = "")
 cat("Message: ", build_attempt$message, "\n", sep = "")
-if (!is.null(build_attempt$source_alignment)) {
+if (!is.null(build_attempt$roundtrip)) {
   cat(
-    "Source alignment: ", build_attempt$source_alignment$status,
-    " (ELTID overlap ", build_attempt$source_alignment$eltid_overlap,
-    "/", build_attempt$source_alignment$current_sir_wide_distinct_eltid,
+    "Roundtrip: ", build_attempt$roundtrip$status,
+    " (current rows ", build_attempt$roundtrip$current_rows,
+    ", rebuilt rows ", build_attempt$roundtrip$rebuilt_rows,
+    ", value mismatches ", build_attempt$roundtrip$value_mismatches,
     ")\n",
     sep = ""
   )

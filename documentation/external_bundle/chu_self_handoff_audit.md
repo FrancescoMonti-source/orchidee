@@ -50,23 +50,22 @@ Rscript scripts/audit_chu_site_handoff.R `
 
 The script has two steps.
 
-1. It exports CHU-derived elementary source blocks from existing local
-   artifacts in `data/`.
-2. It filters the CHU long microbiology rows to antibiotic columns supported
-   by the v1 ORCHIDEE contract.
-3. It tries to run those blocks through
-   `scripts/build_external_bundle_from_site_inputs.R` logic.
+1. It derives elementary source blocks from the current `data/sir_wide.rds`
+   artifact, using canonical ORCHIDEE values as local labels.
+2. It runs those blocks through
+   `scripts/build_external_bundle_from_site_inputs.R` logic and compares the
+   rebuilt `sir_wide` with the current artifact.
 
-A `pass` build status means the CHU-derived blocks satisfy the same handoff
-builder expected from an external hospital.
+A `pass` build status means the current canonical microbiology artifact can be
+expressed as site handoff inputs, rebuilt, validated and roundtripped without
+changing its portable content.
 
-The script also reports source alignment between `data/sir_long` and the
-current `data/sir_wide.rds`. If alignment is `mismatch`, the handoff builder
-is executable but the generated bundle should not be read as exact
-reproduction of the frozen CHU artifact.
+This is not a raw CHU extraction test: it does not verify the original EDSaN /
+BIOL label mapping that produced `sir_wide.rds`.
 
-A `build_fail` or `validation_fail` status is diagnostic evidence, not a
-pipeline failure. Read `outputs/chu_site_inputs/build_attempt.rds` and
+A `build_fail`, `validation_fail` or `roundtrip_mismatch` status is diagnostic
+evidence, not a pipeline failure. Read
+`outputs/chu_site_inputs/build_attempt.rds` and
 `outputs/chu_site_inputs/audit_summary.csv` to identify the mismatch.
 
 Use `--fail-on-build-failure` only when you deliberately want the command to
