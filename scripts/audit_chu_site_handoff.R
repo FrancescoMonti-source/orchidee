@@ -170,15 +170,13 @@ normalize_compare_value <- function(x) {
 
 build_roundtrip_report <- function(current_sir_wide, rebuilt_sir_wide, contract) {
   key_cols <- contract$sir_wide$row_grain_key
-  supported_atb <- contract$sir_wide$atb_cols
-  compare_cols <- unique(c(
-    key_cols,
-    "HEUREPRELEV", "SEJUF", "nb_resultats",
-    supported_atb,
-    "blse_status_row", "carbapenemase_status_row",
-    "blse_flag", "carbapenemase_flag"
-  ))
-  compare_cols <- intersect(compare_cols, intersect(names(current_sir_wide), names(rebuilt_sir_wide)))
+  # Derive the comparison columns from the contract so a new portable
+  # sir_wide column is covered automatically instead of silently skipped.
+  compare_cols <- external_bundle_sir_wide_contract_columns(contract)
+  compare_cols <- intersect(
+    compare_cols,
+    intersect(names(current_sir_wide), names(rebuilt_sir_wide))
+  )
 
   current_key <- make_row_key(current_sir_wide, key_cols)
   rebuilt_key <- make_row_key(rebuilt_sir_wide, key_cols)

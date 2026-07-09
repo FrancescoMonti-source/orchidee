@@ -23,6 +23,10 @@ Rscript scripts/audit_chu_site_handoff.R --force
 
 If `Rscript` is not available in `PATH`, use the full local Rscript path.
 
+This diagnostic reads both `data/sir_wide.rds` and `data/ratb_scope_cache`,
+so run it in a CHU checkout where both artifacts exist. It stops early with a
+clear error if either is missing.
+
 By default, the script writes:
 
 - `outputs/chu_site_inputs/`
@@ -50,15 +54,20 @@ Rscript scripts/audit_chu_site_handoff.R `
 
 The script has two steps.
 
-1. It derives elementary source blocks from the current `data/sir_wide.rds`
-   artifact, using canonical ORCHIDEE values as local labels.
+1. It derives elementary source blocks from current CHU artifacts, using
+   canonical ORCHIDEE values as local labels. The microbiology observations
+   and the bacteria, sample-type and antibiotic mappings come from
+   `data/sir_wide.rds`; the `unit_mapping` and `denominator_by_year` blocks
+   come from the native `data/ratb_scope_cache`.
 2. It runs those blocks through
    `scripts/build_external_bundle_from_site_inputs.R` logic and compares the
    rebuilt `sir_wide` with the current artifact.
 
 A `pass` build status means the current canonical microbiology artifact can be
 expressed as site handoff inputs, rebuilt, validated and roundtripped without
-changing its portable content.
+changing its portable content. The roundtrip compares the v1 `sir_wide`
+columns defined by the external contract, so a new portable column is covered
+automatically once the contract lists it.
 
 This is not a raw CHU extraction test: it does not verify the original EDSaN /
 BIOL label mapping that produced `sir_wide.rds`.
