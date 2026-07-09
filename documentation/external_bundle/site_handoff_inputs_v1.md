@@ -310,6 +310,12 @@ ORCHIDEE owns:
 
 ## Advanced note
 
-If a site has already built a valid `sir_wide.rds`, maintainers can use
-`scripts/build_external_bundle_from_handoff_inputs.R`. This is not the preferred
-first handoff for a new hospital team.
+Use the primary path above, `build_external_bundle_from_site_inputs.R`, for a
+first handoff: it takes the six elementary blocks and builds `sir_wide.rds`
+and the rest of the bundle for you. You do not need to produce `sir_wide.rds`
+yourself.
+
+A different script, `scripts/build_external_bundle_from_handoff_inputs.R`, is
+only for the narrower case where a site has already built a valid
+`sir_wide.rds` and wants ORCHIDEE to derive the other three files from it. It
+is a maintainer path, not the preferred first handoff for a new hospital team.

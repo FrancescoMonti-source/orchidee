@@ -48,7 +48,7 @@ R/chu_ratb_scope_cache_helpers.R
         | produit les objets canoniques et le contexte de QA local
         v
 Objets canoniques de frontière
-- sir_wide
+- sir_wide (et ses métadonnées sir_wide_meta)
 - sample_scope_reference
 - denominator_bundle
         |
@@ -298,9 +298,11 @@ chargés hors notebook.
         `sample_scope_reference.rds` et `denominator_bundle.rds`, puis
         lance la validation stricte
 -   `scripts/audit_chu_site_handoff.R`
-    -   diagnostic mainteneur : dérive des blocs élémentaires depuis le
-        `sir_wide.rds` courant, tente de les reconstruire avec la logique
-        de handoff site externe et écrit un rapport local sans modifier le
+    -   diagnostic mainteneur : dérive des blocs élémentaires depuis les
+        artefacts CHU courants (observations et mappings depuis
+        `sir_wide.rds` ; `unit_mapping` et `denominator_by_year` depuis
+        `ratb_scope_cache`), tente de les reconstruire avec la logique de
+        handoff site externe et écrit un rapport local sans modifier le
         workflow de production CHU
 -   `scripts/smoke_external_runtime_inputs.R`
     -   smoke test CLI vérifiant qu'un bundle validé peut construire les
