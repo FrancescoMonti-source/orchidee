@@ -6,7 +6,6 @@ suppressPackageStartupMessages({
   library(purrr)
   library(stringr)
   library(lubridate)
-  library(corpustools)
 })
 
 # -----------------------------------------------------------------------------

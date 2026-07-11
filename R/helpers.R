@@ -1,5 +1,53 @@
 `%||%` <- function(x, y) if (!is.null(x)) x else y
 
+# Deterministic accent stripper vendored from the former `fmckage::rm_accent`
+# dependency, so the project no longer needs that non-CRAN package. Uses
+# `chartr` character maps, which are platform-independent (unlike a
+# locale-sensitive `iconv(..., "ASCII//TRANSLIT")`). Call sites in
+# build_sir_wide_artifact.R, normalisation_atb.R and phenotype_flag_helpers.R
+# resolve to this through an `exists("rm_accent")` guard.
+rm_accent <- function(str, pattern = "all") {
+  if (!is.character(str)) {
+    str <- as.character(str)
+  }
+
+  pattern <- unique(pattern)
+
+  if (any(pattern == "Ç")) {
+    pattern[pattern == "Ç"] <- "ç"
+  }
+
+  symbols <- c(
+    acute = "áéíóúÁÉÍÓÚýÝ",
+    grave = "àèìòùÀÈÌÒÙ",
+    circunflex = "âêîôûÂÊÎÔÛ",
+    tilde = "ãõÃÕñÑ",
+    umlaut = "äëïöüÄËÏÖÜÿ",
+    cedil = "çÇ"
+  )
+
+  nudeSymbols <- c(
+    acute = "aeiouAEIOUyY",
+    grave = "aeiouAEIOU",
+    circunflex = "aeiouAEIOU",
+    tilde = "aoAOnN",
+    umlaut = "aeiouAEIOUy",
+    cedil = "cC"
+  )
+
+  accentTypes <- c("´", "`", "^", "~", "¨", "ç")
+
+  if (any(c("all", "al", "a", "todos", "t", "to", "tod", "todo") %in% pattern)) {
+    return(chartr(paste(symbols, collapse = ""), paste(nudeSymbols, collapse = ""), str))
+  }
+
+  for (i in which(accentTypes %in% pattern)) {
+    str <- chartr(symbols[i], nudeSymbols[i], str)
+  }
+
+  return(str)
+}
+
 .edsan_is_limit_error <- function(err) {
   if (is.null(err)) return(FALSE)
   err <- paste(err, collapse = " ")
