@@ -379,11 +379,21 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     obs[[diagnostic_col]],
     paste0("microbiology_observations$", diagnostic_col)
   )
-  obs <- obs[diagnostic_scope, , drop = FALSE]
+  # Screening exclusion is applied at the sample (ELTID) level, matching the
+  # frozen CHU method (build_sir_wide_artifact.R and ratb_implementation_decisions):
+  # a whole ELTID is excluded when any of its rows is screening / non-diagnostic,
+  # so screening material never reaches phenotypes, resistance indicators or
+  # incidence numerators. A non-diagnostic row without a usable ELTID is still
+  # dropped on its own.
+  eltid_chr <- as.character(obs$ELTID)
+  has_eltid <- !is.na(eltid_chr) & eltid_chr != ""
+  screening_eltid <- unique(eltid_chr[!diagnostic_scope & has_eltid])
+  drop_mask <- (!diagnostic_scope) | (has_eltid & eltid_chr %in% screening_eltid)
+  obs <- obs[!drop_mask, , drop = FALSE]
   if (nrow(obs) == 0L) {
     stop(
-      "No rows remain after filtering microbiology_observations to ",
-      diagnostic_col, " == TRUE.",
+      "No rows remain after excluding screening samples from ",
+      "microbiology_observations (whole-ELTID ", diagnostic_col, " exclusion).",
       call. = FALSE
     )
   }

@@ -59,7 +59,7 @@ Required columns:
 | `sample_type_local` | Local sample-type label. |
 | `antibiotic_local` | Local antibiotic label. |
 | `sir_result` | Local S/I/R result. |
-| `ratb_diagnostic_scope` | TRUE if the row belongs to diagnostic RATB microbiology, FALSE for screening / non-diagnostic rows. |
+| `ratb_diagnostic_scope` | TRUE if the row belongs to diagnostic RATB microbiology, FALSE for screening / non-diagnostic rows. Exclusion is applied per sample — see the note under File 1. |
 
 Accepted aliases for `ratb_diagnostic_scope` are `diagnostic_scope` and
 `is_diagnostic`, but `ratb_diagnostic_scope` is preferred.
@@ -91,6 +91,13 @@ P001,S001,MIC001,2024-03-12,09:15,UF1234,Escherichia coli,Urine,Amoxicilline aci
 Important: `ratb_diagnostic_scope` is not the TA/DE hospital perimeter. It is
 the local microbiology decision that keeps screening and other non-diagnostic
 material out before ORCHIDEE applies the hospital-unit perimeter.
+
+Exclusion is applied at the sample level: if any row of a given `ELTID` is
+marked `FALSE` (screening / non-diagnostic), ORCHIDEE drops the whole sample —
+every row of that `ELTID`, across all bacteria, antibiotics and phenotypes.
+This matches the frozen RATB method, where a screening sample is excluded in
+full. You therefore do not need to remove screening rows yourself: flag them and
+ORCHIDEE removes the entire sample. Keep the flag consistent within an `ELTID`.
 
 If several rows map to the same ORCHIDEE row key and antibiotic, ORCHIDEE keeps
 the last non-missing S/I/R value in input order. If the laboratory reports
@@ -308,6 +315,8 @@ ORCHIDEE owns:
 
 - validating the input files;
 - deriving the four internal files;
+- excluding screening / non-diagnostic material at the sample level (a whole
+  `ELTID` is dropped when any of its rows is flagged non-diagnostic);
 - applying the RATB perimeter;
 - running completion, deduplication and indicator calculation.
 

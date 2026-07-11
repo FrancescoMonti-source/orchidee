@@ -27,10 +27,9 @@ The site adapter owns all raw-to-canonical work:
 - retrieving data from the local HDW or source systems;
 - mapping local microbiology labels to canonical bacteria, antibiotics,
   sample types and phenotypes;
-- identifying diagnostic microbiology rows and excluding local screening
-  material that should not enter RATB indicators;
-- exposing that diagnostic/non-screening decision in the site handoff via
-  `ratb_diagnostic_scope`;
+- flagging diagnostic versus screening / non-diagnostic microbiology rows via
+  `ratb_diagnostic_scope` (the site knows its own local screening test types);
+  the sample-level exclusion itself is applied by the core, not the site;
 - mapping local units to the TA/DE perimeter used for RATB surveillance;
 - building the annual PMSI/activity denominator table expected by
   ORCHIDEE.
@@ -42,6 +41,9 @@ the ORCHIDEE core unless it is genuinely part of the shared RATB method.
 
 The shared core owns the downstream method:
 
+- excluding screening / non-diagnostic samples in full, at the sample level: a
+  whole `ELTID` is dropped when any of its rows is flagged non-diagnostic,
+  matching the frozen RATB method;
 - applying the RATB analysis scope to canonical microbiology rows;
 - running completion strategies;
 - applying SPARES-style deduplication;
