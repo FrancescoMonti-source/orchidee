@@ -27,6 +27,19 @@ Les artefacts générés ou locaux (`data/`, `downloads/`, `outputs/`, `archive/
 ne sont pas versionnés. Un clone frais ne contient donc pas les caches, les
 exports ou les rendus locaux.
 
+## Installation R
+
+Les dépendances R sont figées dans `renv.lock`. Après un clone frais, installer
+`renv` si nécessaire, puis restaurer l'environnement depuis la racine du dépôt :
+
+```powershell
+Rscript -e "if (!requireNamespace('renv', quietly = TRUE)) install.packages('renv'); renv::restore(prompt = FALSE)"
+```
+
+Si `Rscript` n'est pas disponible dans le `PATH`, utiliser le chemin complet de
+l'installation R locale. La version R attendue est celle indiquée dans
+`renv.lock`.
+
 ## Rennes / autre entrepôt : commencer ici
 
 La page à lire en premier est :

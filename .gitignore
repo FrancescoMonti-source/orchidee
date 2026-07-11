@@ -6,10 +6,11 @@
 # Local historical backups and quarantined generated material
 /archive/
 
-# Quarto rendered outputs
+# Quarto rendered outputs and intermediates
 /*.html
 /**/*.html
 !assets/**/*.html
+/*.rmarkdown
 **/*_files/
 /.quarto/
 
