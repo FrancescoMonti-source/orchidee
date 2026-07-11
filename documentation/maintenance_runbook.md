@@ -36,6 +36,27 @@ référentiels institutionnels importés restent dans `ref/`, y compris les
 référentiels CONSORES TA/DE actifs du périmètre RATB.
 Les fichiers de présentation Quarto restent dans `assets/`.
 
+## Dépendances R
+
+Les dépendances sont enregistrées dans `renv.lock`.
+
+Pour restaurer l'environnement d'un clone frais :
+
+```powershell
+Rscript -e "if (!requireNamespace('renv', quietly = TRUE)) install.packages('renv'); renv::restore(prompt = FALSE)"
+```
+
+Après ajout, suppression ou mise à jour volontaire d'une dépendance, vérifier
+l'état puis mettre à jour le lockfile :
+
+```powershell
+Rscript -e "renv::status(); renv::snapshot(prompt = FALSE)"
+```
+
+Ne pas snapshotter après avoir seulement chargé des artefacts locaux ou rendu un
+rapport : `renv.lock` doit représenter les dépendances du code, pas l'état d'une
+session de travail.
+
 ## Snapshot de caractérisation avant refactor
 
 Avant un nettoyage structurel censé ne pas changer les résultats, créer un
