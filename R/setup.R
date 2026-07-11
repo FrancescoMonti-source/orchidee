@@ -1,24 +1,13 @@
 library(conflicted)
-library(fuzzyjoin)
 library(stringr)
 library(tidyverse)
 library(magrittr)
-library(glue)
 library(openxlsx)
-library(corpustools)
-library(stringdist)
 library(lubridate)
-library(progressr)
-library(ggtext)
 library(DT)
 library(purrr)
 library(ggplot2)
-library(DT)
-library(psych)
-library(stopwords)
 library(knitr)
-library(fmckage)
-library(arrow)
 conflicts_prefer(dplyr::filter)
 
 source("R/zzz.R")
@@ -29,7 +18,7 @@ orchidee_source_required_script("helpers.R", "setup dependency helpers.R")
 
 
 options(
-  repr.matrix.max.cols = 200,   # ou plus si tu es fou
+  repr.matrix.max.cols = 200,
   repr.matrix.max.rows = 200
 )
 
