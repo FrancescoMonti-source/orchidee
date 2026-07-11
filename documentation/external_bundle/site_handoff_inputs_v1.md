@@ -30,6 +30,9 @@ You may also provide a seventh optional file:
 Accepted formats are `.rds`, `.csv`, `.tsv`, `.tab`, or `.txt`. CSV files can
 use commas or semicolons. Text files must be UTF-8.
 
+Before running ORCHIDEE commands on a fresh clone, restore the R environment
+from `renv.lock` as described in the main `README.md`.
+
 ORCHIDEE writes these internal files after validation:
 
 - `sir_wide.rds`
