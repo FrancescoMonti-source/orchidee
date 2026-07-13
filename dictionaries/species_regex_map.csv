@@ -1,31 +1,30 @@
-pattern,bact_norm,bact_order,bact_family,bact_genus,taxon_type,commentaire,
-(?i)\\b(et\\/ou|ou)\\b,NA,NA,NA,NA,ambiguous,,
-(?i)^antibiogramme\b,NA,NA,NA,NA,ambiguous,,
-(?i)^flore\b,NA,NA,NA,NA,ambiguous,,
-(?i)\bpr[eé]sence\b,NA,NA,NA,NA,ambiguous,,
-(?i)\ben\s+cours\b,NA,NA,NA,NA,ambiguous,,
-(?i)\bcandida\b|\blevures\b|\bfongiq,NA,NA,NA,NA,fungus,,
-(?i)^bacille(s)?\s+gram\s+(positif|n[ée]gatif),NA,NA,NA,NA,morphotype,,
-(?i)^cocci\s+gram\s+(positif|n[ée]gatif),NA,NA,NA,NA,morphotype,,
-(?i)^coccobacilles?\s+gram\s+(positif|n[ée]gatif),NA,NA,NA,NA,morphotype,,
-(?i)^enterobacter\s+(cloacae|hormaechei|kobei|ludwigii|asburiae|nimipressuralis)\b,enterobacter_cloacae_complex,Enterobacterales,Enterobacteriaceae,Enterobacter,bacterium,,
-(?i)^enterobacter\s+(complexe\s+cloacae|cloacae\s+complex)\b,enterobacter_cloacae_complex,Enterobacterales,Enterobacteriaceae,Enterobacter,bacterium,,
-(?i)^escherichia\s+coli\b|presence\s+d'?escherichia\.?coli,escherichia_coli,Enterobacterales,Enterobacteriaceae,Escherichia,bacterium,,
-(?i)^klebsiella\s+pneumoniae\b|k\.?\s*pneumoniae,klebsiella_pneumoniae,Enterobacterales,Enterobacteriaceae,Klebsiella,bacterium,,
-(?i)^klebsiella\s+variicola\b|k\.?\s*vari,klebsiella_variicola,Enterobacterales,Enterobacteriaceae,Klebsiella,bacterium,,
-(?i)^staphylococcus\s+aureus\b|staphylococcus\s+aureus\s+met[iy],staphylococcus_aureus,Bacillales,Staphylococcaceae,Staphylococcus,bacterium,,
-(?i)^enterococcus\s+faecalis\b,enterococcus_faecalis,Lactobacillales,Enterococcaceae,Enterococcus,bacterium,,
-(?i)^enterococcus\s+faecium\b,enterococcus_faecium,Lactobacillales,Enterococcaceae,Enterococcus,bacterium,,
-(?i)^pseudomonas\s+aeruginosa\b,pseudomonas_aeruginosa,Pseudomonadales,Pseudomonadaceae,Pseudomonas,bacterium,,
-(?i)\bacinetobacter\b.*\bnon\b.*\bbauma[nni]+\b,NA,Pseudomonadales,Moraxellaceae,Acinetobacter,ambiguous,"Acinetobacter NON baumanii ??? très ambigu, exclu",
-(?i)\bamalonaticus\b,citrobacter_amalonaticus,Enterobacterales,Enterobacteriaceae,Citrobacter,bacterium,,
-(?i)\bfreundi+\b,citrobacter_freundii,Enterobacterales,Enterobacteriaceae,Citrobacter,bacterium,,
-(?i)bauma[ni]+,acinetobacter_baumannii,Pseudomonadales,Moraxellaceae,Acinetobacter,bacterium,,
-(?i)lwoffi,acinetobacter_lwoffii,Pseudomonadales,Moraxellaceae,Acinetobacter,bacterium,,
-(?i)^salmonella\s*autre,salmonella_spp,Enterobacterales,Enterobacteriaceae,Salmonella,bacterium,,
-(?i)^(escherichia|klebsiella|enterobacter|citrobacter|serratia|raoultella|salmonella|shigella|leclercia|kluyvera|plesiomonas)\b,NA,Enterobacterales,Enterobacteriaceae,NA,bacterium,empty fields left are ment to be automatically inferred after the application of specific rules @ 1st step,
-(?i)^(proteus|morganella|providencia)\b,NA,Enterobacterales,Morganellaceae,NA,bacterium,empty fields left are ment to be automatically inferred after the application of specific rules @ 1st step,
-(?i)^(yersinia|rahnella)\b,NA,Enterobacterales,Yersiniaceae,NA,bacterium,empty fields left are ment to be automatically inferred after the application of specific rules @ 1st step,
-(?i)^hafnia\b,NA,Enterobacterales,Hafniaceae,NA,bacterium,empty fields left are ment to be automatically inferred after the application of specific rules @ 1st step,
-(?i)^(acerihabitans|arsenophonus|biostraticola|brenneria|buchnera|budvicia|buttiauxella|cedecea|chania|chimaeribacter|citrobacter|cosenzaea|cronobacter|dickeya|edwardsiella|enterobacillus|enterobacter|erwinia|escherichia|ewingella|franconibacter|gibbsiella|hafnia|huaxiibacter|insectihabitans|intestinirhabdus|izhakiella|jinshanibacter|klebsiella|kluyvera|kosakonia|leclercia|lelliottia|leminorella|limnobaculum|lonsdalea|mangrovibacter|mixta|moellerella|morganella|musicola|obesumbacterium|pantoea|pectobacterium|phaseolibacter|photorhabdus|phytobacter|plesiomonas|pluralibacter|pragia|proteus|providencia|pseudescherichia|pseudocitrobacter|rahnella|raoultella|rosenbergiella|rouxiella|saccharobacter|salmonella|samsonia|scandinavium|serratia|shigella|shimwellia|siccibacter|sodalis|symbiopectobacterium|tatumella|tenebrionibacter|tenebrionicola|trabulsiella|wigglesworthia|xenorhabdus|yersinia|yokenella),NA,Enterobacterales,NA,NA,bacterium,empty fields left are ment to be automatically inferred after the application of specific rules @ 1st step,
-,,,,,,,
+pattern;bact_norm;bact_order;bact_family;bact_genus;taxon_type;commentaire
+(?i)\\b(et\\/ou|ou)\\b;NA;NA;NA;NA;ambiguous;
+(?i)^antibiogramme\b;NA;NA;NA;NA;ambiguous;
+(?i)^flore\b;NA;NA;NA;NA;ambiguous;
+(?i)\bpr[eé]sence\b;NA;NA;NA;NA;ambiguous;
+(?i)\ben\s+cours\b;NA;NA;NA;NA;ambiguous;
+(?i)\bcandida\b|\blevures\b|\bfongiq;NA;NA;NA;NA;fungus;
+(?i)^bacille(s)?\s+gram\s+(positif|n[ée]gatif);NA;NA;NA;NA;morphotype;
+(?i)^cocci\s+gram\s+(positif|n[ée]gatif);NA;NA;NA;NA;morphotype;
+(?i)^coccobacilles?\s+gram\s+(positif|n[ée]gatif);NA;NA;NA;NA;morphotype;
+(?i)^enterobacter\s+(cloacae|hormaechei|kobei|ludwigii|asburiae|nimipressuralis)\b;enterobacter_cloacae_complex;Enterobacterales;Enterobacteriaceae;Enterobacter;bacterium;
+(?i)^enterobacter\s+(complexe\s+cloacae|cloacae\s+complex)\b;enterobacter_cloacae_complex;Enterobacterales;Enterobacteriaceae;Enterobacter;bacterium;
+(?i)^escherichia\s+coli\b|presence\s+d'?escherichia\.?coli;escherichia_coli;Enterobacterales;Enterobacteriaceae;Escherichia;bacterium;
+(?i)^klebsiella\s+pneumoniae\b|k\.?\s*pneumoniae;klebsiella_pneumoniae;Enterobacterales;Enterobacteriaceae;Klebsiella;bacterium;
+(?i)^klebsiella\s+variicola\b|k\.?\s*vari;klebsiella_variicola;Enterobacterales;Enterobacteriaceae;Klebsiella;bacterium;
+(?i)^staphylococcus\s+aureus\b|staphylococcus\s+aureus\s+met[iy];staphylococcus_aureus;Bacillales;Staphylococcaceae;Staphylococcus;bacterium;
+(?i)^enterococcus\s+faecalis\b;enterococcus_faecalis;Lactobacillales;Enterococcaceae;Enterococcus;bacterium;
+(?i)^enterococcus\s+faecium\b;enterococcus_faecium;Lactobacillales;Enterococcaceae;Enterococcus;bacterium;
+(?i)^pseudomonas\s+aeruginosa\b;pseudomonas_aeruginosa;Pseudomonadales;Pseudomonadaceae;Pseudomonas;bacterium;
+(?i)\bacinetobacter\b.*\bnon\b.*\bbauma[nni]+\b;NA;Pseudomonadales;Moraxellaceae;Acinetobacter;ambiguous;Acinetobacter NON baumanii ??? très ambigu, exclu
+(?i)\bamalonaticus\b;citrobacter_amalonaticus;Enterobacterales;Enterobacteriaceae;Citrobacter;bacterium;
+(?i)\bfreundi+\b;citrobacter_freundii;Enterobacterales;Enterobacteriaceae;Citrobacter;bacterium;
+(?i)bauma[ni]+;acinetobacter_baumannii;Pseudomonadales;Moraxellaceae;Acinetobacter;bacterium;
+(?i)lwoffi;acinetobacter_lwoffii;Pseudomonadales;Moraxellaceae;Acinetobacter;bacterium;
+(?i)^salmonella\s*autre;salmonella_spp;Enterobacterales;Enterobacteriaceae;Salmonella;bacterium;
+(?i)^(escherichia|klebsiella|enterobacter|citrobacter|serratia|raoultella|salmonella|shigella|leclercia|kluyvera|plesiomonas)\b;NA;Enterobacterales;Enterobacteriaceae;NA;bacterium;empty fields left are ment to be automatically inferred after the application of specific rules @ 1st step
+(?i)^(proteus|morganella|providencia)\b;NA;Enterobacterales;Morganellaceae;NA;bacterium;empty fields left are ment to be automatically inferred after the application of specific rules @ 1st step
+(?i)^(yersinia|rahnella)\b;NA;Enterobacterales;Yersiniaceae;NA;bacterium;empty fields left are ment to be automatically inferred after the application of specific rules @ 1st step
+(?i)^hafnia\b;NA;Enterobacterales;Hafniaceae;NA;bacterium;empty fields left are ment to be automatically inferred after the application of specific rules @ 1st step
+(?i)^(acerihabitans|arsenophonus|biostraticola|brenneria|buchnera|budvicia|buttiauxella|cedecea|chania|chimaeribacter|citrobacter|cosenzaea|cronobacter|dickeya|edwardsiella|enterobacillus|enterobacter|erwinia|escherichia|ewingella|franconibacter|gibbsiella|hafnia|huaxiibacter|insectihabitans|intestinirhabdus|izhakiella|jinshanibacter|klebsiella|kluyvera|kosakonia|leclercia|lelliottia|leminorella|limnobaculum|lonsdalea|mangrovibacter|mixta|moellerella|morganella|musicola|obesumbacterium|pantoea|pectobacterium|phaseolibacter|photorhabdus|phytobacter|plesiomonas|pluralibacter|pragia|proteus|providencia|pseudescherichia|pseudocitrobacter|rahnella|raoultella|rosenbergiella|rouxiella|saccharobacter|salmonella|samsonia|scandinavium|serratia|shigella|shimwellia|siccibacter|sodalis|symbiopectobacterium|tatumella|tenebrionibacter|tenebrionicola|trabulsiella|wigglesworthia|xenorhabdus|yersinia|yokenella);NA;Enterobacterales;NA;NA;bacterium;empty fields left are ment to be automatically inferred after the application of specific rules @ 1st step
