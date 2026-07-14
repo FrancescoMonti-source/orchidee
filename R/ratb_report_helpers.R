@@ -328,16 +328,24 @@ resolve_table_note_lines <- function(file_stem, caption = NULL) {
       "Use it to see which exclusion reasons dominate before interpreting incidence denominators."
     ),
     incidence_denominator_pmsi_ta_de_audit = c(
-      "This table reports annual eligible hospital nights after applying TA/DE to PMSI activity independently from microbiology rows.",
-      "Use it to inspect denominator magnitude by year while the night-count rule remains under review."
+      "This table reports annual eligible hospital nights from source-preferred PMSI unit stays, independently from microbiology rows.",
+      "Use it to inspect the denominator magnitude by year after TA/DE is applied at the stay-unit level."
+    ),
+    hospital_nights_by_year_unit = c(
+      "This table keeps the annual incidence denominator stratified by PMSI SEJUM and SEJUF before global aggregation.",
+      "Use it to find which hospitalization units contribute nights and to support future unit-level incidence views."
     ),
     ratb_numerator_scope_impact_audit = c(
       "This table quantifies how many microbiology rows are retained or removed when the TA/DE analytical perimeter is applied.",
       "Use it as an impact audit for the perimeter correction before interpreting changes in proportions or incidence."
     ),
     ratb_episode_scope_audit = c(
-      "This table lists episode-level cases that are excluded, zero-night, or cross-year under the current TA/DE incidence perimeter.",
-      "Use it as a review queue for perimeter rules and edge cases rather than as a summary metric."
+      "This table keeps complete event bounds while summarizing the unit stays that contribute to the TA/DE denominator.",
+      "Use it to review event-level eligibility and unit-bound issues rather than as a source for unit durations."
+    ),
+    ratb_unit_stay_scope_audit = c(
+      "This table lists source-preferred PMSI stays by PATID, EVTID, SEJUM and SEJUF with their own time bounds and TA/DE decision.",
+      "Use it to review missing or conflicting unit intervals before interpreting annual unit-level hospital nights."
     ),
     hospital_stay_validation_summary = c(
       "This table summarizes stay-level validation results before annual splitting.",

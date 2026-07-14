@@ -49,6 +49,11 @@ build_chu_ratb_scope_cache_meta <- function(
   names(scope_script_hashes) <- scope_script_names
   reference_hashes <- as.list(as.character(unname(tools::md5sum(ratb_ref_paths))))
   names(reference_hashes) <- names(ratb_ref_paths)
+  redsan_version <- if (requireNamespace("redsan", quietly = TRUE)) {
+    as.character(utils::packageVersion("redsan"))
+  } else {
+    NA_character_
+  }
 
   payload <- list(
     sir_wide_n_rows = nrow(sir_wide),
@@ -57,6 +62,7 @@ build_chu_ratb_scope_cache_meta <- function(
     sir_wide_artifact_signature = sir_wide_artifact_signature,
     microbiology_scope_policy = microbiology_scope_policy,
     incidence_denominator_policy = incidence_denominator_policy,
+    redsan_version = redsan_version,
     scope_script_hashes = scope_script_hashes,
     pmsi_input_signature = pmsi_input_signature,
     reference_hashes = reference_hashes
@@ -75,6 +81,7 @@ build_chu_ratb_scope_cache_meta <- function(
     sir_wide_artifact_signature = sir_wide_artifact_signature,
     microbiology_scope_policy = microbiology_scope_policy,
     incidence_denominator_policy = incidence_denominator_policy,
+    redsan_version = redsan_version,
     scope_script_hashes = scope_script_hashes,
     pmsi_input_signature = pmsi_input_signature,
     reference_hashes = reference_hashes,
@@ -96,8 +103,10 @@ chu_ratb_expected_scope_payload_names <- function() {
     "ratb_perimeter_rules",
     "ratb_uf_ta_de_reference",
     "ratb_episode_scope_audit",
+    "ratb_unit_stay_scope_audit",
     "ratb_episode_exclusion_summary",
     "hospital_days_year_split_provisional",
+    "hospital_nights_by_year_unit",
     "hospital_days_year_summary_provisional",
     "ratb_numerator_scope_impact_audit"
   )
@@ -126,6 +135,7 @@ chu_ratb_scope_cache_canonical_inputs_match <- function(loaded_meta, current_met
     "sir_wide_artifact_signature",
     "microbiology_scope_policy",
     "incidence_denominator_policy",
+    "redsan_version",
     "pmsi_input_signature",
     "reference_hashes"
   )

@@ -54,7 +54,7 @@ orchidee_config <- list(
   ),
   ratb = list(
     microbiology_scope_policy = "sample_uf_ta_de",
-    incidence_denominator_policy = "pmsi_ta_de_all_statuses",
+    incidence_denominator_policy = "pmsi_source_preferred_unit_stays_ta_de",
     indicator_sample_types = c("hemoculture", "urines"),
     indicator_show_full_spec = FALSE,
     indicator_min_n = 0L,

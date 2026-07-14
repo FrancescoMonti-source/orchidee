@@ -198,7 +198,7 @@ build_ratb_ta_de_policy_table <- function() {
       "03|20",
       paste(ratb_included_ta_de_domains(), collapse = "|"),
       "keep microbiology row when sample SEJUF is eligible by TA and DE",
-      "count all PMSI episode nights when any UF is eligible by TA and DE",
+      "count source-preferred PMSI unit-stay nights for TA/DE-eligible UFs",
       "TA=08 is not an eligibility trigger",
       "TA=03/20 with missing or unmapped CODE_DE is review/drop",
       "PMSISTATUT is audit context only, not an inclusion gate"
@@ -372,19 +372,27 @@ ratb_is_pure_urgences <- function(um_values) {
   all(um_values %in% c("URGE", "URGP"))
 }
 
-ratb_split_stays_nights_by_year <- function(stays) {
-  stopifnot(all(c("PATID", "EVTID", "datent_min", "datsort_max", "cross_year") %in% names(stays)))
+ratb_split_stays_nights_by_year <- function(
+    stays,
+    id_cols = c("PATID", "EVTID")
+  ) {
+  stopifnot(
+    all(c(id_cols, "datent_min", "datsort_max", "cross_year") %in% names(stays))
+  )
 
-  if (nrow(stays) == 0L) {
-    return(tibble(
-      PATID = character(),
-      EVTID = character(),
+  empty_result <- dplyr::bind_cols(
+    tibble::as_tibble(stays[0, id_cols, drop = FALSE]),
+    tibble(
       calendar_year = integer(),
       overlap_start = as.Date(character()),
       overlap_end = as.Date(character()),
       overlap_nights = integer(),
       cross_year = logical()
-    ))
+    )
+  )
+
+  if (nrow(stays) == 0L) {
+    return(empty_result)
   }
 
   stays <- stays %>%
@@ -395,15 +403,7 @@ ratb_split_stays_nights_by_year <- function(stays) {
     filter(!is.na(datent_date), !is.na(datsort_date), datsort_date >= datent_date)
 
   if (nrow(stays) == 0L) {
-    return(tibble(
-      PATID = character(),
-      EVTID = character(),
-      calendar_year = integer(),
-      overlap_start = as.Date(character()),
-      overlap_end = as.Date(character()),
-      overlap_nights = integer(),
-      cross_year = logical()
-    ))
+    return(empty_result)
   }
 
   year_range <- seq.int(
@@ -423,7 +423,10 @@ ratb_split_stays_nights_by_year <- function(stays) {
       overlap_nights = as.integer(pmax(overlap_end - overlap_start, 0))
     ) %>%
     filter(overlap_nights > 0L) %>%
-    select(PATID, EVTID, calendar_year, overlap_start, overlap_end, overlap_nights, cross_year)
+    select(
+      dplyr::all_of(id_cols), calendar_year, overlap_start, overlap_end,
+      overlap_nights, cross_year
+    )
 }
 
 build_pmsi_status_lookup <- function(pmsi_main) {
@@ -803,14 +806,29 @@ build_hospital_days_validation <- function(pmsi_main, status_lookup = NULL) {
 
 build_ratb_pmsi_ta_de_denominator <- function(
     pmsi_main,
+    pmsi_event_bounds,
     status_lookup,
     refs,
     consores_ta_de_ref
   ) {
-  stopifnot(is.data.frame(pmsi_main), is.data.frame(status_lookup))
+  stopifnot(
+    is.data.frame(pmsi_main),
+    is.data.frame(pmsi_event_bounds),
+    is.data.frame(status_lookup)
+  )
   stopifnot(is.list(refs), is.data.frame(consores_ta_de_ref))
   stopifnot(all(c("uf_ref", "uf2um_ref", "um_ref") %in% names(refs)))
   stopifnot(all(c("PATID", "EVTID", "DATENT", "DATSORT", "SEJUM", "SEJUF", "GHM") %in% names(pmsi_main)))
+  stopifnot(all(c("PATID", "EVTID", "datent_min", "datsort_max") %in% names(pmsi_event_bounds)))
+
+  event_bounds_lookup <- pmsi_event_bounds %>%
+    transmute(
+      PATID = as.character(PATID),
+      EVTID = as.character(EVTID),
+      event_datent_min = datent_min,
+      event_datsort_max = datsort_max
+    ) %>%
+    distinct(PATID, EVTID, .keep_all = TRUE)
 
   scope_status_lookup <- status_lookup %>%
     select(
@@ -819,7 +837,7 @@ build_ratb_pmsi_ta_de_denominator <- function(
       evtid_multi_pat, n_patid_for_evtid
     )
 
-  episode_base <- pmsi_main %>%
+  pmsi_unit_rows <- pmsi_main %>%
     transmute(
       PATID = as.character(PATID),
       EVTID = as.character(EVTID),
@@ -827,7 +845,12 @@ build_ratb_pmsi_ta_de_denominator <- function(
       DATSORT = DATSORT,
       SEJUM = ratb_trim_or_na_local(SEJUM),
       SEJUF = ratb_trim_or_na_local(SEJUF),
-      GHM = ratb_trim_or_na_local(GHM)
+      GHM = ratb_trim_or_na_local(GHM),
+      SRC = if ("SRC" %in% names(pmsi_main)) {
+        ratb_trim_or_na_local(SRC)
+      } else {
+        NA_character_
+      }
     ) %>%
     left_join(refs$uf_ref, by = "SEJUF") %>%
     left_join(refs$uf2um_ref, by = "SEJUF") %>%
@@ -843,12 +866,81 @@ build_ratb_pmsi_ta_de_denominator <- function(
         uf_ta_de_reason,
         "uf_absent_from_consores_structure"
       )
-    ) %>%
-    group_by(PATID, EVTID) %>%
+    )
+
+  ratb_unit_stay_scope_audit <- pmsi_unit_rows %>%
+    group_by(PATID, EVTID, SEJUM, SEJUF) %>%
     summarise(
       n_pmsi_rows = n(),
       datent_min = ratb_safe_min_datetime(DATENT),
       datsort_max = ratb_safe_max_datetime(DATSORT),
+      source_values = ratb_collapse_unique(SRC),
+      unit_uf_label = ratb_collapse_unique(uf_label),
+      unit_um_label = ratb_collapse_unique(um_label),
+      unit_ghm_values = ratb_collapse_unique(GHM),
+      unit_CODE_TA = ratb_collapse_unique(CODE_TA),
+      unit_CODE_DE = ratb_collapse_unique(CODE_DE),
+      unit_de_domains = ratb_collapse_unique(de_domain_ref),
+      uf_ta_eligible = any(uf_ta_eligible %in% TRUE),
+      uf_de_mapped = any(uf_de_mapped %in% TRUE),
+      uf_de_eligible = any(uf_de_eligible %in% TRUE),
+      uf_is_eligible_by_ta_de = any(uf_is_eligible_by_ta_de %in% TRUE),
+      uf_ta_de_status = ratb_collapse_unique(uf_ta_de_status),
+      uf_ta_de_reason = ratb_collapse_unique(uf_ta_de_reason),
+      n_uf_um_ref_mismatch = sum(
+        !is.na(SEJUM_from_ref) &
+          !is.na(SEJUM) &
+          SEJUM_from_ref != SEJUM,
+        na.rm = TRUE
+      ),
+      .groups = "drop"
+    ) %>%
+    left_join(event_bounds_lookup, by = c("PATID", "EVTID")) %>%
+    mutate(
+      nights_provisional = as.integer(as.Date(datsort_max) - as.Date(datent_min)),
+      missing_bounds = is.na(datent_min) | is.na(datsort_max),
+      negative_nights = !is.na(nights_provisional) & nights_provisional < 0L,
+      zero_nights = !is.na(nights_provisional) & nights_provisional == 0L,
+      cross_year = !is.na(datent_min) & !is.na(datsort_max) &
+        lubridate::year(datent_min) != lubridate::year(datsort_max),
+      unit_stay_scope_status = case_when(
+        missing_bounds ~ "review_missing_bounds",
+        negative_nights ~ "review_negative_nights",
+        uf_is_eligible_by_ta_de ~ "included",
+        is.na(SEJUF) ~ "excluded_no_uf",
+        uf_ta_de_status == "review_unmapped_uf" ~ "review_unmapped_uf",
+        uf_ta_de_status == "review_unmapped_de" ~ "review_unmapped_de",
+        TRUE ~ "excluded_no_ta_de_eligible_uf"
+      ),
+      included_in_provisional_perimeter = unit_stay_scope_status == "included"
+    ) %>%
+    arrange(
+      desc(included_in_provisional_perimeter), unit_stay_scope_status,
+      PATID, EVTID, datent_min, SEJUM, SEJUF
+    )
+
+  unit_episode_summary <- ratb_unit_stay_scope_audit %>%
+    group_by(PATID, EVTID) %>%
+    summarise(
+      n_unit_stays = n(),
+      n_eligible_unit_stays = sum(uf_is_eligible_by_ta_de, na.rm = TRUE),
+      n_unit_stays_included = sum(included_in_provisional_perimeter, na.rm = TRUE),
+      n_eligible_unit_stays_review = sum(
+        uf_is_eligible_by_ta_de & !included_in_provisional_perimeter,
+        na.rm = TRUE
+      ),
+      eligible_unit_nights = sum(
+        nights_provisional[included_in_provisional_perimeter],
+        na.rm = TRUE
+      ),
+      unit_cross_year = any(cross_year[included_in_provisional_perimeter], na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  episode_base <- pmsi_unit_rows %>%
+    group_by(PATID, EVTID) %>%
+    summarise(
+      n_pmsi_rows = n(),
       uf_codes_list = list(sort(unique(SEJUF[!is.na(SEJUF)]))),
       uf_labels_list = list(sort(unique(uf_label[!is.na(uf_label)]))),
       um_codes_list = list(sort(unique(SEJUM[!is.na(SEJUM)]))),
@@ -886,16 +978,21 @@ build_ratb_pmsi_ta_de_denominator <- function(
       ]),
       .groups = "drop"
     ) %>%
+    left_join(event_bounds_lookup, by = c("PATID", "EVTID")) %>%
+    left_join(unit_episode_summary, by = c("PATID", "EVTID")) %>%
     left_join(
       scope_status_lookup,
       by = c("PATID", "EVTID"),
       suffix = c("", "_status")
     ) %>%
     mutate(
-      nights_provisional = as.integer(as.Date(datsort_max) - as.Date(datent_min)),
+      datent_min = event_datent_min,
+      datsort_max = event_datsort_max,
+      episode_bound_nights = as.integer(as.Date(datsort_max) - as.Date(datent_min)),
+      nights_provisional = as.integer(dplyr::coalesce(eligible_unit_nights, 0)),
       missing_bounds = is.na(datent_min) | is.na(datsort_max),
-      negative_nights = !is.na(nights_provisional) & nights_provisional < 0L,
-      zero_nights = !is.na(nights_provisional) & nights_provisional == 0L,
+      negative_nights = !is.na(episode_bound_nights) & episode_bound_nights < 0L,
+      zero_nights = nights_provisional == 0L,
       cross_year = !is.na(datent_min) & !is.na(datsort_max) &
         lubridate::year(datent_min) != lubridate::year(datsort_max),
       pure_urgences_episode = purrr::map_lgl(um_codes_list, ratb_is_pure_urgences)
@@ -906,7 +1003,9 @@ build_ratb_pmsi_ta_de_denominator <- function(
       provisional_perimeter_status = case_when(
         missing_bounds ~ "review_missing_bounds",
         negative_nights ~ "review_negative_nights",
-        n_ta_de_eligible_uf > 0L ~ "included",
+        n_unit_stays_included > 0L & n_eligible_unit_stays_review == 0L ~ "included",
+        n_unit_stays_included > 0L ~ "included_with_unit_review",
+        n_eligible_unit_stays_review > 0L ~ "review_unit_stay_bounds",
         n_uf_codes == 0L ~ "excluded_no_uf",
         n_uf_unmapped > 0L ~ "review_unmapped_uf",
         n_ta_eligible_unmapped_de > 0L ~ "review_unmapped_de",
@@ -914,25 +1013,34 @@ build_ratb_pmsi_ta_de_denominator <- function(
       ),
       final_rule_level = case_when(
         missing_bounds | negative_nights ~ "stay_bounds",
+        provisional_perimeter_status == "review_unit_stay_bounds" ~ "unit_stay_bounds",
         TRUE ~ "TA_DE"
       ),
       final_reason = case_when(
         missing_bounds ~ "missing_bounds",
         negative_nights ~ "negative_nights",
-        n_ta_de_eligible_uf > 0L ~ "eligible_ta_de_uf",
+        provisional_perimeter_status == "included" ~ "eligible_ta_de_unit_stays",
+        provisional_perimeter_status == "included_with_unit_review" ~
+          "eligible_ta_de_unit_stays_with_bounds_review",
+        provisional_perimeter_status == "review_unit_stay_bounds" ~
+          "eligible_ta_de_unit_stays_without_valid_bounds",
         n_uf_codes == 0L ~ "no_uf",
         n_uf_unmapped > 0L ~ "unmapped_uf",
         n_ta_eligible_unmapped_de > 0L ~ "unmapped_de",
         TRUE ~ "no_ta_de_eligible_uf"
       ),
-      included_in_provisional_perimeter = provisional_perimeter_status == "included"
+      included_in_provisional_perimeter = provisional_perimeter_status %in%
+        c("included", "included_with_unit_review")
     ) %>%
     select(
       PATID, EVTID, ratb_scope_status, pmsi_status_values,
       provisional_perimeter_status, included_in_provisional_perimeter,
       final_rule_level, final_reason,
-      datent_min, datsort_max, nights_provisional, zero_nights, cross_year,
+      datent_min, datsort_max, episode_bound_nights, nights_provisional,
+      zero_nights, cross_year, unit_cross_year,
       missing_bounds, negative_nights, pure_urgences_episode,
+      n_unit_stays, n_eligible_unit_stays, n_unit_stays_included,
+      n_eligible_unit_stays_review,
       n_pmsi_rows, n_status_non_missing, n_distinct_status, evtid_multi_pat,
       n_patid_for_evtid, episode_uf_codes, episode_uf_labels,
       episode_um_codes, episode_um_labels, episode_ghm_values,
@@ -965,17 +1073,37 @@ build_ratb_pmsi_ta_de_denominator <- function(
     arrange(desc(included_in_provisional_perimeter), desc(n_episodes), provisional_perimeter_status)
 
   hospital_days_year_split_provisional <- ratb_split_stays_nights_by_year(
-    ratb_episode_scope_audit %>%
+    ratb_unit_stay_scope_audit %>%
       filter(included_in_provisional_perimeter, !missing_bounds, !negative_nights) %>%
-      select(PATID, EVTID, datent_min, datsort_max, cross_year)
+      select(PATID, EVTID, SEJUM, SEJUF, datent_min, datsort_max, cross_year),
+    id_cols = c("PATID", "EVTID", "SEJUM", "SEJUF")
   )
 
+  hospital_nights_by_year_unit <- hospital_days_year_split_provisional %>%
+    mutate(
+      .episode_key = paste(PATID, EVTID, sep = "\r"),
+      .unit_stay_key = paste(PATID, EVTID, SEJUM, SEJUF, sep = "\r")
+    ) %>%
+    group_by(calendar_year, SEJUM, SEJUF) %>%
+    summarise(
+      n_episodes = n_distinct(.episode_key),
+      n_unit_stays = n_distinct(.unit_stay_key),
+      hospital_nights = sum(overlap_nights, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    arrange(calendar_year, SEJUM, SEJUF)
+
   hospital_days_year_summary_provisional <- hospital_days_year_split_provisional %>%
-    mutate(.episode_key = paste(PATID, EVTID, sep = "\r")) %>%
+    mutate(
+      .episode_key = paste(PATID, EVTID, sep = "\r"),
+      .unit_stay_key = paste(PATID, EVTID, SEJUM, SEJUF, sep = "\r")
+    ) %>%
     group_by(calendar_year) %>%
     summarise(
       n_episodes = n_distinct(.episode_key),
+      n_unit_stays = n_distinct(.unit_stay_key),
       n_cross_year_episodes = n_distinct(.episode_key[cross_year]),
+      n_cross_year_unit_stays = n_distinct(.unit_stay_key[cross_year]),
       hospital_nights_provisional = sum(overlap_nights, na.rm = TRUE),
       .groups = "drop"
     ) %>%
@@ -983,8 +1111,10 @@ build_ratb_pmsi_ta_de_denominator <- function(
 
   list(
     ratb_episode_scope_audit = ratb_episode_scope_audit,
+    ratb_unit_stay_scope_audit = ratb_unit_stay_scope_audit,
     ratb_episode_exclusion_summary = ratb_episode_exclusion_summary,
     hospital_days_year_split_provisional = hospital_days_year_split_provisional,
+    hospital_nights_by_year_unit = hospital_nights_by_year_unit,
     hospital_days_year_summary_provisional = hospital_days_year_summary_provisional
   )
 }
@@ -992,13 +1122,18 @@ build_ratb_pmsi_ta_de_denominator <- function(
 build_ratb_provisional_perimeter_audit <- function(
     sir_wide_ratb_scope,
     pmsi_main,
+    pmsi_event_bounds,
     status_lookup = NULL,
     structure_path = file.path("ref", "consores_structure_intranet_maj_2025.xlsx"),
     codes_ta_path = file.path("ref", "consores_codes_ta.csv"),
     codes_de_path = file.path("ref", "consores_codes_de.csv"),
     ref_dir = "ref"
   ) {
-  stopifnot(is.data.frame(sir_wide_ratb_scope), is.data.frame(pmsi_main))
+  stopifnot(
+    is.data.frame(sir_wide_ratb_scope),
+    is.data.frame(pmsi_main),
+    is.data.frame(pmsi_event_bounds)
+  )
   stopifnot(all(c("PATID", "EVTID", "ELTID", "SEJUF", "SEJUM") %in% names(sir_wide_ratb_scope)))
   stopifnot(all(c("PATID", "EVTID", "DATENT", "DATSORT", "SEJUM", "SEJUF", "GHM") %in% names(pmsi_main)))
 
@@ -1029,14 +1164,17 @@ build_ratb_provisional_perimeter_audit <- function(
 
   denominator_objects <- build_ratb_pmsi_ta_de_denominator(
     pmsi_main = pmsi_main,
+    pmsi_event_bounds = pmsi_event_bounds,
     status_lookup = status_lookup,
     refs = refs,
     consores_ta_de_ref = consores_ta_de_ref
   )
 
   ratb_episode_scope_audit <- denominator_objects$ratb_episode_scope_audit
+  ratb_unit_stay_scope_audit <- denominator_objects$ratb_unit_stay_scope_audit
   ratb_episode_exclusion_summary <- denominator_objects$ratb_episode_exclusion_summary
   hospital_days_year_split_provisional <- denominator_objects$hospital_days_year_split_provisional
+  hospital_nights_by_year_unit <- denominator_objects$hospital_nights_by_year_unit
   hospital_days_year_summary_provisional <- denominator_objects$hospital_days_year_summary_provisional
 
   ratb_numerator_scope_impact_audit <- sir_wide_ratb_scope %>%
@@ -1066,8 +1204,10 @@ build_ratb_provisional_perimeter_audit <- function(
     ratb_perimeter_rules = ratb_perimeter_rules,
     ratb_uf_ta_de_reference = consores_ta_de_ref,
     ratb_episode_scope_audit = ratb_episode_scope_audit,
+    ratb_unit_stay_scope_audit = ratb_unit_stay_scope_audit,
     ratb_episode_exclusion_summary = ratb_episode_exclusion_summary,
     hospital_days_year_split_provisional = hospital_days_year_split_provisional,
+    hospital_nights_by_year_unit = hospital_nights_by_year_unit,
     hospital_days_year_summary_provisional = hospital_days_year_summary_provisional,
     ratb_numerator_scope_impact_audit = ratb_numerator_scope_impact_audit
   )
