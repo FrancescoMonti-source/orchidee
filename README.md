@@ -40,6 +40,11 @@ Si `Rscript` n'est pas disponible dans le `PATH`, utiliser le chemin complet de
 l'installation R locale. La version R attendue est celle indiquée dans
 `renv.lock`.
 
+Le recalcul natif CHU du dénominateur PMSI utilise `redsan` 0.1.2 ou plus
+récent pour construire une vue explicite où la source `C` prévaut sur `DW` à
+l'intérieur d'une même unité de séjour. Cette dépendance est enregistrée dans
+`renv.lock` ; elle ne remplace pas le chemin de handoff d'un site externe.
+
 ## Rennes / autre entrepôt : commencer ici
 
 La page à lire en premier est :
