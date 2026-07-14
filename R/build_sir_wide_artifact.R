@@ -191,7 +191,11 @@ if (screening_rows_after == 0L) {
 # Load and sanitize dictionaries
 # -----------------------------------------------------------------------------
 atb_regex_map <- read.csv(atb_regex_map_path, stringsAsFactors = FALSE)
-species_regex_map <- read.csv(species_regex_map_path, stringsAsFactors = FALSE)
+species_regex_map <- read.csv(
+  species_regex_map_path,
+  sep = ";",
+  stringsAsFactors = FALSE
+)
 naturepvt_regex_map <- read.csv(naturepvt_regex_map_path, stringsAsFactors = FALSE) %>%
   transmute(
     pattern = as.character(pattern),
