@@ -151,16 +151,18 @@ et les numérateurs d'incidence.
 
 Pour les densités d'incidence, les nuits d'hospitalisation sont calculées séparément à
 partir de l'activité PMSI. Les limites globales de l'épisode sont calculées sur le
-`pmsi$main` complet par `PATID + EVTID` et restent disponibles dans l'audit. Les nuits
-du dénominateur sont en revanche construites au niveau
+`pmsi$main` normalisé par `EVTID`, avec `PATID` conservé comme garde de provenance,
+et restent disponibles dans l'audit. Les nuits du dénominateur sont construites au niveau
 `PATID + EVTID + SEJUM + SEJUF`, indépendamment de la présence d'un prélèvement
 microbiologique dans l'épisode.
 
-Le PMSI CHU contient deux sources, `C` et `DW`. Avant de construire les permanences par
-unité, `redsan::prefer_pmsi_main_source()` retire les lignes `DW` lorsqu'une ligne `C`
-existe pour la même clé patient, épisode et unité. `DW` reste le repli lorsqu'aucune
-ligne `C` n'est disponible ; les sources inconnues et les clés incomplètes ne sont pas
-filtrées automatiquement.
+Le PMSI CHU contient deux sources, `C` et `DW`. La politique PMSI par défaut de
+`redsan` 0.2.0 retire les lignes `DW` lorsqu'une ligne `C` existe pour la même clé
+patient, épisode et unité. `DW` reste le repli lorsqu'aucune ligne `C` n'est disponible ;
+les sources inconnues et les clés incomplètes ne sont pas filtrées automatiquement. Cette
+politique filtre les sources sans fusionner les intervalles PMSI retenus. L'adaptateur CHU
+réapplique `redsan::prefer_pmsi_src_c_over_dw()` de façon idempotente afin de normaliser
+aussi les artefacts locaux créés avant `redsan` 0.2.0.
 
 `PMSISTATUT` n'est plus une porte d'entrée scientifique du périmètre ; il reste conservé
 comme information d'audit. Ainsi, un épisode à statut mixte `E|H` peut contribuer au

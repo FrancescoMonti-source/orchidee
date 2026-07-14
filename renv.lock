@@ -2968,14 +2968,14 @@
     },
     "redsan": {
       "Package": "redsan",
-      "Version": "0.1.2",
+      "Version": "0.2.0",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
       "RemoteUsername": "FrancescoMonti-source",
       "RemoteRepo": "redsan",
-      "RemoteRef": "1e15cbed40a4d641619b555e383962fc20de9857",
-      "RemoteSha": "1e15cbed40a4d641619b555e383962fc20de9857"
+      "RemoteRef": "7dcd064a2a51efd11aed16b289b4c831480f00ea",
+      "RemoteSha": "7dcd064a2a51efd11aed16b289b4c831480f00ea"
     },
     "rematch": {
       "Package": "rematch",
