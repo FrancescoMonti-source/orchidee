@@ -2966,6 +2966,17 @@
       "Maintainer": "Jennifer Bryan <jenny@posit.co>",
       "Repository": "CRAN"
     },
+    "redsan": {
+      "Package": "redsan",
+      "Version": "0.1.2",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "FrancescoMonti-source",
+      "RemoteRepo": "redsan",
+      "RemoteRef": "1e15cbed40a4d641619b555e383962fc20de9857",
+      "RemoteSha": "1e15cbed40a4d641619b555e383962fc20de9857"
+    },
     "rematch": {
       "Package": "rematch",
       "Version": "2.0.0",

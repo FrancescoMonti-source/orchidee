@@ -150,20 +150,30 @@ une ligne de `sir_wide` est retenue lorsque le `SEJUF` associé au prélèvement
 et les numérateurs d'incidence.
 
 Pour les densités d'incidence, les nuits d'hospitalisation sont calculées séparément à
-partir de l'activité PMSI. Un épisode PMSI contribue au dénominateur lorsqu'il contient
-au moins une UF éligible par TA/DE, indépendamment de la présence d'un prélèvement
-microbiologique dans cet épisode.
+partir de l'activité PMSI. Les limites globales de l'épisode sont calculées sur le
+`pmsi$main` complet par `PATID + EVTID` et restent disponibles dans l'audit. Les nuits
+du dénominateur sont en revanche construites au niveau
+`PATID + EVTID + SEJUM + SEJUF`, indépendamment de la présence d'un prélèvement
+microbiologique dans l'épisode.
+
+Le PMSI CHU contient deux sources, `C` et `DW`. Avant de construire les permanences par
+unité, `redsan::prefer_pmsi_main_source()` retire les lignes `DW` lorsqu'une ligne `C`
+existe pour la même clé patient, épisode et unité. `DW` reste le repli lorsqu'aucune
+ligne `C` n'est disponible ; les sources inconnues et les clés incomplètes ne sont pas
+filtrées automatiquement.
 
 `PMSISTATUT` n'est plus une porte d'entrée scientifique du périmètre ; il reste conservé
 comme information d'audit. Ainsi, un épisode à statut mixte `E|H` peut contribuer au
-dénominateur si ses UF démontrent une activité éligible. À l'inverse, une ligne dont le
-statut PMSI vaut `H` n'est pas retenue si aucune UF ne satisfait la règle TA/DE.
+dénominateur si l'une de ses permanences par unité démontre une activité éligible. À
+l'inverse, une ligne dont le statut PMSI vaut `H` n'est pas retenue si aucune permanence
+ne satisfait la règle TA/DE.
 
-Pour le dénominateur, la règle reste formulée au niveau de l'épisode : les UF non
-éligibles présentes dans un épisode par ailleurs éligible ne l'excluent pas. En
-particulier, les passages aux urgences ne sont pas retenus seuls, mais les UHCD / lits
-porte codés en
-hospitalisation complète et dans le domaine `URGENCES` sont inclus.
+Pour le dénominateur, seules les nuits des permanences dans une UF éligible sont
+additionnées. Une UF non éligible présente dans le même épisode ne retire pas les nuits
+éligibles, mais ses propres nuits ne contribuent plus au dénominateur. Les passages aux
+urgences ne sont donc pas retenus seuls ; les UHCD / lits porte codés en hospitalisation
+complète et dans le domaine `URGENCES` restent inclus au niveau de leur propre
+permanence.
 
 ## Journées d'hospitalisation comptées en nuits
 
@@ -172,6 +182,7 @@ la suivante :
 
 - l'unité de comptage est le nombre de nuits ;
 - la règle de calcul est `as.Date(DATSORT) - as.Date(DATENT)` ;
+- cette règle est appliquée aux limites de chaque permanence par unité ;
 - une entrée et une sortie le même jour comptent pour `0` nuit.
 
 Lorsqu'un séjour chevauche deux années civiles, les nuits sont ensuite ventilées par chevauchement réel : une partie est affectée à l'année `X`, l'autre à l'année `X+1`, plutôt que de rattacher tout le séjour à sa seule année d'entrée.

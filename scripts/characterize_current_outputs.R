@@ -263,6 +263,8 @@ build_characterization <- function() {
     "hospital_stays_validated",
     "hospital_stay_validation_summary",
     "hospital_days_year_summary",
+    "ratb_unit_stay_scope_audit",
+    "hospital_nights_by_year_unit",
     "hospital_days_year_summary_provisional",
     "ratb_numerator_scope_impact_audit"
   )

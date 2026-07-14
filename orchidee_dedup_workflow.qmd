@@ -269,6 +269,8 @@ required_ratb_scope_payload_objects <- c(
   "incidence_denominator_pmsi_ta_de_audit",
   "ratb_numerator_scope_impact_audit",
   "ratb_episode_scope_audit",
+  "ratb_unit_stay_scope_audit",
+  "hospital_nights_by_year_unit",
   "hospital_stay_validation_summary",
   "hospital_days_year_summary",
   "hospital_stays_raw",
@@ -300,6 +302,10 @@ incidence_denominator_pmsi_ta_de_audit <-
 ratb_numerator_scope_impact_audit <-
   ratb_scope_cache_payload$ratb_numerator_scope_impact_audit
 ratb_episode_scope_audit <- ratb_scope_cache_payload$ratb_episode_scope_audit
+ratb_unit_stay_scope_audit <-
+  ratb_scope_cache_payload$ratb_unit_stay_scope_audit
+hospital_nights_by_year_unit <-
+  ratb_scope_cache_payload$hospital_nights_by_year_unit
 hospital_stay_validation_summary <-
   ratb_scope_cache_payload$hospital_stay_validation_summary
 hospital_days_year_summary <- ratb_scope_cache_payload$hospital_days_year_summary
@@ -315,6 +321,15 @@ stopifnot(
   all(
     !ratb_episode_scope_audit$included_in_provisional_perimeter |
       ratb_episode_scope_audit$n_ta_de_eligible_uf > 0L
+  ),
+  all(
+    !ratb_unit_stay_scope_audit$included_in_provisional_perimeter |
+      ratb_unit_stay_scope_audit$uf_is_eligible_by_ta_de
+  ),
+  all(
+    !ratb_unit_stay_scope_audit$included_in_provisional_perimeter |
+      (!ratb_unit_stay_scope_audit$missing_bounds &
+        !ratb_unit_stay_scope_audit$negative_nights)
   ),
   all(hospital_stays_validated$validation_status == "validated"),
   all(!hospital_stays_validated$missing_bounds),
@@ -3419,6 +3434,18 @@ show_audit_table(
 ```
 
 ```{r}
+#| label: hospital_nights_by_year_unit_table
+show_audit_table(
+  data = hospital_nights_by_year_unit,
+  file_stem = "hospital_nights_by_year_unit",
+  caption = "Annual eligible hospital nights by PMSI stay unit",
+  page_length = 20,
+  scroll_y = "320px",
+  digits = datatable_digits
+)
+```
+
+```{r}
 #| label: ratb_numerator_scope_impact_audit_table
 show_audit_table(
   data = ratb_numerator_scope_impact_audit,
@@ -3426,6 +3453,29 @@ show_audit_table(
   caption = "Incidence numerator impact under the TA/DE perimeter",
   page_length = 20,
   scroll_y = "320px",
+  digits = datatable_digits
+)
+```
+
+```{r}
+#| label: ratb_unit_stay_scope_audit_table
+show_audit_table(
+  data = ratb_unit_stay_scope_audit %>%
+    filter(
+      unit_stay_scope_status != "included" |
+        zero_nights |
+        cross_year
+    ) %>%
+    select(
+      PATID, EVTID, SEJUM, SEJUF, unit_stay_scope_status,
+      nights_provisional, zero_nights, cross_year,
+      uf_ta_de_status, uf_ta_de_reason, source_values,
+      datent_min, datsort_max, event_datent_min, event_datsort_max
+    ),
+  file_stem = "ratb_unit_stay_scope_audit",
+  caption = "TA/DE incidence perimeter unit-stay audit",
+  page_length = 20,
+  scroll_y = "360px",
   digits = datatable_digits
 )
 ```
@@ -3448,7 +3498,7 @@ show_audit_table(
       episode_ghm_values
     ),
   file_stem = "ratb_episode_scope_audit",
-  caption = "TA/DE incidence perimeter episode audit",
+  caption = "TA/DE incidence perimeter episode and unit-contribution audit",
   page_length = 20,
   scroll_y = "360px",
   digits = datatable_digits
