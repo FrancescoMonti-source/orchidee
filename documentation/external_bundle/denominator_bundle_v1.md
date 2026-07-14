@@ -54,8 +54,15 @@ Invariants:
 ## Extra elements
 
 The bundle may contain extra list elements or extra columns, but they are not
-part of the v1 contract. For example, `n_episodes` and
+part of the v1 contract. For example, `n_episodes`, `n_unit_stays`, and
 `n_cross_year_episodes` can remain useful audit columns in local CHU outputs.
+
+The CHU adapter also keeps `hospital_nights_by_year_unit`, grouped by
+`calendar_year + SEJUM + SEJUF`, in its local scope cache. That table is the
+source of the annual global aggregate but is not yet required by the portable
+v1 bundle. A future contract that publishes incidence by hospitalization unit
+must promote an explicit unit-grain denominator instead of trying to recover
+it from the annual total.
 
 The validator ignores extra list elements and warns about extra columns.
 Loader and materialization helpers retain only the required v1 columns at the

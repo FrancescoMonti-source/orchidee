@@ -121,6 +121,7 @@ load_ratb_indicator_spec <- function(spec_path) {
 build_species_taxonomy_map <- function(species_regex_map_path) {
   species_taxonomy <- utils::read.csv(
     species_regex_map_path,
+    sep = ";",
     stringsAsFactors = FALSE
   ) %>%
     transmute(
