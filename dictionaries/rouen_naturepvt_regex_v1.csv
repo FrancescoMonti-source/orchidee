@@ -1,0 +1,20 @@
+pattern,naturepvt_norm,decision_reason
+(?i)hemocult,hemoculture,Hemoculture label.
+(?i)urine,urines,Explicit urine specimen.
+(?i)lcr|cephalo.?rachidien|epidural,lcr,Cerebrospinal or epidural specimen.
+(?i)\bascite\b|dialyse,liquide_ascite,Ascites or peritoneal dialysis fluid.
+(?i)\bpleural.?\b,liquide_pleural,Pleural fluid.
+(?i)articulaire|genou|synovite|articulation|\bcartilage,liquide_articulaire,Articular specimen.
+(?i)\bvalve\b|hematome|vitre+\b|\baort|cerebral|mediastin|\bprofond|pericard|humeur\s*a.?queuse|mitrale|tricuspi,pvt_profond,Deep or normally sterile anatomical site.
+(?i)prothese|prothetique|pace\s*maker|\bpth\b|\bptg\b|materiel|capsule\s*hanche|heart\s*mate|artificiel|\bplaque,pvt_profond,Explicit internal prosthetic material; generic sonde and urine-bag terms are deliberately excluded.
+(?i)\bbile\b|\bbiliaire\b|\bperitoneal|hepatique|abdominal|\bpancrea|\bvesicul|\bpulmon|poumon,pvt_profond,Deep abdominal or thoracic specimen.
+(?i)\bos\b|tibia|vertebral|machoire|\bmeta\b|metatars|metacarp|\bmuscle|\bmusculaire|sous\s*cutane|aponevro|\bperone\b|scarpa|malleole|\bosseu|\bulna|\boste[oi]|\bmetarse|\bcotyle|\bmoelle|\bfascia|\btendon,pvt_profond,Bone muscle or deep tissue specimen.
+(?i)lavage\s*alveolaire|lavage\s*bronch?o\-?alveolaire|pbdp,pvt_resp_protege_ou_distal,Protected or distal respiratory specimen.
+(?i)crachat|\bexpecto(ration)?\b|aspiration\s*bronchique|naso\-?pharynge+|pharynge+|mucovisc?idose,pvt_resp_non_protege,Non-protected respiratory specimen.
+(?i)^selles,coproculture,Stool culture outside screening scope.
+(?i)^(catheter|ktj|chambre|stent),dispositif_intravasculaire,Explicit intravascular device specimen.
+(?i)sperme|vaginal|uretral|endocol|genital|lochies?|endometre|uterus|vulve|vulvaire|exocol|\bscrot|\btesticul|\bsein\s*(droit|gauche),prelevement_genital,Genital specimen.
+(?i)placenta|amniotique|liquide\s*gastrique|\blait\b,pvt_nouveau_ne,Neonatal specimen.
+(?i)\bpeau\b|cuir\s*chevelu|escarre|decubitus|calcaneum|otorrhee|\boreille\b|\bongle|panaris|\bmain|ulcere\s*jambe|conduit\s*auditif|ombilic|orteil|hallux|plaie|cicatrice|\bpustule|mal\s*perforant,pus_superficiel,Superficial skin or wound specimen; oreille does not match oreillette.
+(?i)biopsie|cornee|conjonctive|autres|^divers|liquide\s*de\s*conservation|\brincage\b|drain|redon|^lentille|ecouv\.+divers,pvt_autre,Other specimen.
+(?i)\bsondes?\b.*(?:stimulation|ventricul|atria|oreillette|intra[\s-]*cardiaque|defibrillat|\bpm\b|\bvd\b),pvt_profond,Explicit cardiac lead or stimulation material; generic sonde remains unresolved.

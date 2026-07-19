@@ -67,6 +67,33 @@ Rscript tests/run_tests.R
 
 Chaque fichier `tests/test_*.R` est exécuté dans un processus R distinct.
 
+## Construction locale du handoff Rouen v2
+
+Pour transformer les exports locaux Rouen sans modifier le chemin notebook
+opérationnel :
+
+```powershell
+Rscript scripts/build_rouen_external_bundle_v2.R `
+  <bacteriology_raw.rds> `
+  <pmsi.rds> `
+  outputs/rouen_bundle_v2
+```
+
+La commande écrit les six blocs sous `site_inputs/`, les quatre fichiers
+canoniques sous `bundle/` et l'audit local dans `adapter_audit.rds`. Cet audit
+peut contenir des identifiants patients : conserver tout le répertoire sous
+`outputs/` ou dans un autre emplacement protégé et non versionné.
+
+La fenêtre versionnée par défaut est `[2022-01-01, 2025-01-01)` pour les deux
+sources. Toute modification se fait dans `config/rouen_raw_handoff_v1.R` et
+doit rester visible dans les métadonnées d'audit.
+
+Le script valide strictement le contrat v2 puis exécute le smoke du runtime
+canonique. Un changement limité à cet adaptateur se valide avec les tests
+source et un gate local sur les exports privés. Un rendu `full` devient
+nécessaire lorsque le chemin opérationnel ou les notebooks consomment ces
+nouveaux objets.
+
 ## Snapshot de caractérisation avant refactor
 
 Avant un nettoyage structurel censé ne pas changer les résultats, créer un

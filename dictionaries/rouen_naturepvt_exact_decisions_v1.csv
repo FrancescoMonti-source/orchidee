@@ -1,0 +1,9 @@
+naturepvt_audit_key,decision_action,naturepvt_norm,decision_reason
+URINE SONDE URETRALE GAUCHE,map,urines,The explicit specimen is urine; catheter wording describes collection context.
+URINE SONDE URETRALE GCH,map,urines,The explicit specimen is urine; catheter wording describes collection context.
+SONDE URETRALE DROITE,map,pvt_profond,Without an explicit urine specimen this is material from a urethral catheter.
+SONDE URETRALE GAUCHE,map,pvt_profond,Without an explicit urine specimen this is material from a urethral catheter.
+BOUT DISTAL SONDE JJ DROITE,map,pvt_profond,The specimen is distal ureteral-stent material rather than urine.
+LIQUIDE PUS SUR SONDE NEPHROSTOMIE DROITE,map,pvt_profond,The specimen is pus collected on nephrostomy material rather than urine.
+SONDES CHAMBRE IMPLANTABLE,map,dispositif_intravasculaire,The specimen is material from an implanted intravascular port.
+SONDE,defer,,The generic label does not identify the specimen or device reliably enough.

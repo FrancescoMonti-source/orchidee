@@ -201,7 +201,7 @@ orchidee_handoff_parse_time <- function(x, col_name = "HEUREPRELEV") {
 orchidee_handoff_normalize_sir <- function(x) {
   x <- toupper(orchidee_handoff_trim_or_na(x))
   dplyr::case_when(
-    x %in% c("S", "SFP") ~ "S",
+    x %in% c("S", "SFP", "---S") ~ "S",
     x %in% c("R", "---R") ~ "R",
     x %in% c("I", "ZIT") ~ "ZIT",
     x %in% c("NC", "NA", "N/A") | is.na(x) ~ NA_character_,
