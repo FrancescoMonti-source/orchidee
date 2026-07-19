@@ -101,9 +101,9 @@ Rscript scripts/build_rouen_external_bundle_v2.R `
 Le profil v1 Rouen couvre par défaut les années 2022 à 2024 ; la même fenêtre
 est appliquée à la microbiologie et au dénominateur PMSI.
 
-Les sorties restent locales et ignorées par Git. Le bundle v2 peut ensuite être
-sélectionné comme entrée opérationnelle des notebooks sans remplacer ni
-écraser les artefacts CHU.
+Les sorties restent locales et ignorées par Git. Le bundle v2 alimente ensuite
+le chemin opérationnel par défaut des notebooks sans remplacer ni écraser les
+artefacts CHU.
 
 ## Carte des documents
 
@@ -117,6 +117,8 @@ sélectionné comme entrée opérationnelle des notebooks sans remplacer ni
     -   profil successeur où `SEJUF` désigne l'UF d'hébergement au prélèvement ;
 -   `documentation/external_bundle/rouen_raw_handoff_v1.md`
     -   chemin Rouen brut bactériologie + PMSI vers les six blocs et le bundle v2 ;
+-   `documentation/external_bundle/operational_v2_adoption_2026-07-19.md`
+    -   décision et éléments agrégés ayant conduit à adopter v2 par défaut ;
 -   `documentation/external_bundle/sample_scope_reference_v1.md`
     -   schéma de la référence de périmètre au niveau prélèvement / `SEJUF` ;
 -   `documentation/external_bundle/denominator_bundle_v1.md`
@@ -134,16 +136,25 @@ sélectionné comme entrée opérationnelle des notebooks sans remplacer ni
 
 Les notebooks ont deux sources d'entrée explicites :
 
--   `chu_native`, valeur par défaut, utilise les artefacts internes de `data/`
-    et conserve les audits PMSI/CONSORES locaux ;
--   `external_bundle_v2` charge strictement les quatre fichiers canoniques v2,
-    sans fallback vers CHU ou v1.
+-   `external_bundle_v2`, valeur par défaut, charge strictement les quatre
+    fichiers canoniques v2 et constitue le chemin opérationnel canonique ;
+-   `chu_native`, mode legacy explicite de comparaison ou de rollback, utilise
+    les artefacts internes de `data/` et conserve les audits PMSI/CONSORES
+    locaux.
 
 La sélection se fait par `ORCHIDEE_OPERATIONAL_INPUT_SOURCE` et
 `ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR`. Les caches et téléchargements externes sont
 isolés sous `outputs/external_bundle_v2_runtime/` par défaut. Les tables de QA
 propres au producteur CHU ne sont pas simulées dans ce mode ; les QA biologiques,
-de complétion, dédoublonnage et indicateurs restent communes.
+de complétion, dédoublonnage et indicateurs restent communes. Il n'existe aucun
+autodétecteur ni fallback entre les deux modes : un bundle v2 absent ou invalide
+fait échouer explicitement le chemin par défaut.
+
+Le builder générique reste v1 par défaut. Un site ne doit demander
+`--contract=v2` qu'après avoir attribué l'UF d'hébergement active au prélèvement
+comme décrit dans `documentation/external_bundle/sir_wide_v2.md` ; un bundle v1
+reste un artefact de compatibilité et n'est pas accepté par le runtime v2 par
+défaut.
 
 Pour comprendre la frontière technique actuelle, lire
 `documentation/project_map.md`.

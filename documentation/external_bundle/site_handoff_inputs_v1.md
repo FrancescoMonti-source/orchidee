@@ -42,6 +42,19 @@ ORCHIDEE writes these internal files after validation:
 
 Do not build those four files by hand for a first handoff.
 
+## Important operational v2 boundary
+
+The commands in this document build contract v1 when `--contract` is omitted.
+That remains the safe compatibility default because this document asks for a
+local sample unit and cannot prove hospitalization-unit attribution.
+
+The operational notebooks now require strict v2 by default. To produce an
+input for that runtime, the site adapter must first assign to `SEJUF` the
+hospitalization unit active at sampling, then call the builder with
+`--contract=v2`. Do not add the flag to unchanged v1 inputs: v2 is a semantic
+claim, not only a metadata switch. Validate and smoke that result with
+`--contract=v2 --strict-preferred` as shown in `sir_wide_v2.md`.
+
 ## File 1: microbiology_observations
 
 This file contains one row per local S/I/R result for one sample, one bacterium

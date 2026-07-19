@@ -8,6 +8,23 @@ source("R/external_handoff_helpers.R")
 source("R/ratb_canonical_runtime_helpers.R")
 source("R/ratb_operational_input_helpers.R")
 
+operational_input_source_override <- Sys.getenv(
+  "ORCHIDEE_OPERATIONAL_INPUT_SOURCE",
+  unset = NA_character_
+)
+Sys.unsetenv("ORCHIDEE_OPERATIONAL_INPUT_SOURCE")
+pipeline_config_env <- new.env(parent = globalenv())
+sys.source("config/pipeline.R", envir = pipeline_config_env)
+default_operational_input_source <-
+  pipeline_config_env$orchidee_config$runtime$input_source
+if (is.na(operational_input_source_override)) {
+  Sys.unsetenv("ORCHIDEE_OPERATIONAL_INPUT_SOURCE")
+} else {
+  Sys.setenv(
+    ORCHIDEE_OPERATIONAL_INPUT_SOURCE = operational_input_source_override
+  )
+}
+
 contract <- orchidee_external_contract_v2()
 sir_wide <- data.frame(
   PATID = "P1",
@@ -87,6 +104,10 @@ config <- list(
   ),
   paths = list(data_dir = tempfile("missing_chu_data_"), downloads_dir = "unused")
 )
+
+legacy_config <- config
+legacy_config$runtime$input_source <- "chu_native"
+legacy_context <- resolve_ratb_operational_context(legacy_config)
 
 runtime <- load_ratb_operational_runtime(
   config = config,
@@ -171,6 +192,14 @@ stale_cache_error <- tryCatch(
     NA_character_
   },
   error = function(condition) conditionMessage(condition)
+)
+
+# Why: protects the ratified operational policy: v2 is the default while CHU
+# native remains an explicit legacy comparison/rollback selection.
+stopifnot(
+  identical(default_operational_input_source, "external_bundle_v2"),
+  identical(legacy_context$input_source, "chu_native"),
+  isTRUE(legacy_context$is_chu_native)
 )
 
 # Why: protects the operational input/cache boundary: external_bundle_v2 uses

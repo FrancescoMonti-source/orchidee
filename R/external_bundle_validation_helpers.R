@@ -1,8 +1,8 @@
 # External bundle validation helpers for Orchidee.
 #
 # This layer documents and validates the canonical external input contract.
-# Strict bundle v2 inputs can feed the shared operational notebook runtime;
-# v1 remains the compatibility contract.
+# Strict bundle v2 is the canonical operational notebook input; v1 remains the
+# compatibility contract for the external builder and validation interfaces.
 
 orchidee_external_contract_v1 <- function() {
   atb_cols <- c(

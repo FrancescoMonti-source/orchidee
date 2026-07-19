@@ -226,7 +226,8 @@ them to Git or publish them with the source repository.
 ## Current adoption boundary
 
 This command produces the strict preferred bundle accepted by the operational
-`external_bundle_v2` notebook mode. Selection is explicit and fail-closed; the
-CHU-native path remains the default and its caches are not overwritten. A full
+`external_bundle_v2` notebook mode, which is now the canonical default.
+Selection remains explicit and fail-closed; the CHU-native path is an opt-in
+legacy comparison/rollback mode, and its caches are not overwritten. A full
 render is required after selecting a new bundle so completion, deduplication
 and indicators are all derived from the same signed runtime input.
