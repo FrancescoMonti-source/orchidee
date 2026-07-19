@@ -16,7 +16,19 @@ setwd(project_root)
 
 args <- commandArgs(trailingOnly = TRUE)
 force <- "--force" %in% args
-args <- setdiff(args, "--force")
+contract_args <- grep("^--contract=", args, value = TRUE)
+if (length(contract_args) > 1L) {
+  stop("Pass at most one --contract option.", call. = FALSE)
+}
+contract_version <- if (length(contract_args) == 0L) {
+  "v1"
+} else {
+  sub("^--contract=", "", contract_args[[1L]])
+}
+if (!contract_version %in% c("v1", "v2")) {
+  stop("--contract must be v1 or v2.", call. = FALSE)
+}
+args <- setdiff(args, c("--force", contract_args))
 
 if (length(args) < 7L || length(args) > 8L || "--help" %in% args || "-h" %in% args) {
   cat(
@@ -29,7 +41,8 @@ if (length(args) < 7L || length(args) > 8L || "--help" %in% args || "-h" %in% ar
     "    <unit_mapping.{rds,csv,tsv,tab,txt}> \\\n",
     "    <denominator_by_year.{rds,csv,tsv,tab,txt}> \\\n",
     "    <output_bundle_dir> \\\n",
-    "    [de_reference.{rds,csv,tsv,tab,txt}] [--force]\n\n",
+    "    [de_reference.{rds,csv,tsv,tab,txt}] \\\n",
+    "    [--contract=v1|v2] [--force]\n\n",
     "Inputs:\n",
     "  microbiology_observations: long local S/I/R observations with the\n",
     "    columns documented in site_handoff_inputs_v1.md.\n",
@@ -40,6 +53,7 @@ if (length(args) < 7L || length(args) > 8L || "--help" %in% args || "-h" %in% ar
     "    or CODE_DE plus a de_reference table.\n",
     "  denominator_by_year: calendar_year + hospital_nights.\n",
     "  de_reference: optional CODE_DE + de_domain_ref/DOMAINE dictionary.\n",
+    "  --contract=v2: declare SEJUF as the hospitalization unit at sampling.\n",
     sep = ""
   )
   quit(status = if (length(args) == 0L || "--help" %in% args || "-h" %in% args) 0L else 1L)
@@ -61,6 +75,12 @@ orchidee_source_required_script("external_bundle_validation_helpers.R")
 orchidee_source_required_script("ratb_hospital_days_helpers.R")
 orchidee_source_required_script("external_handoff_helpers.R")
 
+contract <- switch(
+  contract_version,
+  v1 = orchidee_external_contract_v1(),
+  v2 = orchidee_external_contract_v2()
+)
+
 microbiology_observations <- orchidee_handoff_read_table(microbiology_path)
 bacteria_mapping <- orchidee_handoff_read_table(bacteria_mapping_path)
 sample_type_mapping <- orchidee_handoff_read_table(sample_type_mapping_path)
@@ -79,7 +99,8 @@ bundle <- orchidee_handoff_build_external_bundle_from_site_inputs(
   antibiotic_mapping = antibiotic_mapping,
   unit_mapping = unit_mapping,
   denominator_by_year = denominator_by_year,
-  de_reference = de_reference
+  de_reference = de_reference,
+  contract = contract
 )
 
 dir.create(output_bundle_dir, recursive = TRUE, showWarnings = FALSE)
@@ -113,6 +134,7 @@ saveRDS(
 
 report <- validate_external_input_bundle(
   bundle_dir = output_bundle_dir,
+  contract = contract,
   strict_preferred = TRUE
 )
 print_external_input_bundle_validation(report)
@@ -120,4 +142,8 @@ if (!isTRUE(report$ok)) {
   quit(status = 1L)
 }
 
-cat("Built strict preferred ORCHIDEE external bundle: ", output_bundle_dir, "\n", sep = "")
+cat(
+  "Built strict preferred ORCHIDEE ", contract$version,
+  " external bundle: ", output_bundle_dir, "\n",
+  sep = ""
+)

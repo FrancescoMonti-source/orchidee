@@ -640,7 +640,7 @@ orchidee_handoff_build_sir_wide_meta <- function(
     logical(1)
   )]
 
-  list(
+  metadata <- list(
     artifact_version = as.integer(artifact_version),
     created_at = as.character(created_at),
     sir_wide_n_rows = nrow(sir_wide),
@@ -653,6 +653,13 @@ orchidee_handoff_build_sir_wide_meta <- function(
     handoff_source = source_label,
     handoff_generated_by = "R/external_handoff_helpers.R"
   )
+
+  if (!is.null(sir_spec$required_meta_values)) {
+    metadata[names(sir_spec$required_meta_values)] <-
+      sir_spec$required_meta_values
+  }
+
+  metadata
 }
 
 orchidee_handoff_prepare_de_reference <- function(de_reference) {
