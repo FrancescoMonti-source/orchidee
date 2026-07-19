@@ -24,13 +24,12 @@ Ce document s'adresse aux mainteneurs. Il répond à deux questions :
 6.  Rendre le rapport produit et les documents méthodologiques de
     support.
 
-## Frontière actuelle CHU -> coeur ORCHIDEE
+## Frontière opérationnelle vers le coeur ORCHIDEE
 
-Le workflow courant n'est pas encore un mode d'exécution externe complet :
-les notebooks continuent à charger le cache natif CHU pour conserver les
-tables de QA locales. En revanche, le périmètre microbiologique aval et le
-dénominateur d'incidence passent déjà par les objets canoniques attendus
-par le futur contrat externe.
+Les notebooks sélectionnent explicitement soit le producteur natif CHU, soit
+un bundle externe v2 strict. Les deux chemins convergent vers les mêmes trois
+objets runtime avant la complétion, le dédoublonnage et les indicateurs. Il n'y
+a aucun autodétecteur ni fallback entre les deux sources.
 
 La règle d'architecture est donc : plusieurs entrées locales peuvent exister
 (adaptateur natif CHU/Rouen, blocs de handoff pour Rennes ou un autre site),
@@ -56,6 +55,10 @@ Objets canoniques de frontière
 - sir_wide (et ses métadonnées sir_wide_meta)
 - sample_scope_reference
 - denominator_bundle
+        |
+        v
+Sélecteur opérationnel fail-closed
+R/ratb_operational_input_helpers.R
         |
         v
 Coeur runtime indépendant de l'entrepôt
@@ -305,6 +308,10 @@ chargés hors notebook.
     -   contient le helper de frontière
         `build_ratb_downstream_scope_from_canonical_inputs()` qui applique
         une référence de périmètre canonique à `sir_wide`
+-   `R/ratb_operational_input_helpers.R`
+    -   sélectionne exactement `chu_native` ou `external_bundle_v2`
+    -   garde les caches externes séparés et expose seulement les trois
+        objets runtime partagés aux notebooks
 -   `scripts/validate_external_bundle.R`
     -   validateur CLI autonome pour les bundles externes
 -   `scripts/materialize_external_bundle.R`

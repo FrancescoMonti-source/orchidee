@@ -101,8 +101,9 @@ Rscript scripts/build_rouen_external_bundle_v2.R `
 Le profil v1 Rouen couvre par défaut les années 2022 à 2024 ; la même fenêtre
 est appliquée à la microbiologie et au dénominateur PMSI.
 
-Les sorties restent locales et ignorées par Git. Cet adaptateur atteint la
-frontière portable ; il ne remplace pas encore le chemin notebook CHU actuel.
+Les sorties restent locales et ignorées par Git. Le bundle v2 peut ensuite être
+sélectionné comme entrée opérationnelle des notebooks sans remplacer ni
+écraser les artefacts CHU.
 
 ## Carte des documents
 
@@ -131,12 +132,18 @@ frontière portable ; il ne remplace pas encore le chemin notebook CHU actuel.
 
 ## Modèle opératoire actuel
 
-Le chemin CHU fonctionne aujourd'hui à partir d'artefacts internes stockés dans
-`data/`. Les notebooks utilisent encore ce chemin CHU pour conserver les audits
-locaux et les tables de QA.
+Les notebooks ont deux sources d'entrée explicites :
 
-Le contrat externe est déjà exécutable jusqu'aux fichiers internes validés. Le
-mode notebook entièrement externe n'est pas encore câblé.
+-   `chu_native`, valeur par défaut, utilise les artefacts internes de `data/`
+    et conserve les audits PMSI/CONSORES locaux ;
+-   `external_bundle_v2` charge strictement les quatre fichiers canoniques v2,
+    sans fallback vers CHU ou v1.
+
+La sélection se fait par `ORCHIDEE_OPERATIONAL_INPUT_SOURCE` et
+`ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR`. Les caches et téléchargements externes sont
+isolés sous `outputs/external_bundle_v2_runtime/` par défaut. Les tables de QA
+propres au producteur CHU ne sont pas simulées dans ce mode ; les QA biologiques,
+de complétion, dédoublonnage et indicateurs restent communes.
 
 Pour comprendre la frontière technique actuelle, lire
 `documentation/project_map.md`.
