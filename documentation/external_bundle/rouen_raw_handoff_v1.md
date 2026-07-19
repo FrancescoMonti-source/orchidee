@@ -225,7 +225,8 @@ them to Git or publish them with the source repository.
 
 ## Current adoption boundary
 
-This command proves Rouen raw data can reach the same portable boundary as an
-external-site handoff. It does not yet replace the current CHU notebook input
-path. Operational adoption and result comparison belong to a later, focused
-change.
+This command produces the strict preferred bundle accepted by the operational
+`external_bundle_v2` notebook mode. Selection is explicit and fail-closed; the
+CHU-native path remains the default and its caches are not overwritten. A full
+render is required after selecting a new bundle so completion, deduplication
+and indicators are all derived from the same signed runtime input.
