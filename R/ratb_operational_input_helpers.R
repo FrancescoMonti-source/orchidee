@@ -1,7 +1,7 @@
 # Operational input selection for the RATB notebooks.
 #
-# This dispatcher preserves the CHU-native producer path while allowing the
-# same downstream runtime to consume a strict canonical external bundle v2.
+# This dispatcher uses a strict canonical external bundle v2 by default while
+# preserving CHU native as an explicit legacy comparison/rollback path.
 
 ratb_operational_input_sources <- function() {
   c("chu_native", "external_bundle_v2")

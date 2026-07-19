@@ -121,6 +121,11 @@ That script derives `sir_wide.rds`, `sir_wide_meta.rds`,
 `sample_scope_reference.rds`, and `denominator_bundle.rds`, then validates
 the output in strict preferred mode.
 
+The command above builds v1 when `--contract` is omitted. Such a bundle remains
+a compatibility artifact and is not accepted by the default operational v2
+runtime. A site may add `--contract=v2` only after its adapter has assigned the
+hospitalization unit active at sampling as documented in `sir_wide_v2.md`.
+
 ## What is not canonical input
 
 These objects are CHU/local implementation details, not portable ORCHIDEE
@@ -142,16 +147,18 @@ another hospital must reproduce line by line.
 The notebooks now select one explicit input source through
 `R/ratb_operational_input_helpers.R`:
 
-- `chu_native` remains the default and produces `ratb_scope_cache` from local
-  `sir_wide`, PMSI data and TA/DE references, preserving its local QA context;
-- `external_bundle_v2` requires the preferred four-file bundle, validates it
-  strictly as v2 and does not fall back to CHU or v1 artifacts.
+- `external_bundle_v2` is the canonical default, requires the preferred
+  four-file bundle, validates it strictly as v2 and does not fall back to CHU
+  or v1 artifacts;
+- `chu_native` is an explicit legacy comparison/rollback mode that produces
+  `ratb_scope_cache` from local `sir_wide`, PMSI data and TA/DE references,
+  preserving its local QA context.
 
 Both sources build the same scoped microbiology rows and incidence denominator
 through `R/ratb_canonical_runtime_helpers.R`. External completion, dedup and
 download artifacts use a separate ignored workspace so they cannot overwrite
 the native CHU caches. Producer-specific CHU QA remains available only in the
-native mode.
+legacy native mode. New workflow development targets the canonical v2 path.
 
 The intended portability direction is now:
 
