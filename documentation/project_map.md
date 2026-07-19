@@ -45,6 +45,11 @@ Adaptateur CHU
 R/chu_ratb_scope_adapter.R
 R/chu_ratb_scope_cache_helpers.R
         |
+        | ou, pour le handoff Rouen brut vers le profil v2
+        v
+R/rouen_microbiology_handoff_adapter.R
+R/rouen_pmsi_handoff_adapter.R
+        |
         | produit les objets canoniques et le contexte de QA local
         v
 Objets canoniques de frontière
@@ -183,6 +188,16 @@ chargés hors notebook.
     -   parsing et propagation des phénotypes BLSE / carbapénèmase
     -   statuts internes à quatre états, flags publics binaires (positif
         uniquement)
+-   `R/rouen_microbiology_handoff_adapter.R`
+    -   transforme l'export bactériologique long Rouen en quatre blocs de
+        handoff : observations, mappings bactéries, prélèvements et antibiotiques
+    -   porte les décisions locales versionnées de screening, mapping unordered,
+        expansion des classes ATB et attribution exacte des phénotypes
+-   `R/rouen_pmsi_handoff_adapter.R`
+    -   applique la politique PMSI `C > DW` via `redsan`, attribue l'UF
+        d'hébergement au prélèvement et construit mapping TA/DE et dénominateur
+    -   compose les six blocs avec le builder partagé sous contrat v2, sans
+        fallback vers l'UF microbiologique
 
 ### Complétion et dédoublonnage
 
@@ -267,6 +282,10 @@ chargés hors notebook.
     -   univers espèces/antibiotiques supporté
 -   `dictionaries/atb_regex_map.csv`
     -   table de normalisation regex des antibiotiques
+-   `dictionaries/rouen_naturepvt_regex_v1.csv`
+    -   règles Rouen évaluées sans utiliser leur ordre pour départager les cibles
+-   `dictionaries/rouen_naturepvt_exact_decisions_v1.csv`
+    -   décisions humaines exactes, motivées, pour les conflits ou reports connus
 -   `dictionaries/family.csv`
     -   labels de familles et métadonnées de regroupement
 
@@ -275,8 +294,8 @@ chargés hors notebook.
 -   `R/external_bundle_validation_helpers.R`
     -   helpers de validation réutilisables pour le contrat d'entrée
         externe
-    -   porte la version exécutable du contrat v1 via
-        `orchidee_external_contract_v1()`
+    -   porte les profils exécutables v1 et v2 via
+        `orchidee_external_contract_v1()` et `orchidee_external_contract_v2()`
     -   charge aussi un bundle validé via
         `load_validated_external_input_bundle()`
 -   `R/ratb_hospital_days_helpers.R`
@@ -302,6 +321,10 @@ chargés hors notebook.
     -   dérive `sir_wide.rds`, `sir_wide_meta.rds`,
         `sample_scope_reference.rds` et `denominator_bundle.rds`, puis
         lance la validation stricte
+-   `scripts/build_rouen_external_bundle_v2.R`
+    -   point d'entrée Rouen bactériologie brute + objet PMSI `redsan`
+    -   écrit séparément les six blocs, le bundle canonique v2 et l'audit local,
+        puis exécute validation stricte et smoke runtime
 -   `scripts/audit_chu_site_handoff.R`
     -   diagnostic mainteneur : dérive des blocs élémentaires depuis les
         artefacts CHU courants (observations et mappings depuis
@@ -319,6 +342,8 @@ chargés hors notebook.
     -   à maintenir en cohérence avec
         `R/external_bundle_validation_helpers.R` quand le schéma v1
         change
+    -   `rouen_raw_handoff_v1.md` documente le chemin local A vers B sans en
+        faire le contrat d'onboarding d'un autre établissement
 -   `R/build_sir_wide_artifact.R`
     -   producteur interne de l'artefact CHU actuel
     -   sert d'exemple de construction de l'artefact canonique, mais ne

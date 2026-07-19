@@ -76,7 +76,7 @@ Optional columns:
 
 Accepted `sir_result` values:
 
-- `S` and `SFP` become `S`;
+- `S`, `SFP` and `---S` become `S`;
 - `R` and `---R` become `R`;
 - `I` and `ZIT` become `ZIT`;
 - `NC`, `NA`, `N/A` or blank values become missing.
