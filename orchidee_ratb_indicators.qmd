@@ -116,8 +116,16 @@ orchidee_source_required_script(
   "ratb_canonical_runtime_helpers script"
 )
 orchidee_source_required_script(
+  "external_bundle_validation_helpers.R",
+  "external bundle validation helpers"
+)
+orchidee_source_required_script(
   "chu_ratb_scope_cache_helpers.R",
   "CHU native RATB scope cache helpers"
+)
+orchidee_source_required_script(
+  "ratb_operational_input_helpers.R",
+  "RATB operational input helpers"
 )
 orchidee_source_required_script(
   "ratb_report_helpers.R",
@@ -130,8 +138,11 @@ orchidee_source_required_script(
 #| label: initialize_ratb_report_helpers
 #| include: false
 #| echo: false
+ratb_operational_context <- resolve_ratb_operational_context(orchidee_config)
+dir.create(ratb_operational_context$cache_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(ratb_operational_context$download_dir, recursive = TRUE, showWarnings = FALSE)
 initialize_ratb_report_helpers(
-  download_dir = orchidee_config$paths$downloads_dir,
+  download_dir = ratb_operational_context$download_dir,
   datatable_digits = orchidee_config$report$datatable_digits,
   datatable_filter_default = orchidee_config$report$datatable_filter_default,
   datatable_initial_zoom = orchidee_config$report$datatable_initial_zoom,
@@ -149,41 +160,16 @@ initialize_ratb_report_helpers(
 
 orchidee_source_required_script("helpers.R", "helpers script")
 
-data_dir <- orchidee_config$paths$data_dir
 dictionaries_dir <- orchidee_config$paths$dictionaries_dir
 
-sir_wide_artifact_path <- file.path(data_dir, "sir_wide.rds")
-sir_wide_meta_path <- file.path(data_dir, "sir_wide_meta.rds")
-required_artifacts <- c(sir_wide_artifact_path, sir_wide_meta_path)
-
-if (!all(file.exists(required_artifacts))) {
-  missing <- required_artifacts[!file.exists(required_artifacts)]
-  stop(
-    "Missing sir_wide artifact files: ",
-    paste(missing, collapse = ", "),
-    "\n",
-    "Run: Rscript R/build_sir_wide_artifact.R\n",
-    "Then rerun: quarto render orchidee_dedup_workflow.qmd",
-    call. = FALSE
-  )
-}
-
-sir_wide_meta <- readRDS(sir_wide_meta_path)
-sir_wide <- readRDS(sir_wide_artifact_path)
-
-artifact_validation <- validate_loaded_sir_wide_artifact(
-  sir_wide = sir_wide,
-  meta = sir_wide_meta
+operational_runtime <- load_ratb_operational_runtime(
+  config = orchidee_config,
+  chu_cache_policy = "load_existing"
 )
-
-if (!isTRUE(artifact_validation$ok)) {
-  stop(
-    "sir_wide artifact is invalid or inconsistent with metadata:\n - ",
-    paste(artifact_validation$reasons, collapse = "\n - "),
-    "\nRun: Rscript R/build_sir_wide_artifact.R",
-    call. = FALSE
-  )
-}
+ratb_operational_context <- operational_runtime$context
+cache_dir <- ratb_operational_context$cache_dir
+sir_wide_meta <- operational_runtime$sir_wide_meta
+sir_wide <- operational_runtime$sir_wide
 
 if (!exists("filtre_atb") && !is.null(sir_wide_meta$filtre_atb)) {
   filtre_atb <- sir_wide_meta$filtre_atb
@@ -199,15 +185,8 @@ if (!exists("filtre_atb") && !is.null(sir_wide_meta$filtre_atb)) {
 
 dedup_cache_candidates <- list(
   list(
-    results = file.path(data_dir, "dedup_results"),
-    meta = file.path(data_dir, "dedup_cache_meta")
-  )
-)
-
-ratb_scope_cache_candidates <- list(
-  list(
-    payload = file.path(data_dir, "ratb_scope_cache"),
-    meta = file.path(data_dir, "ratb_scope_cache_meta")
+    results = file.path(cache_dir, "dedup_results"),
+    meta = file.path(cache_dir, "dedup_cache_meta")
   )
 )
 
@@ -235,30 +214,6 @@ for (candidate in dedup_cache_candidates) {
   break
 }
 
-ratb_scope_cache_source <- NA_character_
-ratb_scope_cache_payload <- NULL
-ratb_scope_cache_meta <- NULL
-
-for (candidate in ratb_scope_cache_candidates) {
-  cache_paths <- unlist(candidate, use.names = FALSE)
-  if (!all(file.exists(cache_paths))) {
-    next
-  }
-
-  loaded_payload <- tryCatch(readRDS(candidate$payload), error = function(e) {
-    NULL
-  })
-  loaded_meta <- tryCatch(readRDS(candidate$meta), error = function(e) NULL)
-  if (!is.list(loaded_payload) || !is.list(loaded_meta)) {
-    next
-  }
-
-  ratb_scope_cache_payload <- loaded_payload
-  ratb_scope_cache_meta <- loaded_meta
-  ratb_scope_cache_source <- candidate$payload
-  break
-}
-
 if (is.null(dedup_results) || is.null(dedup_cache_meta)) {
   stop(
     "Missing dedup cache artifacts. Render orchidee_dedup_workflow.qmd first.",
@@ -266,47 +221,25 @@ if (is.null(dedup_results) || is.null(dedup_cache_meta)) {
   )
 }
 
-if (is.null(ratb_scope_cache_payload) || is.null(ratb_scope_cache_meta)) {
+if (!"runtime_input_signature" %in% names(dedup_cache_meta) ||
+    !identical(
+      dedup_cache_meta$runtime_input_signature,
+      operational_runtime$runtime_input_signature
+    )) {
   stop(
-    "Missing RATB scope cache artifacts. Render orchidee_dedup_workflow.qmd first.",
+    "Dedup cache does not match the selected RATB operational input. ",
+    "Render orchidee_dedup_workflow.qmd first.",
     call. = FALSE
   )
 }
 
-stopifnot(
-  exists("build_chu_ratb_runtime_payload_from_cache_payload", mode = "function"),
-  exists("stop_if_invalid_ratb_canonical_runtime_inputs", mode = "function")
-)
-
-ratb_scope_cache_payload <- build_chu_ratb_runtime_payload_from_cache_payload(
-  payload = ratb_scope_cache_payload,
-  sir_wide = sir_wide
-)
-
-required_ratb_scope_payload_objects <- c(
-  "sir_wide_ratb_scope",
-  "ratb_episode_scope_audit",
-  "incidence_denominator_by_year"
-)
-missing_ratb_scope_payload_objects <- setdiff(
-  required_ratb_scope_payload_objects,
-  names(ratb_scope_cache_payload)
-)
-if (length(missing_ratb_scope_payload_objects) > 0L) {
-  stop(
-    "RATB scope cache payload is missing report objects: ",
-    paste(missing_ratb_scope_payload_objects, collapse = ", "),
-    call. = FALSE
-  )
-}
-
-sir_wide_ratb_scope <- ratb_scope_cache_payload$sir_wide_ratb_scope
-ratb_episode_scope_audit <- ratb_scope_cache_payload$ratb_episode_scope_audit
+runtime_inputs <- operational_runtime$runtime_inputs
+sir_wide_ratb_scope <- runtime_inputs$sir_wide_ratb_scope
 incidence_denominator_by_year <-
-  ratb_scope_cache_payload$incidence_denominator_by_year
+  runtime_inputs$incidence_denominator_by_year
 
 stop_if_invalid_ratb_canonical_runtime_inputs(
-  runtime_inputs = ratb_scope_cache_payload,
+  runtime_inputs = runtime_inputs,
   sir_wide = sir_wide
 )
 
@@ -319,7 +252,6 @@ stopifnot(
     logical(1)
   )),
   exists("sir_wide_ratb_scope"),
-  exists("ratb_episode_scope_audit"),
   exists("incidence_denominator_by_year")
 )
 
@@ -335,6 +267,8 @@ de qualité, de périmètre ou de validation, qui restent documentés dans
 La méthode détaillée, les conventions ORCHIDEE et les choix d'implémentation
 sont décrits dans
 [`documentation/ratb_implementation_decisions.html`](documentation/ratb_implementation_decisions.html).
+
+**Source opérationnelle :** `r operational_runtime$input_source`.
 
 ## Comment lire ce rapport
 

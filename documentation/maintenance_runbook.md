@@ -69,8 +69,7 @@ Chaque fichier `tests/test_*.R` est exécuté dans un processus R distinct.
 
 ## Construction locale du handoff Rouen v2
 
-Pour transformer les exports locaux Rouen sans modifier le chemin notebook
-opérationnel :
+Pour transformer les exports locaux Rouen en bundle canonique v2 :
 
 ```powershell
 Rscript scripts/build_rouen_external_bundle_v2.R `
@@ -90,9 +89,31 @@ doit rester visible dans les métadonnées d'audit.
 
 Le script valide strictement le contrat v2 puis exécute le smoke du runtime
 canonique. Un changement limité à cet adaptateur se valide avec les tests
-source et un gate local sur les exports privés. Un rendu `full` devient
-nécessaire lorsque le chemin opérationnel ou les notebooks consomment ces
-nouveaux objets.
+source et un gate local sur les exports privés.
+
+## Exécution opérationnelle sur un bundle v2
+
+Le mode CHU reste le défaut. Pour exécuter les deux notebooks sur un bundle v2
+local, sélectionner explicitement la source et lancer un rendu complet :
+
+```powershell
+$env:ORCHIDEE_OPERATIONAL_INPUT_SOURCE = "external_bundle_v2"
+$env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR = "C:\chemin\protege\bundle"
+$env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = "outputs\external_bundle_v2_runtime"
+& .\scripts\render_orchidee.ps1 -Target full
+```
+
+Le loader exige les quatre fichiers préférés du contrat v2 et échoue sans
+fallback vers CHU ou v1. Completion, dédoublonnage et téléchargements sont
+écrits sous le workspace externe, pas dans `data/` ni `downloads/`.
+
+Pour revenir au mode CHU par défaut dans la même session PowerShell :
+
+```powershell
+Remove-Item Env:ORCHIDEE_OPERATIONAL_INPUT_SOURCE
+Remove-Item Env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR -ErrorAction SilentlyContinue
+Remove-Item Env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR -ErrorAction SilentlyContinue
+```
 
 ## Snapshot de caractérisation avant refactor
 

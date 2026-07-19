@@ -67,7 +67,14 @@ L'objectif est d'éviter de répéter la même logique d'export dans chaque sect
 
 ```{r}
 #| label: download_artifact_helpers
-download_dir <- orchidee_config$paths$downloads_dir
+orchidee_source_required_script(
+  "ratb_operational_input_helpers.R",
+  "RATB operational input helpers"
+)
+ratb_operational_context <- resolve_ratb_operational_context(orchidee_config)
+dir.create(ratb_operational_context$cache_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(ratb_operational_context$download_dir, recursive = TRUE, showWarnings = FALSE)
+download_dir <- ratb_operational_context$download_dir
 datatable_digits <- orchidee_config$report$datatable_digits
 datatable_filter_default <- orchidee_config$report$datatable_filter_default
 datatable_initial_zoom <- orchidee_config$report$datatable_initial_zoom
@@ -131,6 +138,10 @@ orchidee_source_required_script(
   "ratb_canonical_runtime_helpers script"
 )
 orchidee_source_required_script(
+  "external_bundle_validation_helpers.R",
+  "external bundle validation helpers"
+)
+orchidee_source_required_script(
   "ratb_hospital_days_helpers.R",
   "ratb_hospital_days_helpers script"
 )
@@ -146,14 +157,11 @@ orchidee_source_required_script(
 
 ## Prebuilt `sir_wide` artifact
 
-This notebook runs in analysis mode and expects a prebuilt `sir_wide` artifact.
-
-Build once (or whenever raw data / mappings / normalization scripts change):
-
-1. `Rscript R/build_sir_wide_artifact.R`
-2. `quarto render orchidee_dedup_workflow.qmd`
-
-If artifact validation fails, rerun the builder script above and render again.
+This notebook runs in analysis mode and expects the selected operational input
+to be ready. In `chu_native` mode, build `sir_wide` with
+`Rscript R/build_sir_wide_artifact.R`. In `external_bundle_v2` mode, point the
+runtime variables to a strict four-file bundle. Then render the notebook; if
+input validation fails, rebuild the selected source before rendering again.
 
 ```{r}
 #| label: load_sir_wide_artifact
@@ -161,45 +169,16 @@ If artifact validation fails, rerun the builder script above and render again.
 
 orchidee_source_required_script("helpers.R", "helpers script")
 
-data_dir <- orchidee_config$paths$data_dir
 dictionaries_dir <- orchidee_config$paths$dictionaries_dir
 
-sir_wide_artifact_path <- file.path(data_dir, "sir_wide.rds")
-sir_wide_meta_path <- file.path(data_dir, "sir_wide_meta.rds")
-required_artifacts <- c(sir_wide_artifact_path, sir_wide_meta_path)
-
-if (!all(file.exists(required_artifacts))) {
-  missing <- required_artifacts[!file.exists(required_artifacts)]
-  stop(
-    "Missing sir_wide artifact files: ", paste(missing, collapse = ", "), "\n",
-    "Run: Rscript R/build_sir_wide_artifact.R\n",
-    "Then rerun: quarto render orchidee_dedup_workflow.qmd",
-    call. = FALSE
-  )
-}
-
-sir_wide_meta <- readRDS(sir_wide_meta_path)
-sir_wide <- readRDS(sir_wide_artifact_path)
-
-artifact_validation <- validate_loaded_sir_wide_artifact(
-  sir_wide = sir_wide,
-  meta = sir_wide_meta
+operational_runtime <- load_ratb_operational_runtime(
+  config = orchidee_config,
+  chu_cache_policy = "load_or_build"
 )
-
-sir_wide_artifact_signature <- compute_sir_wide_artifact_signature(
-  sir_wide_path = sir_wide_artifact_path,
-  sir_wide_meta_path = sir_wide_meta_path,
-  meta = sir_wide_meta
-)
-
-if (!isTRUE(artifact_validation$ok)) {
-  stop(
-    "sir_wide artifact is invalid or inconsistent with metadata:\n - ",
-    paste(artifact_validation$reasons, collapse = "\n - "),
-    "\nRun: Rscript R/build_sir_wide_artifact.R",
-    call. = FALSE
-  )
-}
+ratb_operational_context <- operational_runtime$context
+cache_dir <- ratb_operational_context$cache_dir
+sir_wide_meta <- operational_runtime$sir_wide_meta
+sir_wide <- operational_runtime$sir_wide
 
 if (!exists("filtre_atb") && !is.null(sir_wide_meta$filtre_atb)) {
   filtre_atb <- sir_wide_meta$filtre_atb
@@ -236,110 +215,95 @@ recompute_ratb_scope <- orchidee_config$cache$recompute_ratb_scope
 #| label: ratb_scope_prepare
 #| echo: false
 
-stopifnot(
-  exists("load_or_build_chu_ratb_scope_cache", mode = "function"),
-  exists("stop_if_invalid_ratb_canonical_runtime_inputs", mode = "function")
-)
+stopifnot(exists("stop_if_invalid_ratb_canonical_runtime_inputs", mode = "function"))
 
-ratb_scope_cache_result <- load_or_build_chu_ratb_scope_cache(
-  sir_wide = sir_wide,
-  sir_wide_meta = sir_wide_meta,
-  sir_wide_artifact_signature = sir_wide_artifact_signature,
-  data_dir = data_dir,
-  recompute = recompute_ratb_scope,
-  ref_dir = orchidee_config$paths$ref_dir,
-  structure_path = orchidee_config$paths$consores_structure_path,
-  codes_ta_path = orchidee_config$paths$consores_codes_ta_path,
-  codes_de_path = orchidee_config$paths$consores_codes_de_path,
-  microbiology_scope_policy = orchidee_config$ratb$microbiology_scope_policy,
-  incidence_denominator_policy = orchidee_config$ratb$incidence_denominator_policy
-)
-ratb_scope_cache_payload <- ratb_scope_cache_result$payload
-ratb_scope_cache_meta <- ratb_scope_cache_result$meta
-ratb_scope_cache_source <- ratb_scope_cache_result$source
-ratb_scope_cache_decision <- ratb_scope_cache_result$decision
-
-required_ratb_scope_payload_objects <- c(
-  "sir_wide_ratb_analytic_scope",
-  "ratb_scope_exclusion_summary",
-  "ratb_scope_join_audit",
-  "ratb_perimeter_rules",
-  "ratb_uf_ta_de_reference",
-  "ratb_episode_exclusion_summary",
-  "incidence_denominator_pmsi_ta_de_audit",
-  "ratb_numerator_scope_impact_audit",
-  "ratb_episode_scope_audit",
-  "ratb_unit_stay_scope_audit",
-  "hospital_nights_by_year_unit",
-  "hospital_stay_validation_summary",
-  "hospital_days_year_summary",
-  "hospital_stays_raw",
-  "hospital_stays_validated"
-)
-missing_ratb_scope_payload_objects <- setdiff(
-  required_ratb_scope_payload_objects,
-  names(ratb_scope_cache_payload)
-)
-if (length(missing_ratb_scope_payload_objects) > 0L) {
-  stop(
-    "RATB scope cache payload is missing notebook objects: ",
-    paste(missing_ratb_scope_payload_objects, collapse = ", "),
-    call. = FALSE
-  )
-}
-
-sir_wide_ratb_analytic_scope <-
-  ratb_scope_cache_payload$sir_wide_ratb_analytic_scope
-ratb_scope_exclusion_summary <-
-  ratb_scope_cache_payload$ratb_scope_exclusion_summary
-ratb_scope_join_audit <- ratb_scope_cache_payload$ratb_scope_join_audit
-ratb_perimeter_rules <- ratb_scope_cache_payload$ratb_perimeter_rules
-ratb_uf_ta_de_reference <- ratb_scope_cache_payload$ratb_uf_ta_de_reference
-ratb_episode_exclusion_summary <-
-  ratb_scope_cache_payload$ratb_episode_exclusion_summary
-incidence_denominator_pmsi_ta_de_audit <-
-  ratb_scope_cache_payload$incidence_denominator_pmsi_ta_de_audit
-ratb_numerator_scope_impact_audit <-
-  ratb_scope_cache_payload$ratb_numerator_scope_impact_audit
-ratb_episode_scope_audit <- ratb_scope_cache_payload$ratb_episode_scope_audit
-ratb_unit_stay_scope_audit <-
-  ratb_scope_cache_payload$ratb_unit_stay_scope_audit
-hospital_nights_by_year_unit <-
-  ratb_scope_cache_payload$hospital_nights_by_year_unit
-hospital_stay_validation_summary <-
-  ratb_scope_cache_payload$hospital_stay_validation_summary
-hospital_days_year_summary <- ratb_scope_cache_payload$hospital_days_year_summary
-hospital_stays_raw <- ratb_scope_cache_payload$hospital_stays_raw
-hospital_stays_validated <- ratb_scope_cache_payload$hospital_stays_validated
+runtime_inputs <- operational_runtime$runtime_inputs
+sir_wide_ratb_scope <- runtime_inputs$sir_wide_ratb_scope
+sir_wide_ratb_analytic_scope <- runtime_inputs$sir_wide_ratb_analytic_scope
+incidence_denominator_by_year <- runtime_inputs$incidence_denominator_by_year
+ratb_scope_cache_source <- operational_runtime$source
+ratb_scope_cache_decision <- operational_runtime$decision
+has_chu_native_qa <- !is.null(operational_runtime$chu_native_qa)
 
 stop_if_invalid_ratb_canonical_runtime_inputs(
-  runtime_inputs = ratb_scope_cache_payload,
+  runtime_inputs = runtime_inputs,
   sir_wide = sir_wide
 )
 
-stopifnot(
-  all(
-    !ratb_episode_scope_audit$included_in_provisional_perimeter |
-      ratb_episode_scope_audit$n_ta_de_eligible_uf > 0L
-  ),
-  all(
-    !ratb_unit_stay_scope_audit$included_in_provisional_perimeter |
-      ratb_unit_stay_scope_audit$uf_is_eligible_by_ta_de
-  ),
-  all(
-    !ratb_unit_stay_scope_audit$included_in_provisional_perimeter |
-      (!ratb_unit_stay_scope_audit$missing_bounds &
-        !ratb_unit_stay_scope_audit$negative_nights)
-  ),
-  all(hospital_stays_validated$validation_status == "validated"),
-  all(!hospital_stays_validated$missing_bounds),
-  all(!hospital_stays_validated$negative_elapsed),
-  all(incidence_denominator_pmsi_ta_de_audit$hospital_nights >= 0)
-)
+if (has_chu_native_qa) {
+  chu_native_qa <- operational_runtime$chu_native_qa
+  required_chu_native_qa_objects <- c(
+    "ratb_scope_exclusion_summary",
+    "ratb_scope_join_audit",
+    "ratb_perimeter_rules",
+    "ratb_uf_ta_de_reference",
+    "ratb_episode_exclusion_summary",
+    "incidence_denominator_pmsi_ta_de_audit",
+    "ratb_numerator_scope_impact_audit",
+    "ratb_episode_scope_audit",
+    "ratb_unit_stay_scope_audit",
+    "hospital_nights_by_year_unit",
+    "hospital_stay_validation_summary",
+    "hospital_days_year_summary",
+    "hospital_stays_raw",
+    "hospital_stays_validated"
+  )
+  missing_chu_native_qa_objects <- setdiff(
+    required_chu_native_qa_objects,
+    names(chu_native_qa)
+  )
+  if (length(missing_chu_native_qa_objects) > 0L) {
+    stop(
+      "CHU-native RATB payload is missing notebook QA objects: ",
+      paste(missing_chu_native_qa_objects, collapse = ", "),
+      call. = FALSE
+    )
+  }
 
+  list2env(chu_native_qa[required_chu_native_qa_objects], envir = environment())
+
+  stopifnot(
+    all(
+      !ratb_episode_scope_audit$included_in_provisional_perimeter |
+        ratb_episode_scope_audit$n_ta_de_eligible_uf > 0L
+    ),
+    all(
+      !ratb_unit_stay_scope_audit$included_in_provisional_perimeter |
+        ratb_unit_stay_scope_audit$uf_is_eligible_by_ta_de
+    ),
+    all(
+      !ratb_unit_stay_scope_audit$included_in_provisional_perimeter |
+        (!ratb_unit_stay_scope_audit$missing_bounds &
+          !ratb_unit_stay_scope_audit$negative_nights)
+    ),
+    all(hospital_stays_validated$validation_status == "validated"),
+    all(!hospital_stays_validated$missing_bounds),
+    all(!hospital_stays_validated$negative_elapsed),
+    all(incidence_denominator_pmsi_ta_de_audit$hospital_nights >= 0)
+  )
+}
+
+cat("operational_input_source: ", operational_runtime$input_source, "\n", sep = "")
 cat("recompute_ratb_scope: ", isTRUE(recompute_ratb_scope), "\n", sep = "")
 cat("ratb_scope_cache_source: ", ratb_scope_cache_source, "\n", sep = "")
 cat("ratb_scope_cache_decision: ", ratb_scope_cache_decision, "\n", sep = "")
+```
+
+```{r}
+#| label: external_bundle_v2_qa_boundary_note
+#| echo: false
+#| results: asis
+if (!has_chu_native_qa) {
+  cat(
+    "::: {.callout-note}\n",
+    "In `external_bundle_v2` mode, CHU-native PMSI/CONSORES QA tables are ",
+    "intentionally not rendered because they are not part of the portable ",
+    "four-file contract. Review the strict bundle validation and the protected ",
+    "site-adapter audit instead.\n",
+    ":::\n",
+    sep = ""
+  )
+}
 ```
 
 ### RATB biological plausibility QC
@@ -370,7 +334,7 @@ ratb_plausibility_qc_summary
 
 ```{r}
 #| label: ratb_scope_exclusion_summary_table
-show_audit_table(
+if (has_chu_native_qa) show_audit_table(
   data = ratb_scope_exclusion_summary,
   file_stem = "ratb_scope_exclusion_summary",
   caption = "RATB hospitalization scope summary",
@@ -382,7 +346,7 @@ show_audit_table(
 
 ```{r}
 #| label: ratb_scope_join_audit_table
-show_audit_table(
+if (has_chu_native_qa) show_audit_table(
   data = ratb_scope_join_audit %>%
     select(
       PATID, EVTID, n_micro_rows, n_eltid, ratb_scope_status,
@@ -405,8 +369,11 @@ This notebook can be used in two ways:
 
 ### Step-1 setup (cold start)
 
-1. Build base artifact: `Rscript R/build_sir_wide_artifact.R`
-2. Render notebook: `quarto render orchidee_dedup_workflow.qmd`
+- **CHU native (default):** build the base artifact with
+  `Rscript R/build_sir_wide_artifact.R`, then render.
+- **External v2:** set `ORCHIDEE_OPERATIONAL_INPUT_SOURCE=external_bundle_v2`
+  and `ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR` to the protected four-file bundle,
+  then render `full` through `scripts/render_orchidee.ps1`.
 
 ### Step-2 routine (warm run)
 
@@ -439,6 +406,7 @@ few local derived objects.
 
 | What you want to tune | Variable(s) | Where |
 |---|---|---|
+| Operational input source and external workspace | `orchidee_config$runtime` or the corresponding environment variables | `config/pipeline.R` |
 | Datatable decimals / filters / zoom UI | `orchidee_config$report` | `config/pipeline.R` |
 | RATB scope / denominator recompute policy | `orchidee_config$cache$recompute_ratb_scope` | `config/pipeline.R` |
 | Completion recompute policy | `orchidee_config$cache$recompute_completion` | `config/pipeline.R` |
@@ -449,16 +417,16 @@ few local derived objects.
 
 | Artifact | Produced by | Consumed by | Refresh trigger |
 |---|---|---|---|
-| `data/sir_wide.rds`, `data/sir_wide_meta.rds` | `R/build_sir_wide_artifact.R` | `load_sir_wide_artifact` | Raw inputs, dictionaries, normalization script changes |
-| `data/ratb_scope_cache`, `data/ratb_scope_cache_meta` | RATB scope recompute path | hospitalization scope + hospital-days sections | RATB scope fingerprint mismatch or `orchidee_config$cache$recompute_ratb_scope <- TRUE` |
-| `data/completion_datasets`, `data/completion_logs`, `data/raw_row_log`, `data/completion_cache_meta` | completion recompute path | completion + dedup sections | completion fingerprint mismatch or `orchidee_config$cache$recompute_completion <- TRUE` |
-| `data/dedup_results`, `data/dedup_cache_meta` | dedup recompute path | dedup + resistance sections | dedup/completion fingerprint mismatch or `orchidee_config$cache$recompute_dedup <- TRUE` |
-| `downloads/*.pdf`, `downloads/*.xlsx`, `downloads/*.png` | helper exporters | reader download buttons | regenerated at render |
+| `data/sir_wide.rds`, `data/sir_wide_meta.rds` (CHU only) | `R/build_sir_wide_artifact.R` | operational input loader | Raw inputs, dictionaries, normalization script changes |
+| `data/ratb_scope_cache`, `data/ratb_scope_cache_meta` (CHU only) | RATB scope recompute path | hospitalization scope + hospital-days sections | RATB scope fingerprint mismatch or `orchidee_config$cache$recompute_ratb_scope <- TRUE` |
+| `<operational cache>/completion_*` | completion recompute path | completion + dedup sections | completion fingerprint mismatch or `orchidee_config$cache$recompute_completion <- TRUE` |
+| `<operational cache>/dedup_*` | dedup recompute path | dedup + resistance sections | input/dedup/completion fingerprint mismatch or `orchidee_config$cache$recompute_dedup <- TRUE` |
+| `<operational downloads>/*` | helper exporters | reader download buttons | regenerated at render |
 
 Notes:
 
 - Cache system is custom and **independent from knitr cache**.
-- Cache read order is root first, then `data/` fallback where configured.
+- Caches are read only from the workspace of the selected operational source.
 - Cache fingerprints include canonical artifact signatures and selected
   helper-script/reference hashes. Runtime-helper-only changes can reuse and
   refresh matching canonical inputs; PMSI, reference or producer-helper
@@ -490,9 +458,12 @@ Base artifact: `sir_wide` (broad microbiology build, 1 row = 1 strain-level anti
 
 Operational RATB inputs:
 - `sir_wide_ratb_scope`, the broad microbiology table annotated with
-  sample-level TA/DE scope and CHU join audit context;
+  sample-level TA/DE scope;
 - `sir_wide_ratb_analytic_scope`, the sample-level TA/DE microbiology perimeter used for completion, deduplication, proportions, and incidence numerators;
-- `incidence_denominator_pmsi_ta_de_audit`, the PMSI TA/DE denominator audit built independently from microbiology rows.
+- `incidence_denominator_by_year`, the canonical annual denominator built independently from microbiology rows.
+
+CHU-native PMSI/CONSORES audit tables remain producer context and are rendered
+only when the selected source is `chu_native`.
 
 Reader roadmap:
 - derive and audit the sample-level microbiology TA/DE scope from the broad artifact;
@@ -1305,10 +1276,10 @@ expected_log_names <- c("raw", names(completion_group_defs))
 
 cache_candidates <- list(
   list(
-    dataset = file.path("data", "completion_datasets"),
-    logs = file.path("data", "completion_logs"),
-    raw_row = file.path("data", "raw_row_log"),
-    meta = file.path("data", "completion_cache_meta")
+    dataset = file.path(cache_dir, "completion_datasets"),
+    logs = file.path(cache_dir, "completion_logs"),
+    raw_row = file.path(cache_dir, "raw_row_log"),
+    meta = file.path(cache_dir, "completion_cache_meta")
   )
 )
 
@@ -1545,13 +1516,13 @@ if (!isTRUE(recompute_completion) && !is.null(completion_datasets) && !is.null(c
   )
   completion_cache_meta <- build_completion_cache_meta(sir_wide_raw, atb_cols)
 
-  saveRDS(completion_datasets, file.path("data", "completion_datasets"))
-  saveRDS(completion_logs, file.path("data", "completion_logs"))
-  saveRDS(raw_row_log, file.path("data", "raw_row_log"))
-  saveRDS(completion_cache_meta, file.path("data", "completion_cache_meta"))
+  saveRDS(completion_datasets, file.path(cache_dir, "completion_datasets"))
+  saveRDS(completion_logs, file.path(cache_dir, "completion_logs"))
+  saveRDS(raw_row_log, file.path(cache_dir, "raw_row_log"))
+  saveRDS(completion_cache_meta, file.path(cache_dir, "completion_cache_meta"))
   completion_cache_source <- "recomputed"
   completion_cache_decision <- "recomputed"
-  message("Saved completion artifacts to: data/completion_datasets, data/completion_logs, data/raw_row_log, data/completion_cache_meta")
+  message("Saved completion artifacts to the selected operational cache directory.")
 }
 
 stopifnot(
@@ -1965,8 +1936,8 @@ stopifnot(
 
 dedup_cache_candidates <- list(
   list(
-    results = file.path("data", "dedup_results"),
-    meta = file.path("data", "dedup_cache_meta")
+    results = file.path(cache_dir, "dedup_results"),
+    meta = file.path(cache_dir, "dedup_cache_meta")
   )
 )
 
@@ -1979,8 +1950,13 @@ build_dedup_cache_meta <- function(completion_datasets_dedup,
                                    dedup_scope_defs,
                                    atb_cols,
                                    zit_values,
-                                   completion_cache_meta) {
-  stopifnot(is.list(completion_cache_meta), !is.null(completion_cache_meta$fingerprint))
+                                   completion_cache_meta,
+                                   runtime_input_signature) {
+  stopifnot(
+    is.list(completion_cache_meta),
+    !is.null(completion_cache_meta$fingerprint),
+    is.list(runtime_input_signature)
+  )
 
   dataset_signatures <- purrr::imap_dfr(
     completion_datasets_dedup,
@@ -2013,6 +1989,7 @@ build_dedup_cache_meta <- function(completion_datasets_dedup,
 
   payload <- list(
     completion_fingerprint = as.character(completion_cache_meta$fingerprint),
+    runtime_input_signature = runtime_input_signature,
     atb_cols = atb_cols,
     zit_values = zit_values,
     dedup_scope_defs = dedup_scope_defs,
@@ -2028,6 +2005,7 @@ build_dedup_cache_meta <- function(completion_datasets_dedup,
   list(
     fingerprint = fingerprint,
     completion_fingerprint = as.character(completion_cache_meta$fingerprint),
+    runtime_input_signature = runtime_input_signature,
     atb_cols = atb_cols,
     zit_values = zit_values,
     dedup_scope_defs = dedup_scope_defs,
@@ -2042,7 +2020,8 @@ dedup_cache_meta_current <- build_dedup_cache_meta(
   dedup_scope_defs = dedup_scope_defs,
   atb_cols = atb_cols,
   zit_values = zit_values,
-  completion_cache_meta = completion_cache_meta
+  completion_cache_meta = completion_cache_meta,
+  runtime_input_signature = operational_runtime$runtime_input_signature
 )
 
 expected_dedup_dataset_names <- names(completion_datasets_dedup)
@@ -2104,7 +2083,8 @@ if (!isTRUE(recompute_dedup)) {
     }
 
     required_meta_fields <- c(
-      "fingerprint", "completion_fingerprint", "atb_cols", "zit_values",
+      "fingerprint", "completion_fingerprint", "runtime_input_signature",
+      "atb_cols", "zit_values",
       "dedup_scope_defs", "dataset_signatures", "script_hashes"
     )
     if (!all(required_meta_fields %in% names(loaded$dedup_cache_meta))) {
@@ -2115,6 +2095,12 @@ if (!isTRUE(recompute_dedup)) {
       next
     }
     if (!identical(as.character(loaded$dedup_cache_meta$completion_fingerprint), dedup_cache_meta_current$completion_fingerprint)) {
+      next
+    }
+    if (!identical(
+      loaded$dedup_cache_meta$runtime_input_signature,
+      dedup_cache_meta_current$runtime_input_signature
+    )) {
       next
     }
     if (!identical(loaded$dedup_cache_meta$atb_cols, atb_cols)) {
@@ -2204,11 +2190,11 @@ if (!isTRUE(recompute_dedup) && !is.null(dedup_results)) {
     }
   )
   dedup_cache_meta <- dedup_cache_meta_current
-  saveRDS(dedup_results, file.path("data", "dedup_results"))
-  saveRDS(dedup_cache_meta, file.path("data", "dedup_cache_meta"))
+  saveRDS(dedup_results, file.path(cache_dir, "dedup_results"))
+  saveRDS(dedup_cache_meta, file.path(cache_dir, "dedup_cache_meta"))
   dedup_cache_source <- "recomputed"
   dedup_cache_decision <- "recomputed"
-  message("Saved dedup artifacts to: data/dedup_results, data/dedup_cache_meta")
+  message("Saved dedup artifacts to the selected operational cache directory.")
 }
 
 stopifnot(!is.null(dedup_results))
@@ -3384,7 +3370,7 @@ product view.
 
 ```{r}
 #| label: ratb_perimeter_rules_table
-show_audit_table(
+if (has_chu_native_qa) show_audit_table(
   data = ratb_perimeter_rules,
   file_stem = "ratb_perimeter_rules",
   caption = "RATB TA/DE perimeter policy",
@@ -3395,7 +3381,7 @@ show_audit_table(
 
 ```{r}
 #| label: ratb_uf_ta_de_reference_table
-show_audit_table(
+if (has_chu_native_qa) show_audit_table(
   data = ratb_uf_ta_de_reference %>%
     select(
       SEJUF, consores_uf_label, CODE_TA, consores_ta_label,
@@ -3411,7 +3397,7 @@ show_audit_table(
 
 ```{r}
 #| label: ratb_episode_exclusion_summary_table
-show_audit_table(
+if (has_chu_native_qa) show_audit_table(
   data = ratb_episode_exclusion_summary,
   file_stem = "ratb_episode_exclusion_summary",
   caption = "TA/DE incidence perimeter exclusion summary",
@@ -3423,7 +3409,7 @@ show_audit_table(
 
 ```{r}
 #| label: incidence_denominator_pmsi_ta_de_audit_table
-show_audit_table(
+if (has_chu_native_qa) show_audit_table(
   data = incidence_denominator_pmsi_ta_de_audit,
   file_stem = "incidence_denominator_pmsi_ta_de_audit",
   caption = "Annual eligible hospital nights from PMSI TA/DE activity",
@@ -3435,7 +3421,7 @@ show_audit_table(
 
 ```{r}
 #| label: hospital_nights_by_year_unit_table
-show_audit_table(
+if (has_chu_native_qa) show_audit_table(
   data = hospital_nights_by_year_unit,
   file_stem = "hospital_nights_by_year_unit",
   caption = "Annual eligible hospital nights by PMSI stay unit",
@@ -3447,7 +3433,7 @@ show_audit_table(
 
 ```{r}
 #| label: ratb_numerator_scope_impact_audit_table
-show_audit_table(
+if (has_chu_native_qa) show_audit_table(
   data = ratb_numerator_scope_impact_audit,
   file_stem = "ratb_numerator_scope_impact_audit",
   caption = "Incidence numerator impact under the TA/DE perimeter",
@@ -3459,7 +3445,7 @@ show_audit_table(
 
 ```{r}
 #| label: ratb_unit_stay_scope_audit_table
-show_audit_table(
+if (has_chu_native_qa) show_audit_table(
   data = ratb_unit_stay_scope_audit %>%
     filter(
       unit_stay_scope_status != "included" |
@@ -3482,7 +3468,7 @@ show_audit_table(
 
 ```{r}
 #| label: ratb_episode_scope_audit_table
-show_audit_table(
+if (has_chu_native_qa) show_audit_table(
   data = ratb_episode_scope_audit %>%
     filter(
       provisional_perimeter_status != "included" |
@@ -3507,7 +3493,7 @@ show_audit_table(
 
 ```{r}
 #| label: hospital_stay_validation_summary_table
-show_audit_table(
+if (has_chu_native_qa) show_audit_table(
   data = hospital_stay_validation_summary,
   file_stem = "hospital_stay_validation_summary",
   caption = "Hospital stay validation summary",
@@ -3519,7 +3505,7 @@ show_audit_table(
 
 ```{r}
 #| label: hospital_days_year_summary_table
-show_audit_table(
+if (has_chu_native_qa) show_audit_table(
   data = hospital_days_year_summary,
   file_stem = "hospital_days_year_summary",
   caption = "Hospital-days annual validation panel",
@@ -3531,7 +3517,7 @@ show_audit_table(
 
 ```{r}
 #| label: hospital_stays_validation_audit_table
-show_audit_table(
+if (has_chu_native_qa) show_audit_table(
   data = hospital_stays_raw %>%
     filter(validation_status != "validated" | cross_year) %>%
     select(
