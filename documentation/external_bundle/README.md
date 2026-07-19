@@ -37,6 +37,8 @@ site prepare, with which columns?
     logic?
 - `sir_wide_v1.md`
   - What is the exact schema of the internal microbiology file?
+- `sir_wide_v2.md`
+  - How does the successor profile declare hospitalization-unit attribution?
 - `sample_scope_reference_v1.md`
   - What is the exact schema of the sample-level TA/DE scope file?
 - `denominator_bundle_v1.md`
@@ -55,10 +57,14 @@ Rscript `
   <denominator_by_year> `
   <output_bundle_dir> `
   [de_reference] `
+  [--contract=v1|v2] `
   [--force]
 ```
 
 The command examples and required columns are in `site_handoff_inputs_v1.md`.
+Contract v1 remains the default. Use v2 only when the site adapter has already
+assigned the hospitalization unit at sampling as documented in
+`sir_wide_v2.md`.
 
 ## Maintainer-only helpers
 

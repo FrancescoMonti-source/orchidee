@@ -87,6 +87,8 @@ dans `documentation/external_bundle/site_handoff_inputs_v1.md`.
     -   limite entre adaptation locale et coeur ORCHIDEE ;
 -   `documentation/external_bundle/sir_wide_v1.md`
     -   schéma de l'artefact microbiologique canonique ;
+-   `documentation/external_bundle/sir_wide_v2.md`
+    -   profil successeur où `SEJUF` désigne l'UF d'hébergement au prélèvement ;
 -   `documentation/external_bundle/sample_scope_reference_v1.md`
     -   schéma de la référence de périmètre au niveau prélèvement / `SEJUF` ;
 -   `documentation/external_bundle/denominator_bundle_v1.md`
