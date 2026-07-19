@@ -57,6 +57,16 @@ Ne pas snapshotter après avoir seulement chargé des artefacts locaux ou rendu 
 rapport : `renv.lock` doit représenter les dépendances du code, pas l'état d'une
 session de travail.
 
+## Tests R autonomes
+
+Exécuter les tests source depuis la racine du dépôt :
+
+```powershell
+Rscript tests/run_tests.R
+```
+
+Chaque fichier `tests/test_*.R` est exécuté dans un processus R distinct.
+
 ## Snapshot de caractérisation avant refactor
 
 Avant un nettoyage structurel censé ne pas changer les résultats, créer un
