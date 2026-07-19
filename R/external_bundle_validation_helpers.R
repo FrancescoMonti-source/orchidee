@@ -1,8 +1,8 @@
 # External bundle validation helpers for Orchidee.
 #
 # This layer documents and validates the canonical external input contract.
-# The scope/denominator boundary is executable today; full external notebook
-# execution remains future work.
+# Strict bundle v2 inputs can feed the shared operational notebook runtime;
+# v1 remains the compatibility contract.
 
 orchidee_external_contract_v1 <- function() {
   atb_cols <- c(
@@ -688,7 +688,12 @@ external_bundle_subset_sample_scope_reference <- function(
   sample_scope_reference[required_columns]
 }
 
-external_bundle_validate_denominator_table <- function(tbl, table_name, table_spec) {
+external_bundle_validate_denominator_table <- function(
+    tbl,
+    table_name,
+    table_spec,
+    contract_version
+  ) {
   errors <- character(0)
   warnings <- character(0)
 
@@ -709,7 +714,7 @@ external_bundle_validate_denominator_table <- function(tbl, table_name, table_sp
   if (length(extra_cols) > 0L) {
     warnings <- external_bundle_add_issue(
       warnings,
-      paste0(table_name, " contains extra columns outside the ", contract$version, " contract: ", paste(extra_cols, collapse = ", "))
+      paste0(table_name, " contains extra columns outside the ", contract_version, " contract: ", paste(extra_cols, collapse = ", "))
     )
   }
 
@@ -810,7 +815,8 @@ external_bundle_validate_denominator_bundle <- function(denominator_bundle, cont
       table_validation <- external_bundle_validate_denominator_table(
         tbl = denominator_bundle[[table_name]],
         table_name = table_name,
-        table_spec = spec$tables[[table_name]]
+        table_spec = spec$tables[[table_name]],
+        contract_version = contract$version
       )
       errors <- c(errors, table_validation$errors)
       warnings <- c(warnings, table_validation$warnings)

@@ -4,6 +4,23 @@
 # dictionaries/, external reference extracts in ref/, and implementation logic in R/.
 
 orchidee_config <- list(
+  runtime = list(
+    # Explicit operational input boundary. Keep CHU native as the default.
+    input_source = Sys.getenv(
+      "ORCHIDEE_OPERATIONAL_INPUT_SOURCE",
+      unset = "chu_native"
+    ),
+    # Local/private bundle paths remain outside version control and can be
+    # overridden without editing this shared configuration.
+    external_bundle_v2_dir = Sys.getenv(
+      "ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR",
+      unset = file.path("outputs", "rouen_bundle_v2", "bundle")
+    ),
+    external_workspace_dir = Sys.getenv(
+      "ORCHIDEE_EXTERNAL_WORKSPACE_DIR",
+      unset = file.path("outputs", "external_bundle_v2_runtime")
+    )
+  ),
   paths = list(
     data_dir = "data",
     downloads_dir = "downloads",

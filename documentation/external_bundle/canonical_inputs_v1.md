@@ -137,19 +137,21 @@ inputs:
 adapter and reference producer for `sir_wide.rds`, not as the contract that
 another hospital must reproduce line by line.
 
-## Current open boundary
+## Current operational boundary
 
-The current runtime still uses a native CHU recompute path to produce
-`ratb_scope_cache` from `sir_wide`, PMSI data and TA/DE references. Within
-that cache, the CHU path provides the canonical `sample_scope_reference`
-and `denominator_bundle` objects plus local QA context. The notebook then
-builds the scoped microbiology rows and incidence denominator table from
-those canonical objects through `R/ratb_canonical_runtime_helpers.R`.
+The notebooks now select one explicit input source through
+`R/ratb_operational_input_helpers.R`:
 
-The main notebooks do not yet branch into a full external-runtime mode.
-The external bundle validator accepts the current native `ratb_scope_cache`
-as a compatibility source when the preferred four-file bundle has not been
-materialized.
+- `chu_native` remains the default and produces `ratb_scope_cache` from local
+  `sir_wide`, PMSI data and TA/DE references, preserving its local QA context;
+- `external_bundle_v2` requires the preferred four-file bundle, validates it
+  strictly as v2 and does not fall back to CHU or v1 artifacts.
+
+Both sources build the same scoped microbiology rows and incidence denominator
+through `R/ratb_canonical_runtime_helpers.R`. External completion, dedup and
+download artifacts use a separate ignored workspace so they cannot overwrite
+the native CHU caches. Producer-specific CHU QA remains available only in the
+native mode.
 
 The intended portability direction is now:
 
@@ -164,6 +166,6 @@ local HDW extraction and unit mapping outside the core. The v1 validator
 already knows this preferred file, while still accepting the current native
 `ratb_scope_cache` as a compatibility source.
 
-The v1 bundle is therefore a documented and validated compatibility target
-with an executable core scope boundary, not a fully wired external notebook
-execution mode.
+The v1 bundle remains a documented and validated compatibility target. The
+operational external notebook mode intentionally requires v2 because v2 makes
+the hospitalization-unit-at-sampling meaning of canonical `SEJUF` explicit.
