@@ -43,6 +43,8 @@ site prepare, with which columns?
   - What is the exact schema of the sample-level TA/DE scope file?
 - `denominator_bundle_v1.md`
   - What is the exact schema of the incidence denominator file?
+- `operational_v2_adoption_2026-07-19.md`
+  - Why is strict v2 now the canonical operational notebook input?
 
 ## Main external-site command
 
@@ -64,7 +66,9 @@ Rscript `
 The command examples and required columns are in `site_handoff_inputs_v1.md`.
 Contract v1 remains the default. Use v2 only when the site adapter has already
 assigned the hospitalization unit at sampling as documented in
-`sir_wide_v2.md`.
+`sir_wide_v2.md`. A v1 bundle remains a compatibility artifact; the default
+operational notebook runtime requires strict v2 inputs and rejects v1 without
+fallback.
 
 ## Maintainer-only helpers
 

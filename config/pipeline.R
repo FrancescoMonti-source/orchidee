@@ -5,10 +5,11 @@
 
 orchidee_config <- list(
   runtime = list(
-    # Explicit operational input boundary. Keep CHU native as the default.
+    # Canonical operational input. CHU native remains an explicit legacy mode
+    # for comparison and rollback only.
     input_source = Sys.getenv(
       "ORCHIDEE_OPERATIONAL_INPUT_SOURCE",
-      unset = "chu_native"
+      unset = "external_bundle_v2"
     ),
     # Local/private bundle paths remain outside version control and can be
     # overridden without editing this shared configuration.

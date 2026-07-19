@@ -93,13 +93,20 @@ source et un gate local sur les exports privés.
 
 ## Exécution opérationnelle sur un bundle v2
 
-Le mode CHU reste le défaut. Pour exécuter les deux notebooks sur un bundle v2
-local, sélectionner explicitement la source et lancer un rendu complet :
+Le bundle v2 strict est le chemin opérationnel par défaut. Sans surcharge,
+`config/pipeline.R` cherche le bundle sous
+`outputs/rouen_bundle_v2/bundle`. Après sa construction, lancer un rendu
+complet :
 
 ```powershell
-$env:ORCHIDEE_OPERATIONAL_INPUT_SOURCE = "external_bundle_v2"
+& .\scripts\render_orchidee.ps1 -Target full
+```
+
+Pour utiliser un bundle ou un workspace protégé situé ailleurs :
+
+```powershell
 $env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR = "C:\chemin\protege\bundle"
-$env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = "outputs\external_bundle_v2_runtime"
+$env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = "C:\chemin\protege\runtime"
 & .\scripts\render_orchidee.ps1 -Target full
 ```
 
@@ -107,7 +114,15 @@ Le loader exige les quatre fichiers préférés du contrat v2 et échoue sans
 fallback vers CHU ou v1. Completion, dédoublonnage et téléchargements sont
 écrits sous le workspace externe, pas dans `data/` ni `downloads/`.
 
-Pour revenir au mode CHU par défaut dans la même session PowerShell :
+Le mode `chu_native` est conservé uniquement comme chemin legacy explicite de
+comparaison ou de rollback :
+
+```powershell
+$env:ORCHIDEE_OPERATIONAL_INPUT_SOURCE = "chu_native"
+& .\scripts\render_orchidee.ps1 -Target full
+```
+
+Pour revenir au bundle v2 par défaut dans la même session PowerShell :
 
 ```powershell
 Remove-Item Env:ORCHIDEE_OPERATIONAL_INPUT_SOURCE

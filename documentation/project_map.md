@@ -31,6 +31,12 @@ un bundle externe v2 strict. Les deux chemins convergent vers les mêmes trois
 objets runtime avant la complétion, le dédoublonnage et les indicateurs. Il n'y
 a aucun autodétecteur ni fallback entre les deux sources.
 
+`external_bundle_v2` est le chemin opérationnel canonique et la valeur par
+défaut. `chu_native` reste disponible comme mode legacy explicite de comparaison
+ou de rollback ; il ne constitue plus la cible des évolutions du workflow.
+La décision et ses éléments agrégés sont consignés dans
+`documentation/external_bundle/operational_v2_adoption_2026-07-19.md`.
+
 La règle d'architecture est donc : plusieurs entrées locales peuvent exister
 (adaptateur natif CHU/Rouen, blocs de handoff pour Rennes ou un autre site),
 mais elles doivent converger vers les mêmes objets internes avant le coeur

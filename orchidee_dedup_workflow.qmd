@@ -158,10 +158,10 @@ orchidee_source_required_script(
 ## Prebuilt `sir_wide` artifact
 
 This notebook runs in analysis mode and expects the selected operational input
-to be ready. In `chu_native` mode, build `sir_wide` with
-`Rscript R/build_sir_wide_artifact.R`. In `external_bundle_v2` mode, point the
-runtime variables to a strict four-file bundle. Then render the notebook; if
-input validation fails, rebuild the selected source before rendering again.
+to be ready. In the default `external_bundle_v2` mode, provide a strict
+four-file bundle. In legacy `chu_native` mode, build `sir_wide` with
+`Rscript R/build_sir_wide_artifact.R`. Then render the notebook; if input
+validation fails, rebuild the selected source before rendering again.
 
 ```{r}
 #| label: load_sir_wide_artifact
@@ -369,11 +369,13 @@ This notebook can be used in two ways:
 
 ### Step-1 setup (cold start)
 
-- **CHU native (default):** build the base artifact with
-  `Rscript R/build_sir_wide_artifact.R`, then render.
-- **External v2:** set `ORCHIDEE_OPERATIONAL_INPUT_SOURCE=external_bundle_v2`
-  and `ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR` to the protected four-file bundle,
-  then render `full` through `scripts/render_orchidee.ps1`.
+- **External v2 (default):** build the protected four-file bundle, set
+  `ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR` only when it is outside the configured
+  default path, then render `full` through `scripts/render_orchidee.ps1`.
+- **CHU native (legacy):** set
+  `ORCHIDEE_OPERATIONAL_INPUT_SOURCE=chu_native`, build the base artifact with
+  `Rscript R/build_sir_wide_artifact.R`, then render `full` through the same
+  wrapper.
 
 ### Step-2 routine (warm run)
 
