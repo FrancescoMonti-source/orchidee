@@ -379,25 +379,6 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     obs[[diagnostic_col]],
     paste0("microbiology_observations$", diagnostic_col)
   )
-  # Screening exclusion is applied at the sample (ELTID) level, matching the
-  # frozen CHU method (build_sir_wide_artifact.R and ratb_implementation_decisions):
-  # a whole ELTID is excluded when any of its rows is screening / non-diagnostic,
-  # so screening material never reaches phenotypes, resistance indicators or
-  # incidence numerators. A non-diagnostic row without a usable ELTID is still
-  # dropped on its own.
-  eltid_chr <- as.character(obs$ELTID)
-  has_eltid <- !is.na(eltid_chr) & eltid_chr != ""
-  screening_eltid <- unique(eltid_chr[!diagnostic_scope & has_eltid])
-  drop_mask <- (!diagnostic_scope) | (has_eltid & eltid_chr %in% screening_eltid)
-  obs <- obs[!drop_mask, , drop = FALSE]
-  if (nrow(obs) == 0L) {
-    stop(
-      "No rows remain after excluding screening samples from ",
-      "microbiology_observations (whole-ELTID ", diagnostic_col, " exclusion).",
-      call. = FALSE
-    )
-  }
-
   obs$PATID <- orchidee_handoff_trim_or_na(obs$PATID)
   obs$EVTID <- if ("EVTID" %in% names(obs)) {
     orchidee_handoff_trim_or_na(obs$EVTID)
@@ -405,6 +386,58 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     rep(NA_character_, nrow(obs))
   }
   obs$ELTID <- orchidee_handoff_trim_or_na(obs$ELTID)
+
+  # Screening exclusion follows the most specific usable document identity.
+  # Complete PATID + ELTID groups use PATID + EVTID + ELTID. If any row in a
+  # PATID + ELTID group lacks EVTID, that group conservatively falls back to
+  # PATID + ELTID. ELTID alone is never propagated across patients.
+  has_patient_sample <- !is.na(obs$PATID) & !is.na(obs$ELTID)
+  propagate_screening <- rep(FALSE, nrow(obs))
+  valid_scope_rows <- which(has_patient_sample)
+  if (length(valid_scope_rows) > 0L) {
+    patient_sample_key <- paste(
+      obs$PATID[valid_scope_rows],
+      obs$ELTID[valid_scope_rows],
+      sep = "\r"
+    )
+    fallback_to_patient_sample <- ave(
+      is.na(obs$EVTID[valid_scope_rows]),
+      patient_sample_key,
+      FUN = any
+    )
+    document_key <- ifelse(
+      fallback_to_patient_sample,
+      paste(
+        "patient_sample",
+        obs$PATID[valid_scope_rows],
+        obs$ELTID[valid_scope_rows],
+        sep = "\r"
+      ),
+      paste(
+        "event_sample",
+        obs$PATID[valid_scope_rows],
+        obs$EVTID[valid_scope_rows],
+        obs$ELTID[valid_scope_rows],
+        sep = "\r"
+      )
+    )
+    screening_document_keys <- unique(
+      document_key[!diagnostic_scope[valid_scope_rows]]
+    )
+    propagate_screening[valid_scope_rows] <-
+      document_key %in% screening_document_keys
+  }
+
+  drop_mask <- (!diagnostic_scope) | propagate_screening
+  obs <- obs[!drop_mask, , drop = FALSE]
+  if (nrow(obs) == 0L) {
+    stop(
+      "No rows remain after excluding screening document occurrences from ",
+      "microbiology_observations (", diagnostic_col, " exclusion).",
+      call. = FALSE
+    )
+  }
+
   obs$DATEPRELEV <- orchidee_handoff_parse_date(obs$DATEPRELEV)
   obs$HEUREPRELEV <- if ("HEUREPRELEV" %in% names(obs)) {
     orchidee_handoff_parse_time(obs$HEUREPRELEV)
@@ -483,10 +516,14 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
   row_key <- do.call(paste, c(obs[row_key_cols], sep = "\r"))
   row_key_levels <- unique(row_key)
   row_id <- match(row_key, row_key_levels)
+  row_groups <- unname(split(
+    seq_len(nrow(obs)),
+    factor(row_id, levels = seq_along(row_key_levels))
+  ))
 
   for (attr_col in c("SEJUF", "HEUREPRELEV")) {
-    attr_conflict <- vapply(seq_along(row_key_levels), function(i) {
-      vals <- obs[[attr_col]][row_id == i]
+    attr_conflict <- vapply(row_groups, function(idx) {
+      vals <- obs[[attr_col]][idx]
       vals <- vals[!is.na(vals)]
       length(unique(vals)) > 1L
     }, logical(1))
@@ -504,13 +541,13 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     "PATID", "EVTID", "ELTID", "DATEPRELEV", "HEUREPRELEV", "souche_id",
     "naturepvt_norm", "bact_norm", "SEJUF"
   ), drop = FALSE]
-  sir_wide$SEJUF <- vapply(seq_along(row_key_levels), function(i) {
-    vals <- obs$SEJUF[row_id == i]
+  sir_wide$SEJUF <- vapply(row_groups, function(idx) {
+    vals <- obs$SEJUF[idx]
     vals <- vals[!is.na(vals)]
     if (length(vals) == 0L) NA_character_ else vals[[1L]]
   }, character(1))
-  sir_wide$HEUREPRELEV <- as.difftime(vapply(seq_along(row_key_levels), function(i) {
-    vals <- obs$HEUREPRELEV[row_id == i]
+  sir_wide$HEUREPRELEV <- as.difftime(vapply(row_groups, function(idx) {
+    vals <- obs$HEUREPRELEV[idx]
     vals <- vals[!is.na(vals)]
     if (length(vals) == 0L) NA_real_ else as.numeric(vals[[1L]], units = "secs")
   }, numeric(1)), units = "secs")
@@ -544,8 +581,8 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
 
   blse_status <- rep("no_signal", nrow(sir_wide))
   carba_status <- rep("no_signal", nrow(sir_wide))
-  for (i in seq_along(row_key_levels)) {
-    idx <- which(row_id == i)
+  for (i in seq_along(row_groups)) {
+    idx <- row_groups[[i]]
     if (!is.na(blse_col)) {
       blse_status[[i]] <- orchidee_handoff_collapse_phenotype(
         obs[[blse_col]][idx],
@@ -603,7 +640,7 @@ orchidee_handoff_build_sir_wide_meta <- function(
     logical(1)
   )]
 
-  list(
+  metadata <- list(
     artifact_version = as.integer(artifact_version),
     created_at = as.character(created_at),
     sir_wide_n_rows = nrow(sir_wide),
@@ -616,6 +653,13 @@ orchidee_handoff_build_sir_wide_meta <- function(
     handoff_source = source_label,
     handoff_generated_by = "R/external_handoff_helpers.R"
   )
+
+  if (!is.null(sir_spec$required_meta_values)) {
+    metadata[names(sir_spec$required_meta_values)] <-
+      sir_spec$required_meta_values
+  }
+
+  metadata
 }
 
 orchidee_handoff_prepare_de_reference <- function(de_reference) {

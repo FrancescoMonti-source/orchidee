@@ -160,6 +160,20 @@ orchidee_external_contract_v1 <- function() {
   )
 }
 
+orchidee_external_contract_v2 <- function() {
+  contract <- orchidee_external_contract_v1()
+  contract$version <- "v2"
+  contract$sir_wide$required_meta_values <- list(
+    contract_version = "v2",
+    sejuf_semantics = "hospitalization_unit_at_sampling"
+  )
+  contract$sir_wide$required_meta_fields <- unique(c(
+    contract$sir_wide$required_meta_fields,
+    names(contract$sir_wide$required_meta_values)
+  ))
+  contract
+}
+
 external_bundle_is_integerish <- function(x) {
   is.numeric(x) && all(is.na(x) | abs(x - round(x)) < sqrt(.Machine$double.eps))
 }
@@ -339,7 +353,7 @@ external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract 
   if (length(extra_cols) > 0L) {
     warnings <- external_bundle_add_issue(
       warnings,
-      paste0("sir_wide contains extra columns outside the v1 contract: ", paste(extra_cols, collapse = ", "))
+      paste0("sir_wide contains extra columns outside the ", contract$version, " contract: ", paste(extra_cols, collapse = ", "))
     )
   }
 
@@ -454,6 +468,41 @@ external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract 
     )
   }
 
+  if ("contract_version" %in% names(sir_wide_meta)) {
+    declared_contract_version <- sir_wide_meta$contract_version
+    if (!is.character(declared_contract_version) ||
+        length(declared_contract_version) != 1L ||
+        !identical(declared_contract_version, contract$version)) {
+      errors <- external_bundle_add_issue(
+        errors,
+        paste0(
+          "sir_wide_meta$contract_version must equal '", contract$version,
+          "' when it is declared."
+        )
+      )
+    }
+  }
+
+  required_meta_values <- spec$required_meta_values
+  if (!is.null(required_meta_values)) {
+    semantic_fields <- setdiff(names(required_meta_values), "contract_version")
+    for (field in intersect(semantic_fields, names(sir_wide_meta))) {
+      expected <- required_meta_values[[field]]
+      observed <- sir_wide_meta[[field]]
+      if (!is.character(observed) ||
+          length(observed) != 1L ||
+          !identical(observed, expected)) {
+        errors <- external_bundle_add_issue(
+          errors,
+          paste0(
+            "sir_wide_meta$", field, " must equal '", expected,
+            "' for contract ", contract$version, "."
+          )
+        )
+      }
+    }
+  }
+
   if (length(missing_meta_fields) == 0L) {
     if (!external_bundle_is_integerish(sir_wide_meta$artifact_version) || length(sir_wide_meta$artifact_version) != 1L) {
       errors <- external_bundle_add_issue(errors, "sir_wide_meta$artifact_version must be a length-1 integer-like value.")
@@ -474,19 +523,19 @@ external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract 
 
     required_supported <- spec$atb_cols
     if (!setequal(sir_wide_meta$supported_atb_cols, required_supported)) {
-      errors <- external_bundle_add_issue(errors, "sir_wide_meta$supported_atb_cols does not match the v1 supported ATB set.")
+      errors <- external_bundle_add_issue(errors, paste0("sir_wide_meta$supported_atb_cols does not match the ", contract$version, " supported ATB set."))
     }
     if (!all(sir_wide_meta$atb_cols %in% required_supported)) {
-      errors <- external_bundle_add_issue(errors, "sir_wide_meta$atb_cols contains values outside the v1 supported ATB set.")
+      errors <- external_bundle_add_issue(errors, paste0("sir_wide_meta$atb_cols contains values outside the ", contract$version, " supported ATB set."))
     }
     if (!setequal(sir_wide_meta$filtre_atb, required_supported)) {
-      errors <- external_bundle_add_issue(errors, "sir_wide_meta$filtre_atb does not match the v1 supported ATB set.")
+      errors <- external_bundle_add_issue(errors, paste0("sir_wide_meta$filtre_atb does not match the ", contract$version, " supported ATB set."))
     }
     if (!setequal(sir_wide_meta$phenotype_status_cols, spec$phenotype_status_cols)) {
-      errors <- external_bundle_add_issue(errors, "sir_wide_meta$phenotype_status_cols does not match the v1 phenotype status columns.")
+      errors <- external_bundle_add_issue(errors, paste0("sir_wide_meta$phenotype_status_cols does not match the ", contract$version, " phenotype status columns."))
     }
     if (!setequal(sir_wide_meta$phenotype_flag_cols, spec$phenotype_flag_cols)) {
-      errors <- external_bundle_add_issue(errors, "sir_wide_meta$phenotype_flag_cols does not match the v1 phenotype flag columns.")
+      errors <- external_bundle_add_issue(errors, paste0("sir_wide_meta$phenotype_flag_cols does not match the ", contract$version, " phenotype flag columns."))
     }
   }
 
@@ -557,7 +606,7 @@ external_bundle_validate_sample_scope_reference <- function(
   if (length(extra_cols) > 0L) {
     warnings <- external_bundle_add_issue(
       warnings,
-      paste0("sample_scope_reference contains extra columns outside the v1 contract: ", paste(extra_cols, collapse = ", "))
+      paste0("sample_scope_reference contains extra columns outside the ", contract$version, " contract: ", paste(extra_cols, collapse = ", "))
     )
   }
 
@@ -660,7 +709,7 @@ external_bundle_validate_denominator_table <- function(tbl, table_name, table_sp
   if (length(extra_cols) > 0L) {
     warnings <- external_bundle_add_issue(
       warnings,
-      paste0(table_name, " contains extra columns outside the v1 contract: ", paste(extra_cols, collapse = ", "))
+      paste0(table_name, " contains extra columns outside the ", contract$version, " contract: ", paste(extra_cols, collapse = ", "))
     )
   }
 
@@ -898,6 +947,18 @@ load_validated_external_input_bundle <- function(
       bundle_dir = bundle_dir,
       contract = contract,
       strict_preferred = strict_preferred
+    )
+  }
+  if (!identical(report$contract_version, contract$version)) {
+    report_contract_version <- if (is.null(report$contract_version)) {
+      "<missing>"
+    } else {
+      as.character(report$contract_version)
+    }
+    stop(
+      "Validation report contract version does not match the requested contract: ",
+      report_contract_version, " != ", contract$version, ".",
+      call. = FALSE
     )
   }
   if (!isTRUE(report$ok)) {

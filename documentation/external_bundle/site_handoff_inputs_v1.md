@@ -59,7 +59,7 @@ Required columns:
 | `sample_type_local` | Local sample-type label. |
 | `antibiotic_local` | Local antibiotic label. |
 | `sir_result` | Local S/I/R result. |
-| `ratb_diagnostic_scope` | TRUE if the row belongs to diagnostic RATB microbiology, FALSE for screening / non-diagnostic rows. Exclusion is applied per sample — see the note under File 1. |
+| `ratb_diagnostic_scope` | TRUE if the row belongs to diagnostic RATB microbiology, FALSE for screening / non-diagnostic rows. Exclusion is applied per document occurrence — see the note under File 1. |
 
 Accepted aliases for `ratb_diagnostic_scope` are `diagnostic_scope` and
 `is_diagnostic`, but `ratb_diagnostic_scope` is preferred.
@@ -68,7 +68,7 @@ Optional columns:
 
 | Column | Meaning |
 | --- | --- |
-| `EVTID` | Hospital stay / encounter identifier, if available. |
+| `EVTID` | Hospital stay / encounter identifier, if available. When present on every row of a `PATID + ELTID` group, it keeps reused sample identifiers separate during screening exclusion. |
 | `HEUREPRELEV` | Sample time, `HH:MM` or `HH:MM:SS`. |
 | `souche_id` or `isolate_local_id` | Local isolate identifier when the lab distinguishes several isolates for the same sample. |
 | `blse_status_row` or `blse_status` | Optional BLSE status: `positive`, `negative`, `unknown`, `no_signal`. |
@@ -92,12 +92,16 @@ Important: `ratb_diagnostic_scope` is not the TA/DE hospital perimeter. It is
 the local microbiology decision that keeps screening and other non-diagnostic
 material out before ORCHIDEE applies the hospital-unit perimeter.
 
-Exclusion is applied at the sample level: if any row of a given `ELTID` is
-marked `FALSE` (screening / non-diagnostic), ORCHIDEE drops the whole sample —
-every row of that `ELTID`, across all bacteria, antibiotics and phenotypes.
-This matches the frozen RATB method, where a screening sample is excluded in
-full. You therefore do not need to remove screening rows yourself: flag them and
-ORCHIDEE removes the entire sample. Keep the flag consistent within an `ELTID`.
+Exclusion is applied at the document occurrence level: if any row of a given
+`PATID + EVTID + ELTID` occurrence is marked `FALSE` (screening /
+non-diagnostic), ORCHIDEE drops that whole occurrence across all bacteria,
+antibiotics and phenotypes. If any row within the same `PATID + ELTID` group
+lacks `EVTID`, ORCHIDEE conservatively uses `PATID + ELTID` for that group.
+It never propagates screening through `ELTID` alone across patients. This
+matches the RATB rule that a screening sample is excluded in full while
+preserving distinct occurrences when a source identifier is reused. You
+therefore do not need to remove screening rows yourself: flag them and keep the
+flag consistent within the document occurrence.
 
 If several rows map to the same ORCHIDEE row key and antibiotic, ORCHIDEE keeps
 the last non-missing S/I/R value in input order. If the laboratory reports
@@ -315,8 +319,9 @@ ORCHIDEE owns:
 
 - validating the input files;
 - deriving the four internal files;
-- excluding screening / non-diagnostic material at the sample level (a whole
-  `ELTID` is dropped when any of its rows is flagged non-diagnostic);
+- excluding screening / non-diagnostic material at the document-occurrence
+  level, with the composite identity and missing-`EVTID` fallback described
+  under File 1;
 - applying the RATB perimeter;
 - running completion, deduplication and indicator calculation.
 
