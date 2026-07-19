@@ -198,7 +198,7 @@ build_ratb_ta_de_policy_table <- function() {
       "03|20",
       paste(ratb_included_ta_de_domains(), collapse = "|"),
       "keep microbiology row when sample SEJUF is eligible by TA and DE",
-      "count source-preferred PMSI unit-stay nights for TA/DE-eligible UFs",
+      "count nights from C-over-DW-filtered PMSI intervals for TA/DE-eligible UFs",
       "TA=08 is not an eligibility trigger",
       "TA=03/20 with missing or unmapped CODE_DE is review/drop",
       "PMSISTATUT is audit context only, not an inclusion gate"

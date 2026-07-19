@@ -153,9 +153,9 @@ chargés hors notebook.
 -   `R/chu_ratb_scope_adapter.R`
     -   chemin natif actuel de recompute du cache RATB à partir de
         l'artefact local `data/pmsi`
-    -   conserve le `pmsi$main` complet pour les limites globales de
-        l'épisode et utilise `redsan::prefer_pmsi_main_source()` pour les
-        permanences par `PATID + EVTID + SEJUM + SEJUF`
+    -   normalise aussi les anciens artefacts locaux avec
+        `redsan::prefer_pmsi_src_c_over_dw()`, conformément à la politique PMSI
+        par défaut de `redsan` 0.2.0, sans fusionner les intervalles retenus
     -   produit les objets canoniques `sample_scope_reference` et
         `denominator_bundle`, ainsi que le contexte de QA natif CHU
     -   laisse le notebook appliquer ces objets via le helper aval partagé

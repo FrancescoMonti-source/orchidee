@@ -328,7 +328,7 @@ resolve_table_note_lines <- function(file_stem, caption = NULL) {
       "Use it to see which exclusion reasons dominate before interpreting incidence denominators."
     ),
     incidence_denominator_pmsi_ta_de_audit = c(
-      "This table reports annual eligible hospital nights from source-preferred PMSI unit stays, independently from microbiology rows.",
+      "This table reports annual eligible hospital nights from PMSI intervals retained after the explicit C > DW source rule, independently from microbiology rows.",
       "Use it to inspect the denominator magnitude by year after TA/DE is applied at the stay-unit level."
     ),
     hospital_nights_by_year_unit = c(
@@ -344,7 +344,7 @@ resolve_table_note_lines <- function(file_stem, caption = NULL) {
       "Use it to review event-level eligibility and unit-bound issues rather than as a source for unit durations."
     ),
     ratb_unit_stay_scope_audit = c(
-      "This table lists source-preferred PMSI stays by PATID, EVTID, SEJUM and SEJUF with their own time bounds and TA/DE decision.",
+      "This table lists PMSI interval groups retained after the explicit C > DW source rule, by PATID, EVTID, SEJUM and SEJUF, with their own time bounds and TA/DE decision.",
       "Use it to review missing or conflicting unit intervals before interpreting annual unit-level hospital nights."
     ),
     hospital_stay_validation_summary = c(
