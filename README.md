@@ -80,6 +80,30 @@ Le script de construction depuis les blocs site est :
 Le détail des colonnes, des valeurs attendues et de la commande complète est
 dans `documentation/external_bundle/site_handoff_inputs_v1.md`.
 
+## Rouen : des exports locaux au même handoff
+
+Rouen dispose maintenant d'un adaptateur explicite qui transforme l'export
+bactériologique long et l'objet PMSI produit par `redsan` en ces mêmes six
+blocs, puis construit le bundle canonique v2. Il applique l'UF d'hébergement
+active au prélèvement sans fallback silencieux vers l'UF microbiologique.
+
+Le contrat, les décisions locales et le contenu de l'audit sont décrits dans :
+
+`documentation/external_bundle/rouen_raw_handoff_v1.md`
+
+Le point d'entrée est :
+
+```powershell
+Rscript scripts/build_rouen_external_bundle_v2.R `
+  <bacteriology_raw.rds> <pmsi.rds> outputs/rouen_bundle_v2
+```
+
+Le profil v1 Rouen couvre par défaut les années 2022 à 2024 ; la même fenêtre
+est appliquée à la microbiologie et au dénominateur PMSI.
+
+Les sorties restent locales et ignorées par Git. Cet adaptateur atteint la
+frontière portable ; il ne remplace pas encore le chemin notebook CHU actuel.
+
 ## Carte des documents
 
 -   `documentation/external_bundle/site_handoff_inputs_v1.md`
@@ -90,6 +114,8 @@ dans `documentation/external_bundle/site_handoff_inputs_v1.md`.
     -   schéma de l'artefact microbiologique canonique ;
 -   `documentation/external_bundle/sir_wide_v2.md`
     -   profil successeur où `SEJUF` désigne l'UF d'hébergement au prélèvement ;
+-   `documentation/external_bundle/rouen_raw_handoff_v1.md`
+    -   chemin Rouen brut bactériologie + PMSI vers les six blocs et le bundle v2 ;
 -   `documentation/external_bundle/sample_scope_reference_v1.md`
     -   schéma de la référence de périmètre au niveau prélèvement / `SEJUF` ;
 -   `documentation/external_bundle/denominator_bundle_v1.md`

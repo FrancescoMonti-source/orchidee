@@ -133,6 +133,29 @@ ratb_normalize_code_de <- function(x) {
   out
 }
 
+ratb_assert_unique_consores_unit_mapping <- function(structure) {
+  conflicting_units <- structure %>%
+    transmute(
+      SEJUF = ratb_trim_or_na_local(UF),
+      CODE_TA = ratb_normalize_code_ta(CODE_TA),
+      CODE_DE = ratb_normalize_code_de(CODE_DE)
+    ) %>%
+    filter(!is.na(SEJUF)) %>%
+    distinct() %>%
+    count(SEJUF, name = "n_mapping_variants") %>%
+    filter(n_mapping_variants > 1L)
+
+  if (nrow(conflicting_units) > 0L) {
+    stop(
+      "CONSORES structure contains conflicting TA/DE mappings for SEJUF: ",
+      paste(utils::head(conflicting_units$SEJUF, 10L), collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  invisible(structure)
+}
+
 ratb_normalize_code_ta <- function(x) {
   x <- ratb_trim_or_na_local(x)
   out <- x
@@ -284,6 +307,7 @@ load_ratb_consores_ta_de_reference <- function(
       call. = FALSE
     )
   }
+  ratb_assert_unique_consores_unit_mapping(structure)
 
   codes_ta <- ratb_read_delimited_reference(codes_ta_path)
   codes_de <- ratb_read_delimited_reference(codes_de_path)
