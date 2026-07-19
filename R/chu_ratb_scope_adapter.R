@@ -9,9 +9,9 @@ load_chu_pmsi_main <- function(
     path_candidates = c("pmsi", file.path("data", "pmsi"))
   ) {
   if (!requireNamespace("redsan", quietly = TRUE) ||
-      utils::packageVersion("redsan") < numeric_version("0.1.2")) {
+      utils::packageVersion("redsan") < numeric_version("0.2.0")) {
     stop(
-      "The CHU PMSI adapter requires redsan >= 0.1.2. ",
+      "The CHU PMSI adapter requires redsan >= 0.2.0. ",
       "Restore renv.lock before recomputing the RATB scope cache.",
       call. = FALSE
     )
@@ -19,14 +19,15 @@ load_chu_pmsi_main <- function(
 
   pmsi_runtime_path <- resolve_existing_path(
     path_candidates,
-    what = "pmsi raw input"
+    what = "PMSI input"
   )
   pmsi <- readRDS(pmsi_runtime_path)
   stopifnot(is.list(pmsi), "main" %in% names(pmsi), is.data.frame(pmsi$main))
 
   list(
-    main = pmsi$main,
-    main_source_preferred = redsan::prefer_pmsi_main_source(pmsi$main),
+    # The local artifact may predate the redsan 0.2.0 default. Reapplying the
+    # same policy is idempotent for newer artifacts and normalizes older ones.
+    main = redsan::prefer_pmsi_src_c_over_dw(pmsi$main),
     path = pmsi_runtime_path
   )
 }
@@ -76,7 +77,7 @@ build_chu_native_ratb_scope_cache_payload <- function(
 
   ratb_provisional_perimeter_objects <- build_ratb_provisional_perimeter_audit(
     sir_wide_ratb_scope = chu_pmsi_join_audit$sir_wide_ratb_scope,
-    pmsi_main = pmsi$main_source_preferred,
+    pmsi_main = pmsi$main,
     pmsi_event_bounds = hospital_days_objects$hospital_stays_raw |>
       dplyr::select(PATID, EVTID, datent_min, datsort_max),
     status_lookup = chu_pmsi_join_audit$pmsi_status_lookup,
