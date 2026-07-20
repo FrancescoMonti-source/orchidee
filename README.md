@@ -53,6 +53,12 @@ l'intérieur d'une même unité sans fusionner les intervalles retenus. Cette
 dépendance est enregistrée dans `renv.lock` ; elle ne remplace pas le chemin de
 handoff d'un site externe.
 
+L'interrogation EDSaN, le découpage en lots et la normalisation des modules
+PMSI/BIOL appartiennent désormais à `redsan`. ORCHIDEE ne maintient plus de
+second client EDSaN : il consomme l'export bactériologique local et l'objet PMSI
+produit par `redsan`, puis les transforme par son adaptateur Rouen ou reçoit les
+six blocs de handoff d'un autre site.
+
 ## Rennes / autre entrepôt : commencer ici
 
 La page à lire en premier est :
@@ -212,7 +218,9 @@ Pour brancher un autre entrepôt, commencer par
 -   `dictionaries/`
     -   dictionnaires de normalisation microbiologique ;
 -   `ref/`
-    -   référentiels tabulaires versionnables, dont les listes de codes TA/DE ;
+    -   référentiels tabulaires versionnables effectivement consommés, dont les
+        listes de codes TA/DE ; les snapshots sans consumer sont archivés hors
+        du dépôt ;
 -   `data/`
     -   artefacts générés et inputs opérationnels privés, ignorés par Git ;
 -   `downloads/`
