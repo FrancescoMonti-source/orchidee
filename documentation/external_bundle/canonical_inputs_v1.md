@@ -45,7 +45,8 @@ The shared core owns the downstream method:
   level: `PATID + EVTID + ELTID` when `EVTID` is complete, with a conservative
   `PATID + ELTID` fallback for a group containing a missing `EVTID`;
 - applying the RATB analysis scope to canonical microbiology rows;
-- running completion strategies;
+- offering completion strategies through the isolated opt-in diagnostic; the
+  operational runtime does not run them;
 - applying SPARES-style deduplication;
 - computing proportions, incidence densities and phenotype indicators;
 - producing reproducible QA tables and report exports.
