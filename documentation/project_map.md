@@ -47,14 +47,14 @@ mais elles doivent converger vers les mêmes objets internes avant le coeur
 RATB partagé.
 
 ```text
-Données CHU / EDSaN / PMSI / référentiels TA-DE
+Export bactériologique CHU / objet PMSI redsan / référentiels TA-DE
         |
         v
 Adaptateur CHU
 R/chu_ratb_scope_adapter.R
 R/chu_ratb_scope_cache_helpers.R
         |
-        | ou, pour le handoff Rouen brut vers le profil v2
+        | ou, pour le handoff Rouen brut vers les bundles v2 ou v3
         v
 R/rouen_microbiology_handoff_adapter.R
 R/rouen_pmsi_handoff_adapter.R
@@ -162,20 +162,13 @@ chargés hors notebook.
     -   utilitaires généraux partagés
 -   `R/zzz.R`
     -   déclarations `globalVariables`
--   `R/setup_chu_adapter.R`
-    -   bootstrap de l'adaptateur CHU / EDSaN ; source `R/setup.R` puis
-        les helpers d'extraction amont locaux
 
 ### Adaptateur CHU / extraction amont
 
--   `R/get_edsan.R`
-    -   récupération des données EDSaN (batch par fenêtre temporelle ou
-        par liste d'ID)
--   `R/biol.R`
-    -   traitement des examens microbiologiques bruts (BIOL)
--   `R/pmsi.R`
-    -   traitement des séjours PMSI (parsing des dates d'entrée/sortie et
-        des heures)
+L'acquisition EDSaN et la normalisation PMSI/BIOL appartiennent à `redsan`.
+ORCHIDEE ne conserve pas de copie de ces helpers : son chemin Rouen commence à
+l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
+
 -   `R/chu_ratb_scope_adapter.R`
     -   chemin natif actuel de recompute du cache RATB à partir de
         l'artefact local `data/pmsi`
@@ -217,8 +210,8 @@ chargés hors notebook.
 -   `R/rouen_pmsi_handoff_adapter.R`
     -   applique la politique PMSI `C > DW` via `redsan`, attribue l'UF
         d'hébergement au prélèvement et construit mapping TA/DE et dénominateur
-    -   compose les six blocs avec le builder partagé sous contrat v2, sans
-        fallback vers l'UF microbiologique
+    -   compose les six blocs avec le builder partagé sous contrat v2
+        opérationnel ou v3 complet, sans fallback vers l'UF microbiologique
 
 ### Complétion et dédoublonnage
 
@@ -295,6 +288,8 @@ chargés hors notebook.
 -   `ref/consores_codes_ta.csv`, `ref/consores_codes_de.csv`
     -   listes de codes CONSORES tabulaires versionnées pour l'éligibilité
         TA/DE du périmètre RATB d'hospitalisation
+    -   les anciens snapshots textuels sans consumer ne sont pas des sources
+        versionnées
 -   `rules/`
     -   emplacement réservé aux tables de règles analytiques maintenues
         par le projet
@@ -362,8 +357,6 @@ chargés hors notebook.
     -   écrit séparément les six blocs, le bundle canonique v2 ou v3 et l'audit
         local, puis exécute validation stricte et smoke runtime
     -   v2 reste le défaut ; v3 doit être demandé explicitement
--   `scripts/build_rouen_external_bundle_v2.R`
-    -   wrapper de compatibilité qui conserve l'ancienne commande v2
 -   `scripts/audit_chu_site_handoff.R`
     -   diagnostic mainteneur : dérive des blocs élémentaires depuis les
         artefacts CHU courants (observations et mappings depuis
