@@ -22,14 +22,14 @@ logic run.
 
 For Rennes or another hospital HDW team, start with:
 
-`site_handoff_inputs_v1.md`
+`site_handoff_inputs.md`
 
 That document answers the practical first question: which files should the
 site prepare, with which columns?
 
 ## Which document answers which question?
 
-- `site_handoff_inputs_v1.md`
+- `site_handoff_inputs.md`
   - What should an external hospital provide?
   - This is the human-facing onboarding contract.
 - `canonical_inputs_v1.md`
@@ -61,26 +61,24 @@ Rscript `
   <sample_type_mapping> `
   <antibiotic_mapping> `
   <unit_mapping> `
-  <denominator_by_year> `
-  <output_bundle_dir> `
-  [de_reference] `
-  [--contract=v1|v2|v3] `
+  <incidence_exposure_by_year_um_uf_ta_de_profile> `
+  <output_bundle_v3_dir> `
+  --contract=v3 `
+  --operational-v2-output=<output_bundle_v2_dir> `
   [--force]
 ```
 
-The command examples and required columns are in `site_handoff_inputs_v1.md`.
-Contract v1 remains the default. Use v2 only when the site adapter has already
-assigned the hospitalization unit at sampling as documented in
-`sir_wide_v2.md`. A v1 bundle remains a compatibility artifact; the default
-operational notebook runtime requires strict v2 inputs and rejects v1 without
-fallback.
+The command examples and required columns are in `site_handoff_inputs.md`.
+The preferred handoff is always six unversioned, v3-ready blocks. Contract v3
+retains the v2 hospitalization-unit semantics and interprets the sixth block as
+profiled exposure at year + UM + UF + TA + DE grain. The command validates and
+retains that complete bundle, then materializes the closed
+`spares_current_v1` projection as a separate strict v2 bundle for the current
+runtime. It does not switch the notebooks to v3 or publish stratified panels.
 
-Contract v3 retains the v2 hospitalization-unit semantics and interprets the
-sixth site input as profiled exposure at year + UM + UF + TA + DE grain. It
-retains mapped activity outside today's perimeter. The runtime selects the
-closed `spares_current_v1` context and derives the current annual total exactly.
-v3 is available for validation and forward-compatible construction but is not
-yet the operational notebook default.
+Contract v1 remains the CLI default and the annual v1/v2 denominator shape
+remains accepted for older integrations. Those are compatibility paths, not
+the preferred onboarding target.
 
 ## Maintainer-only helpers
 

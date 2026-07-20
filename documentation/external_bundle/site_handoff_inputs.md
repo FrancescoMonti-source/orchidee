@@ -4,33 +4,31 @@ editor_options:
     wrap: 72
 ---
 
-# Site Handoff Inputs v1
+# Site Handoff Inputs
 
 This is the first document a hospital data-warehouse team should read when it
 wants to connect local data to ORCHIDEE.
 
 You do not need to reproduce the CHU extraction path. You prepare the simple
-input files below; ORCHIDEE turns them into its internal validated files.
+input blocks below; ORCHIDEE turns them into its internal validated bundles.
 
 ## What you need to provide
 
-Prepare these six required files:
+The preferred handoff always contains exactly these six blocks:
 
 1. `microbiology_observations`
 2. `bacteria_mapping`
 3. `sample_type_mapping`
 4. `antibiotic_mapping`
 5. `unit_mapping`
-6. `denominator_by_year` for contract v1 or v2
+6. `incidence_exposure_by_year_um_uf_ta_de_profile`
 
-You may also provide a seventh optional file:
-
-7. `de_reference`
-
-For contract v3, replace file 6 with
-`incidence_exposure_by_year_um_uf_ta_de_profile`. It is still a six-file
-handoff: the profiled exposure replaces the annual total rather than being
-added beside it.
+These are called **handoff blocks**: their names do not carry a bundle version.
+They contain all information needed to build bundle v3, even while the current
+notebook runtime still consumes bundle v2. In particular, `unit_mapping`
+contains TA, DE and DE-domain information directly, and the sixth block keeps
+profiled exposure instead of an already filtered annual total. There is no
+seventh block in the preferred handoff.
 
 Accepted formats are `.rds`, `.csv`, `.tsv`, `.tab`, or `.txt`. CSV files can
 use commas or semicolons. Text files must be UTF-8.
@@ -38,39 +36,38 @@ use commas or semicolons. Text files must be UTF-8.
 Before running ORCHIDEE commands on a fresh clone, restore the R environment
 from `renv.lock` as described in the main `README.md`.
 
-ORCHIDEE writes these internal files after validation:
+ORCHIDEE writes four internal files per materialized bundle after validation:
 
 - `sir_wide.rds`
 - `sir_wide_meta.rds`
 - `sample_scope_reference.rds`
 - `denominator_bundle.rds`
 
-Do not build those four files by hand for a first handoff.
+Do not build those four files by hand for a first handoff. Bundle version names
+describe these materialized outputs, not the six site-owned blocks.
 
-## Important operational v2 boundary
+## Current operational boundary
 
-The commands in this document build contract v1 when `--contract` is omitted.
-That remains the safe compatibility default because this document asks for a
-local sample unit and cannot prove hospitalization-unit attribution.
+The preferred command validates and retains a complete bundle v3, then derives
+a separate strict bundle v2 for today's operational notebooks. The projection
+uses the closed `spares_current_v1` context and does not discard detail from the
+v3 output.
 
-The operational notebooks now require strict v2 by default. To produce an
-input for that runtime, the site adapter must first assign to `SEJUF` the
-hospitalization unit active at sampling, then call the builder with
-`--contract=v2`. Do not add the flag to unchanged v1 inputs: v2 is a semantic
-claim, not only a metadata switch. Validate and smoke that result with
-`--contract=v2 --strict-preferred` as shown in `sir_wide_v2.md`.
+Both outputs declare the same semantic rule: `SEJUF` in microbiology is the
+hospitalization UF active at sampling. The site adapter must establish that
+attribution before handoff; v2 or v3 is a semantic claim, not only a metadata
+switch. See `sir_wide_v2.md`.
 
-Contract v3 makes a second explicit claim: it keeps the v2 hospitalization UF
-semantics and supplies mapped hospital exposure at year + UM + UF + TA + DE +
-profile grain. The runtime applies the closed current analysis context; mapped
-activity outside that context remains available instead of being discarded.
-v3 does not change the current operational default and does not by itself
-publish stratified indicators. Its exact schema is documented in
+The builder still accepts the older v1/v2 input shapes for compatibility when
+a legacy integration supplies `denominator_by_year`; omitting `--contract`
+still means v1. Those shapes are no longer the preferred onboarding target.
+Nothing here changes the runtime selector: v3 is retained for future use and
+does not by itself publish stratified indicators. Its exact schema is in
 `denominator_bundle_v3.md`.
 
-## File 1: microbiology_observations
+## Block 1: microbiology_observations
 
-This file contains one row per local S/I/R result for one sample, one bacterium
+This block contains one row per local S/I/R result for one sample, one bacterium
 and one antibiotic.
 
 Required columns:
@@ -80,12 +77,12 @@ Required columns:
 | `PATID` | Patient identifier. |
 | `ELTID` | Sample / microbiology event identifier. |
 | `DATEPRELEV` | Sample date. Use `YYYY-MM-DD` or `DD/MM/YYYY` in text files. |
-| `SEJUF` | Sample unit. ORCHIDEE uses this to apply the RATB TA/DE perimeter. |
+| `SEJUF` | Hospitalization UF active at sampling. ORCHIDEE uses it to apply the RATB TA/DE perimeter. |
 | `bacteria_local` | Local bacterium label. |
 | `sample_type_local` | Local sample-type label. |
 | `antibiotic_local` | Local antibiotic label. |
 | `sir_result` | Local S/I/R result. |
-| `ratb_diagnostic_scope` | TRUE if the row belongs to diagnostic RATB microbiology, FALSE for screening / non-diagnostic rows. Exclusion is applied per document occurrence — see the note under File 1. |
+| `ratb_diagnostic_scope` | TRUE if the row belongs to diagnostic RATB microbiology, FALSE for screening / non-diagnostic rows. Exclusion is applied per document occurrence — see the note under Block 1. |
 
 Accepted aliases for `ratb_diagnostic_scope` are `diagnostic_scope` and
 `is_diagnostic`, but `ratb_diagnostic_scope` is preferred.
@@ -134,9 +131,9 @@ the last non-missing S/I/R value in input order. If the laboratory reports
 several isolates of the same species in one sample, provide `souche_id` or
 `isolate_local_id` so those isolates remain separate.
 
-## File 2: bacteria_mapping
+## Block 2: bacteria_mapping
 
-This file maps local bacterium labels to ORCHIDEE bacterium names.
+This block maps local bacterium labels to ORCHIDEE bacterium names.
 
 Required columns:
 
@@ -153,9 +150,9 @@ Escherichia coli,Escherichia coli
 Klebsiella pneumoniae,Klebsiella pneumoniae
 ```
 
-## File 3: sample_type_mapping
+## Block 3: sample_type_mapping
 
-This file maps local sample-type labels to ORCHIDEE sample types.
+This block maps local sample-type labels to ORCHIDEE sample types.
 
 Required columns:
 
@@ -168,7 +165,7 @@ Example:
 
 ```csv
 sample_type_local,naturepvt_norm
-Urine,urine
+Urine,urines
 Hemoculture,hemoculture
 ```
 
@@ -177,9 +174,9 @@ classified reliably. Those rows remain available for global indicators, but
 cannot contribute to analyses that require a known sample type. The number of
 blank mappings should be reviewed during onboarding.
 
-## File 4: antibiotic_mapping
+## Block 4: antibiotic_mapping
 
-This file maps local antibiotic labels to ORCHIDEE antibiotic columns.
+This block maps local antibiotic labels to ORCHIDEE antibiotic columns.
 
 Required columns:
 
@@ -199,97 +196,35 @@ Cefotaxime,cefotaxime
 Only include antibiotic result rows that map to supported ORCHIDEE antibiotic
 columns. The builder fails if `atb_norm` is not one of those columns.
 
-## File 5: unit_mapping
+## Block 5: unit_mapping
 
-This file maps the local UF codes used by the RATB scope. Under v3 it must also
-cover every hospitalization UF present in the exposure table.
+This block maps hospitalization UF codes to the national TA/DE structure. It
+must cover every `SEJUF` present in profiled exposure. Observed microbiology UF
+codes should also be listed when a mapping exists; an unresolved UF remains
+visible as audit-only rather than receiving an inferred mapping.
 
 Required columns:
 
 | Column | Meaning |
 | --- | --- |
-| `SEJUF` | Sample unit. Must match `SEJUF` in `microbiology_observations`. |
+| `SEJUF` | Hospitalization UF. Must match the other handoff blocks. |
 | `CODE_TA` | TA code for the unit. |
-
-Under v1/v2, the file must also provide either:
-
-- `de_domain_ref`, directly in `unit_mapping`;
-- or `CODE_DE`, together with a separate `de_reference` file.
-
-Under v3, `CODE_DE` is required. The DE domain must additionally be supplied
-either as `de_domain_ref` in the same table or through `de_reference`; a domain
-label alone cannot reconstruct its local DE code.
+| `CODE_DE` | Local DE code for the unit. |
+| `de_domain_ref` | National DE domain corresponding to `CODE_DE`. |
 
 Expected grain: one row per `SEJUF`.
 
-Example with `de_domain_ref` directly included:
-
 ```csv
-SEJUF,CODE_TA,de_domain_ref
-UF1234,03,MÉDECINE
-UF5678,20,URGENCES
+SEJUF,CODE_TA,CODE_DE,de_domain_ref
+UF1234,03,D03,MÉDECINE
+UF5678,10,D07,URGENCES
 ```
 
-Example with `CODE_DE` instead:
+## Block 6: incidence_exposure_by_year_um_uf_ta_de_profile
 
-```csv
-SEJUF,CODE_TA,CODE_DE
-UF1234,03,001
-UF5678,20,002
-```
-
-In the second case, also provide `de_reference`.
-
-## Optional file 7: de_reference
-
-This file is only needed when `unit_mapping` provides `CODE_DE` but not
-`de_domain_ref`.
-
-Required columns:
-
-| Column | Meaning |
-| --- | --- |
-| `CODE_DE` | DE code. |
-| `de_domain_ref` or `DOMAINE` | Domain label for the DE code. |
-
-Example:
-
-```csv
-CODE_DE,de_domain_ref
-001,MÉDECINE
-002,URGENCES
-```
-
-## File 6: denominator_by_year
-
-This file contains the annual denominator for incidence indicators.
-
-Required columns:
-
-| Column | Meaning |
-| --- | --- |
-| `calendar_year` | Calendar year. |
-| `hospital_nights` | Hospital nights in the RATB TA/DE perimeter. |
-
-Expected grain: one row per calendar year.
-
-Example:
-
-```csv
-calendar_year,hospital_nights
-2024,363728
-```
-
-This denominator must be computed independently from microbiology rows.
-
-This annual grain supports only the current global annual incidence density.
-It cannot support incidence stratified by hospitalization UM, UF, TA or DE.
-Contract v3 provides that successor path; sites must not try to reconstruct
-the detail from `denominator_by_year`.
-
-## File 6 under contract v3: profiled incidence exposure
-
-For `--contract=v3`, provide this table instead of `denominator_by_year`.
+This block contains hospital exposure independently of microbiology rows. It
+preserves the fine structure needed by v3; ORCHIDEE derives the annual v2
+denominator from it for the current runtime.
 
 Required columns:
 
@@ -311,52 +246,17 @@ denominator_profile_id`.
 
 All nine columns are required and non-missing. Include positive exposure from
 valid mapped activity even when its TA/DE is outside the current RATB
-perimeter. The shared runtime selects `spares_current_v1` and derives the
-current annual total; do not provide a second independently computed annual
-table.
+perimeter. The projection selects `spares_current_v1` and derives the current
+annual total; do not provide a second independently computed annual table.
 
-For v3, `unit_mapping` must cover every `SEJUF` present in this exposure table.
-Its TA, DE and DE-domain values must agree exactly; strict validation rejects
-missing or contradictory cross-file mappings.
+`unit_mapping` must cover every `SEJUF` in this block. Its TA, DE and DE-domain
+values must agree exactly; strict validation rejects missing or contradictory
+cross-block mappings.
 
-## Build and validate the ORCHIDEE input files
+## Build and validate the ORCHIDEE bundles
 
-From the repository root:
-
-```powershell
-Rscript `
-  scripts/build_external_bundle_from_site_inputs.R `
-  inputs/microbiology_observations.csv `
-  inputs/bacteria_mapping.csv `
-  inputs/sample_type_mapping.csv `
-  inputs/antibiotic_mapping.csv `
-  inputs/unit_mapping.csv `
-  inputs/denominator_by_year.csv `
-  outputs/site_bundle `
-  inputs/de_reference.csv `
-  --force
-```
-
-If `unit_mapping` already contains `de_domain_ref`, omit the `de_reference`
-argument:
-
-```powershell
-Rscript `
-  scripts/build_external_bundle_from_site_inputs.R `
-  inputs/microbiology_observations.csv `
-  inputs/bacteria_mapping.csv `
-  inputs/sample_type_mapping.csv `
-  inputs/antibiotic_mapping.csv `
-  inputs/unit_mapping.csv `
-  inputs/denominator_by_year.csv `
-  outputs/site_bundle `
-  --force
-```
-
-A successful run validates the inputs and writes the four ORCHIDEE internal
-files to `outputs/site_bundle`.
-
-For a v3 handoff, replace the sixth path and declare the contract explicitly:
+From the repository root, build the durable v3 bundle and its current
+operational v2 projection in one command:
 
 ```powershell
 Rscript `
@@ -369,8 +269,38 @@ Rscript `
   inputs/incidence_exposure_by_year_um_uf_ta_de_profile.csv `
   outputs/site_bundle_v3 `
   --contract=v3 `
+  --operational-v2-output=outputs/site_bundle_v2 `
   --force
 ```
+
+The builder validates bundle v3 first. It then applies the closed
+`spares_current_v1` context, materializes a separate strict bundle v2 and
+validates that output. It never changes the notebook runtime selector.
+
+### Compatibility with older v1/v2 handoffs
+
+The builder continues to accept `denominator_by_year` as block 6 under v1 or
+v2. For those legacy shapes only, `unit_mapping` may provide `de_domain_ref`
+directly or combine `CODE_DE` with an optional seventh `de_reference` table.
+The compatibility command remains:
+
+```powershell
+Rscript `
+  scripts/build_external_bundle_from_site_inputs.R `
+  inputs/microbiology_observations.csv `
+  inputs/bacteria_mapping.csv `
+  inputs/sample_type_mapping.csv `
+  inputs/antibiotic_mapping.csv `
+  inputs/unit_mapping.csv `
+  inputs/denominator_by_year.csv `
+  outputs/legacy_site_bundle_v2 `
+  --contract=v2 `
+  --force
+```
+
+Omitting `--contract` still builds v1. These compatibility modes do not infer
+hospitalization-unit attribution and cannot recover v3 detail from an annual
+denominator.
 
 ## If validation fails
 
@@ -396,16 +326,15 @@ The hospital owns:
 - deciding which microbiology rows are diagnostic RATB rows;
 - mapping local bacteria, sample types and antibiotics to ORCHIDEE values;
 - mapping local units to TA/DE information;
-- computing the hospital-night denominator at the grain required by the
-  selected contract.
+- computing the profiled hospital exposure independently from microbiology.
 
 ORCHIDEE owns:
 
-- validating the input files;
-- deriving the four internal files;
+- validating the handoff blocks;
+- deriving the four internal bundle files;
 - excluding screening / non-diagnostic material at the document-occurrence
   level, with the composite identity and missing-`EVTID` fallback described
-  under File 1;
+  under Block 1;
 - applying the RATB perimeter;
 - running raw deduplication and indicator calculation;
 - exposing completion only as a separate opt-in diagnostic.
@@ -414,8 +343,8 @@ ORCHIDEE owns:
 
 Use the primary path above, `build_external_bundle_from_site_inputs.R`, for a
 first handoff: it takes the six elementary blocks and builds `sir_wide.rds`
-and the rest of the bundle for you. You do not need to produce `sir_wide.rds`
-yourself.
+and the rest of bundle v3 plus the requested v2 projection. You do not need to
+produce `sir_wide.rds` yourself.
 
 A different script, `scripts/build_external_bundle_from_handoff_inputs.R`, is
 only for the narrower case where a site has already built a valid

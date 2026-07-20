@@ -34,20 +34,24 @@ Export PMSI normalisé par redsan
 Adaptateur PMSI du site
         |
         +--> unit_mapping
-        +--> denominator_by_year
+        +--> incidence_exposure_by_year_um_uf_ta_de_profile
 
-Six blocs de handoff
+Six blocs de handoff complets, non versionnés
         |
         v
 Builder partagé ORCHIDEE
         |
-        +--> sir_wide.rds
-        +--> sir_wide_meta.rds
-        +--> sample_scope_reference.rds
-        +--> denominator_bundle.rds
+        +--> bundle v3 durable et validé
+        |       (quatre fichiers canoniques)
         |
         v
-Runtime canonique
+Projection fermée spares_current_v1
+        |
+        +--> bundle v2 opérationnel et validé
+        |       (quatre fichiers canoniques dans un répertoire distinct)
+        |
+        v
+Runtime canonique v2
         |
         +--> périmètre TA/DE
         +--> plausibilité biologique RATB
@@ -73,9 +77,10 @@ du dénominateur. À Rouen, un prélèvement est attribué à l'intervalle PMSI 
 selon `DATENT <= prélèvement < DATSORT`. Une attribution non résolue ne retombe
 pas silencieusement sur l'UF microbiologique.
 
-Le builder partagé transforme les six blocs lisibles du site en quatre fichiers
-canoniques. Le runtime partagé applique ensuite le périmètre, le contrôle de
-plausibilité, le dédoublonnage et le catalogue d'indicateurs.
+Le builder partagé transforme les six blocs lisibles du site en un bundle v3
+complet, puis en dérive séparément le bundle v2 accepté par le runtime actuel.
+Le runtime partagé applique ensuite le périmètre, le contrôle de plausibilité,
+le dédoublonnage et le catalogue d'indicateurs.
 
 `orchideecore` n'est pas une dépendance d'exécution. Il reste un oracle
 indépendant et gelé qui a démontré, sur le même bundle v2 et sans complétion,
@@ -95,7 +100,7 @@ ni les règles de dédoublonnage.
 
 ## Dénominateur : contrat opérationnel et extension v3
 
-Le contrat portable actuel transporte uniquement :
+Le bundle v2 opérationnel transporte uniquement :
 
 ```text
 calendar_year + hospital_nights

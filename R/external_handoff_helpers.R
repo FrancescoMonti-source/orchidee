@@ -720,7 +720,7 @@ orchidee_handoff_build_sample_scope_reference <- function(
 
   required_unit_cols <- c("SEJUF", "CODE_TA")
   if (identical(contract$version, "v3")) {
-    required_unit_cols <- c(required_unit_cols, "CODE_DE")
+    required_unit_cols <- c(required_unit_cols, "CODE_DE", "de_domain_ref")
   }
   missing_unit_cols <- setdiff(required_unit_cols, names(unit_mapping))
   if (length(missing_unit_cols) > 0L) {

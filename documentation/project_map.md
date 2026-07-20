@@ -95,7 +95,7 @@ stratifiés.
 
 Pour brancher Rennes ou un autre entrepôt, ne pas utiliser cette carte comme
 contrat d'onboarding. La source de vérité est
-`documentation/external_bundle/site_handoff_inputs_v1.md`.
+`documentation/external_bundle/site_handoff_inputs.md`.
 
 ## Notebooks principaux
 
@@ -334,6 +334,8 @@ chargés hors notebook.
     -   contient le helper de frontière
         `build_ratb_downstream_scope_from_canonical_inputs()` qui applique
         une référence de périmètre canonique à `sir_wide`
+    -   projette aussi un bundle v3 validé vers la forme v2 opérationnelle
+        fermée avec `project_external_bundle_v3_to_operational_v2()`
 -   `R/ratb_operational_input_helpers.R`
     -   sélectionne exactement `chu_native` ou `external_bundle_v2`
     -   garde les caches externes séparés et expose seulement les trois
@@ -349,8 +351,9 @@ chargés hors notebook.
     -   dérive `sir_wide_meta.rds`, `sample_scope_reference.rds` et
         `denominator_bundle.rds`, puis lance la validation stricte
 -   `scripts/build_external_bundle_from_site_inputs.R`
-    -   construit un bundle externe préféré depuis les blocs élémentaires
-        complets d'un site externe
+    -   construit le bundle v3 préféré depuis les six blocs complets d'un site
+        externe, puis peut matérialiser séparément sa projection v2
+        `spares_current_v1` avec `--operational-v2-output`
     -   dérive `sir_wide.rds`, `sir_wide_meta.rds`,
         `sample_scope_reference.rds` et `denominator_bundle.rds`, puis
         lance la validation stricte
