@@ -124,20 +124,26 @@ du total annuel.
 ## Place de la complétion
 
 La complétion a servi à comparer quatre stratégies exploratoires aux données
-brutes. Le notebook historique calcule encore ces stratégies avec le
-dédoublonnage et les affiche dans le rapport.
+brutes. Le notebook historique calcule encore ces stratégies avec leur
+dédoublonnage et les affiche dans son propre rapport diagnostique.
 
-La décision cible est désormais :
+La séparation opérationnelle est désormais :
 
 - le rendu opérationnel ordinaire exécute et publie le chemin brut uniquement ;
 - la complétion devient un diagnostic opt-in séparé ;
 - ce diagnostic compare ses résultats au même baseline brut, sans modifier les
   artefacts canoniques ni les sorties opérationnelles.
 
-La séparation technique du notebook est une modification dédiée. Jusqu'à son
-intégration, la présence de caches nommés `completion_datasets` ne signifie pas
-que la completion fait partie de la méthode canonique : leur branche
-`sir_wide_raw` est la référence ratifiée.
+`scripts/render_orchidee.ps1 -Target full` construit le cache brut puis rend le
+rapport d'indicateurs. `-Target completion` exécute explicitement le notebook
+historique dans des sous-dossiers `completion_diagnostic/` isolés. Les caches du
+diagnostic ne peuvent donc pas alimenter le rapport opérationnel.
+
+Le gate Rouen réel du 2026-07-20 a confirmé que le nouveau chemin brut reproduit
+exactement les objets ratifiés : `dedup`, `class_map`, `episode_summary` et
+`audit`, pour les scopes global et par type. Les 36 classeurs du rapport brut
+étaient également identiques cellule par cellule aux lignes `brut` du runtime
+précédent.
 
 ## Trois comparaisons à ne pas confondre
 

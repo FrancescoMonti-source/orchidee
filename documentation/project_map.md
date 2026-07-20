@@ -22,16 +22,17 @@ Ce document s'adresse aux mainteneurs. Il répond à deux questions :
 5.  Rendre le rapport produit et les documents méthodologiques de
     support.
 
-La complétion reste actuellement imbriquée dans le notebook de dédoublonnage,
-mais elle n'appartient pas à la méthode canonique. La décision ratifiée est de
-la déplacer vers un diagnostic opt-in séparé. La vue d'ensemble et l'état de
-cette transition sont documentés dans `documentation/operational_flow_v2.md`.
+La complétion reste implémentée dans un notebook diagnostique dédié, mais elle
+n'appartient pas à la méthode canonique. Le rendu `full` construit uniquement le
+cache brut ; le diagnostic doit être demandé explicitement. La vue d'ensemble
+est documentée dans `documentation/operational_flow_v2.md`.
 
 ## Frontière opérationnelle vers le coeur ORCHIDEE
 
 Les notebooks sélectionnent explicitement soit le producteur natif CHU, soit
 un bundle externe v2 strict. Les deux chemins convergent vers les mêmes trois
-objets runtime avant la complétion, le dédoublonnage et les indicateurs. Il n'y
+objets runtime avant le contrôle de plausibilité, le dédoublonnage et les
+indicateurs. Il n'y
 a aucun autodétecteur ni fallback entre les deux sources.
 
 `external_bundle_v2` est le chemin opérationnel canonique et la valeur par
@@ -100,16 +101,17 @@ contrat d'onboarding. La source de vérité est
 
 Rôle :
 
--   notebook socle du workflow
--   comparaison des stratégies de complétion
--   exécution du dédoublonnage et QA
--   QA du périmètre d'hospitalisation et du dénominateur
+-   diagnostic opt-in des stratégies de complétion
+-   comparaison de leurs dédoublonnages au baseline brut
+-   QA exploratoire du périmètre d'hospitalisation et du dénominateur
 
 À utiliser quand on veut comprendre :
 
--   comment les jeux de complétion sont produits
--   comment le dédoublonnage est appliqué
--   comment les artefacts de dénominateur sont construits et contrôlés
+-   comment les jeux de complétion sont produits et comparés
+-   si la complétion modifie les partitions ou les représentants
+
+Le rendu ordinaire ne consomme pas ses caches. `scripts/build_ratb_raw_runtime.R`
+construit directement le cache brut utilisé par le rapport d'indicateurs.
 
 ### `orchidee_ratb_indicators.qmd`
 
@@ -374,9 +376,10 @@ chargés hors notebook.
 ### Scripts de contrôle local
 
 -   `scripts/characterize_current_outputs.R`
-    -   crée ou vérifie un snapshot local de signatures agrégées des
-        artefacts et panels courants avant un refactor sans changement
-        attendu de résultats
+    -   helper legacy de caractérisation des artefacts locaux `chu_native`,
+        y compris les sorties historiques de complétion
+    -   le gate v2 compare plutôt le cache brut isolé et les panels produits
+        depuis le même bundle
 
 ## Artefacts générés
 
@@ -397,24 +400,24 @@ suivants.
     -   le fichier `meta` permet de savoir si ce cache peut être rechargé
         tel quel ou doit être recalculé
 
--   `completion_datasets`, `completion_logs`, `raw_row_log`, `completion_cache_meta`
-    -   sortie de la phase de complétion : jeux de données comparés,
-        journaux de groupe et de ligne, et trace brute de référence
-    -   le fichier `meta` sert à vérifier la fraîcheur du cache de
-        complétion avant de le réutiliser
+-   `completion_diagnostic/completion_datasets`, `completion_logs`,
+    `raw_row_log`, `completion_cache_meta`
+    -   sorties isolées du diagnostic opt-in de complétion
+    -   elles ne sont jamais consommées par le rapport opérationnel
 
--   `dedup_results`, `dedup_cache_meta`
-    -   sortie de la phase de dédoublonnage, structurée par jeu comparé
-        puis par scope (`global`, `by_type`)
-    -   le fichier `meta` sert à vérifier que ces résultats restent
-        cohérents avec les entrées amont et les scripts actifs
+-   `dedup_results`, `dedup_cache_meta`, `ratb_raw_runtime_audit`
+    -   cache opérationnel brut, structuré par scope (`global`, `by_type`)
+    -   le fichier `meta` lie les résultats à l'entrée opérationnelle et aux
+        scripts actifs ; l'audit résume population, plausibilité et validation
+    -   le diagnostic de complétion conserve ses propres résultats de
+        dédoublonnage sous `completion_diagnostic/`
 
 -   `ratb_incidence_cache`, `ratb_incidence_cache_meta`
     -   cache auxiliaire encore présent pour certains scripts annexes et
         vérifications manuelles liées à l'incidence
     -   ce n'est plus l'artefact central le mieux documenté dans le
-        chemin principal, contrairement à `sir_wide`, au scope, à la
-        complétion et au dédoublonnage
+        chemin principal, contrairement à `sir_wide`, au scope et au
+        dédoublonnage brut
 
 Les artefacts d'export destinés au lecteur et générés par le rapport
 vivent dans `downloads/`.
@@ -463,7 +466,7 @@ Commencer par :
 Commencer par :
 
 -   `R/completion_helpers.R`
--   puis rerendre `full`
+-   puis rerendre `completion`
 
 ### Changer la logique de périmètre d'hospitalisation ou de dénominateur d'incidence
 

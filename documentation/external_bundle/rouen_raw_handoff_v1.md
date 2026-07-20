@@ -229,5 +229,6 @@ This command produces the strict preferred bundle accepted by the operational
 `external_bundle_v2` notebook mode, which is now the canonical default.
 Selection remains explicit and fail-closed; the CHU-native path is an opt-in
 legacy comparison/rollback mode, and its caches are not overwritten. A full
-render is required after selecting a new bundle so completion, deduplication
-and indicators are all derived from the same signed runtime input.
+render is required after selecting a new bundle so raw deduplication and
+indicators are derived from the same signed runtime input. Completion remains
+a separate opt-in diagnostic.
