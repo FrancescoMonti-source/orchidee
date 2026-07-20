@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [ValidateSet('memo','docs','indicators','full')]
+  [ValidateSet('memo','docs','indicators','completion','full')]
   [string]$Target = 'docs',
   [switch]$DryRun
 )
@@ -16,6 +16,7 @@ function Resolve-Quarto {
   $cmd = Get-Command quarto -ErrorAction SilentlyContinue
   if ($cmd) { $candidates += $cmd.Source }
   $candidates += @(
+    'C:\Program Files\Positron\resources\app\quarto\bin\quarto.exe',
     'C:\Program Files\RStudio\resources\app\bin\quarto\bin\quarto.exe',
     'C:\Program Files\Quarto\bin\quarto.exe'
   )
@@ -32,6 +33,7 @@ function Resolve-RScript {
   $cmd = Get-Command Rscript -ErrorAction SilentlyContinue
   if ($cmd) { $candidates += $cmd.Source }
   $candidates += @(
+    'C:\Program Files\R\R-4.5.3\bin\Rscript.exe',
     'C:\Program Files\R\R-4.5.2\bin\Rscript.exe',
     'C:\Program Files\R\R-4.5.1\bin\Rscript.exe',
     'C:\Program Files\R\R-4.4.3\bin\Rscript.exe'
@@ -56,11 +58,11 @@ $targets = switch ($Target) {
   'indicators' {
     @('orchidee_ratb_indicators.qmd')
   }
+  'completion' {
+    @('orchidee_dedup_workflow.qmd')
+  }
   'full' {
-    @(
-      'orchidee_dedup_workflow.qmd',
-      'orchidee_ratb_indicators.qmd'
-    )
+    @('orchidee_ratb_indicators.qmd')
   }
 }
 
@@ -71,6 +73,26 @@ if ($rScript) {
   Write-Host "QUARTO_R: $rScript"
 } else {
   Write-Warning 'No explicit Rscript found. Quarto will use its default R resolution.'
+}
+
+if ($Target -eq 'full') {
+  if (-not $rScript) {
+    throw 'Rscript is required to build the canonical raw RATB cache.'
+  }
+  $rawBuilder = Join-Path $RepoRoot 'scripts/build_ratb_raw_runtime.R'
+  Write-Host "> $rScript --vanilla scripts/build_ratb_raw_runtime.R"
+  if (-not $DryRun) {
+    Push-Location $RepoRoot
+    try {
+      & $rScript --vanilla $rawBuilder
+      if ($LASTEXITCODE -ne 0) {
+        throw "Raw RATB cache build failed (exit $LASTEXITCODE)"
+      }
+    }
+    finally {
+      Pop-Location
+    }
+  }
 }
 
 foreach ($relativePath in $targets) {
