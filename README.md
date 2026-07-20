@@ -149,9 +149,8 @@ La sélection se fait par `ORCHIDEE_OPERATIONAL_INPUT_SOURCE` et
 `ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR`. Les caches et téléchargements externes sont
 isolés sous `outputs/external_bundle_v2_runtime/` par défaut. Les tables de QA
 propres au producteur CHU ne sont pas simulées dans ce mode ; les QA biologiques,
-de dédoublonnage et d'indicateurs restent communes. La complétion est une
-comparaison exploratoire historique dont la cible ratifiée est un diagnostic
-opt-in séparé ; le chemin canonique reste brut. Il n'existe aucun
+de dédoublonnage et d'indicateurs restent communes. La complétion est désormais
+un diagnostic opt-in séparé ; le chemin canonique reste brut. Il n'existe aucun
 autodétecteur ni fallback entre les deux modes : un bundle v2 absent ou invalide
 fait échouer explicitement le chemin par défaut.
 
