@@ -28,15 +28,15 @@ contract_version <- if (length(contract_args) == 0L) {
 } else {
   sub("^--contract=", "", contract_args[[1L]])
 }
-if (!contract_version %in% c("v1", "v2")) {
-  stop("--contract must be v1 or v2.", call. = FALSE)
+if (!contract_version %in% c("v1", "v2", "v3")) {
+  stop("--contract must be v1, v2 or v3.", call. = FALSE)
 }
 args <- setdiff(args, c("--strict-preferred", contract_args))
 
 if (length(args) > 1L || any(args %in% c("-h", "--help"))) {
   cat(
     "Usage: Rscript scripts/validate_external_bundle.R ",
-    "[bundle_dir] [--contract=v1|v2] [--strict-preferred]\n",
+    "[bundle_dir] [--contract=v1|v2|v3] [--strict-preferred]\n",
     sep = ""
   )
   cat("Default bundle_dir: data\n")
@@ -48,7 +48,8 @@ bundle_dir <- if (length(args) == 0L) file.path("data") else args[[1]]
 contract <- switch(
   contract_version,
   v1 = orchidee_external_contract_v1(),
-  v2 = orchidee_external_contract_v2()
+  v2 = orchidee_external_contract_v2(),
+  v3 = orchidee_external_contract_v3()
 )
 report <- validate_external_input_bundle(
   bundle_dir = bundle_dir,

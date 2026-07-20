@@ -72,3 +72,6 @@ Rscript scripts/smoke_external_runtime_inputs.R `
 ```
 
 Contract v1 remains the default when `--contract` is omitted.
+
+External bundle v3 inherits this same `SEJUF` meaning and changes only the
+denominator contract; see `denominator_bundle_v3.md`.

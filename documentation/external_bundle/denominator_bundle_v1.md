@@ -59,12 +59,11 @@ part of the v1 contract. For example, `n_episodes`, `n_unit_stays`, and
 
 The CHU adapter also keeps `hospital_nights_by_year_unit`, grouped by
 `calendar_year + SEJUM + SEJUF`, in its local scope cache. That table is the
-source of the annual global aggregate but is not yet required by the portable
-v1 bundle. A future contract that publishes incidence by hospitalization UM,
-UF, TA or DE must promote an explicit table at
-`calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE`, with
-`hospital_nights` as its measure, instead of trying to recover that detail
-from the annual total.
+source of the annual global aggregate but is not required by the portable v1
+bundle. External bundle v3 instead transports profiled exposure at year + UM +
+UF + TA + DE grain, including mapped activity outside today's scope; see
+`denominator_bundle_v3.md`. The detail must never be recovered from the annual
+total.
 
 The validator ignores extra list elements and warns about extra columns.
 Loader and materialization helpers retain only the required v1 columns at the

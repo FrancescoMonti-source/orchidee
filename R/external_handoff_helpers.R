@@ -81,7 +81,8 @@ orchidee_handoff_integerish_vector <- function(x, col_name) {
   if (is.factor(x)) x <- as.character(x)
 
   if (is.numeric(x)) {
-    bad <- is.na(x) | abs(x - round(x)) >= sqrt(.Machine$double.eps)
+    bad <- is.na(x) | !is.finite(x) |
+      abs(x - round(x)) >= sqrt(.Machine$double.eps)
     if (any(bad)) {
       stop(col_name, " must contain non-missing integer-like values.", call. = FALSE)
     }
@@ -705,7 +706,8 @@ orchidee_handoff_prepare_de_reference <- function(de_reference) {
 
 orchidee_handoff_build_sample_scope_reference <- function(
     unit_mapping,
-    de_reference = NULL
+    de_reference = NULL,
+    contract = orchidee_external_contract_v1()
   ) {
   orchidee_handoff_require_functions(c(
     "ratb_normalize_code_ta",
@@ -717,6 +719,9 @@ orchidee_handoff_build_sample_scope_reference <- function(
   }
 
   required_unit_cols <- c("SEJUF", "CODE_TA")
+  if (identical(contract$version, "v3")) {
+    required_unit_cols <- c(required_unit_cols, "CODE_DE")
+  }
   missing_unit_cols <- setdiff(required_unit_cols, names(unit_mapping))
   if (length(missing_unit_cols) > 0L) {
     stop(
@@ -816,16 +821,135 @@ orchidee_handoff_build_sample_scope_reference <- function(
     )
   )
 
-  data.frame(
+  sample_scope_reference <- data.frame(
     SEJUF = unit$SEJUF,
+    sample_CODE_TA = unit$CODE_TA,
+    sample_CODE_DE = unit$CODE_DE_norm,
+    sample_de_domain_ref = unit$de_domain_ref,
     sample_uf_is_eligible_by_ta_de = uf_is_eligible,
     sample_uf_ta_de_status = status,
     sample_uf_ta_de_reason = reason,
     stringsAsFactors = FALSE
   )
+  required_columns <- contract$sample_scope_reference$required_columns
+  sample_scope_reference[required_columns]
 }
 
-orchidee_handoff_build_denominator_bundle <- function(denominator_by_year) {
+orchidee_handoff_build_denominator_bundle <- function(
+    denominator_by_year = NULL,
+    incidence_exposure_by_year_um_uf_ta_de_profile = NULL,
+    contract = orchidee_external_contract_v1()
+  ) {
+  if (identical(contract$version, "v3")) {
+    orchidee_handoff_require_functions(c(
+      "ratb_normalize_code_ta",
+      "ratb_normalize_code_de"
+    ))
+    exposure <- incidence_exposure_by_year_um_uf_ta_de_profile
+    if (!is.data.frame(exposure)) {
+      stop(
+        "incidence_exposure_by_year_um_uf_ta_de_profile must be a data frame ",
+        "for contract v3.",
+        call. = FALSE
+      )
+    }
+    required_cols <- c(
+      "calendar_year", "SEJUM", "SEJUF", "CODE_TA", "CODE_DE",
+      "de_domain_ref", "denominator_profile_id", "exposure_value",
+      "exposure_unit"
+    )
+    missing_cols <- setdiff(required_cols, names(exposure))
+    if (length(missing_cols) > 0L) {
+      stop(
+        "incidence_exposure_by_year_um_uf_ta_de_profile is missing required ",
+        "columns: ",
+        paste(missing_cols, collapse = ", "),
+        call. = FALSE
+      )
+    }
+
+    canonical_exposure <- data.frame(
+      calendar_year = orchidee_handoff_integerish_vector(
+        exposure$calendar_year,
+        "incidence_exposure_by_year_um_uf_ta_de_profile$calendar_year"
+      ),
+      SEJUM = orchidee_handoff_trim_or_na(exposure$SEJUM),
+      SEJUF = orchidee_handoff_trim_or_na(exposure$SEJUF),
+      CODE_TA = ratb_normalize_code_ta(exposure$CODE_TA),
+      CODE_DE = ratb_normalize_code_de(exposure$CODE_DE),
+      de_domain_ref = orchidee_handoff_normalize_included_de_domain(
+        exposure$de_domain_ref
+      ),
+      denominator_profile_id = orchidee_handoff_trim_or_na(
+        exposure$denominator_profile_id
+      ),
+      exposure_value = orchidee_handoff_integerish_vector(
+        exposure$exposure_value,
+        "incidence_exposure_by_year_um_uf_ta_de_profile$exposure_value"
+      ),
+      exposure_unit = orchidee_handoff_trim_or_na(exposure$exposure_unit),
+      stringsAsFactors = FALSE
+    )
+    missing_dimension <- vapply(
+      canonical_exposure[required_cols],
+      function(x) any(is.na(x)),
+      logical(1)
+    )
+    if (any(missing_dimension)) {
+      stop(
+        "incidence_exposure_by_year_um_uf_ta_de_profile must not contain ",
+        "missing values in: ",
+        paste(names(missing_dimension)[missing_dimension], collapse = ", "),
+        call. = FALSE
+      )
+    }
+    if (any(canonical_exposure$exposure_value < 0L)) {
+      stop(
+        "incidence_exposure_by_year_um_uf_ta_de_profile$exposure_value must ",
+        "be non-negative.",
+        call. = FALSE
+      )
+    }
+    profiles <- ratb_denominator_profile_registry()
+    profile_match <- match(
+      canonical_exposure$denominator_profile_id,
+      profiles$denominator_profile_id
+    )
+    invalid_profile <- is.na(profile_match)
+    invalid_unit <- !invalid_profile &
+      canonical_exposure$exposure_unit != profiles$exposure_unit[profile_match]
+    if (any(invalid_profile | invalid_unit)) {
+      stop(
+        "incidence_exposure_by_year_um_uf_ta_de_profile contains an ",
+        "unsupported denominator profile/exposure unit pair.",
+        call. = FALSE
+      )
+    }
+    grain_cols <- c(
+      "calendar_year", "SEJUM", "SEJUF", "CODE_TA", "CODE_DE",
+      "de_domain_ref", "denominator_profile_id"
+    )
+    if (any(duplicated(canonical_exposure[grain_cols]))) {
+      stop(
+        "incidence_exposure_by_year_um_uf_ta_de_profile contains duplicate ",
+        "rows at grain ",
+        paste(grain_cols, collapse = " + "),
+        ".",
+        call. = FALSE
+      )
+    }
+    canonical_exposure <- canonical_exposure[
+      do.call(order, canonical_exposure[grain_cols]),
+      ,
+      drop = FALSE
+    ]
+    row.names(canonical_exposure) <- NULL
+
+    return(list(
+      incidence_exposure_by_year_um_uf_ta_de_profile = canonical_exposure
+    ))
+  }
+
   if (!is.data.frame(denominator_by_year)) {
     stop("denominator_by_year must be a data frame.", call. = FALSE)
   }
@@ -867,9 +991,10 @@ orchidee_handoff_build_denominator_bundle <- function(denominator_by_year) {
 orchidee_handoff_build_external_bundle <- function(
     sir_wide,
     unit_mapping,
-    denominator_by_year,
+    denominator_by_year = NULL,
     de_reference = NULL,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v1(),
+    incidence_exposure_by_year_um_uf_ta_de_profile = NULL
   ) {
   list(
     sir_wide = sir_wide,
@@ -879,10 +1004,14 @@ orchidee_handoff_build_external_bundle <- function(
     ),
     sample_scope_reference = orchidee_handoff_build_sample_scope_reference(
       unit_mapping = unit_mapping,
-      de_reference = de_reference
+      de_reference = de_reference,
+      contract = contract
     ),
     denominator_bundle = orchidee_handoff_build_denominator_bundle(
-      denominator_by_year = denominator_by_year
+      denominator_by_year = denominator_by_year,
+      incidence_exposure_by_year_um_uf_ta_de_profile =
+        incidence_exposure_by_year_um_uf_ta_de_profile,
+      contract = contract
     )
   )
 }
@@ -893,9 +1022,10 @@ orchidee_handoff_build_external_bundle_from_site_inputs <- function(
     sample_type_mapping,
     antibiotic_mapping,
     unit_mapping,
-    denominator_by_year,
+    denominator_by_year = NULL,
     de_reference = NULL,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v1(),
+    incidence_exposure_by_year_um_uf_ta_de_profile = NULL
   ) {
   sir_wide <- orchidee_handoff_build_sir_wide_from_microbiology(
     microbiology_observations = microbiology_observations,
@@ -910,6 +1040,8 @@ orchidee_handoff_build_external_bundle_from_site_inputs <- function(
     unit_mapping = unit_mapping,
     denominator_by_year = denominator_by_year,
     de_reference = de_reference,
-    contract = contract
+    contract = contract,
+    incidence_exposure_by_year_um_uf_ta_de_profile =
+      incidence_exposure_by_year_um_uf_ta_de_profile
   )
 }

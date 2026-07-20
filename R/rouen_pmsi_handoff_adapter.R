@@ -1,7 +1,8 @@
-# Rouen PMSI handoff and v2 bundle composition.
+# Rouen PMSI handoff and v2/v3 bundle composition.
 #
 # redsan owns PMSI source normalization. This adapter owns the Rouen unit
-# attribution audit and conversion to the two PMSI-backed site inputs.
+# attribution audit and conversion to the two PMSI-backed site inputs selected
+# by each bundle contract.
 
 rouen_pmsi_calendar_night_bound <- function(x, source_tz) {
   local_date <- as.Date(x, tz = source_tz)
@@ -123,6 +124,28 @@ build_rouen_pmsi_handoff_v1 <- function(
       hospital_nights = as.integer(.data$hospital_nights_provisional)
     ) |>
     dplyr::arrange(.data$calendar_year)
+  incidence_exposure_by_year_um_uf_ta_de_profile <-
+    denominator$incidence_exposure_by_year_um_uf_ta_de_profile |>
+    dplyr::transmute(
+      calendar_year = as.integer(.data$calendar_year),
+      SEJUM = ratb_trim_or_na_local(.data$SEJUM),
+      SEJUF = ratb_trim_or_na_local(.data$SEJUF),
+      CODE_TA = ratb_trim_or_na_local(.data$CODE_TA),
+      CODE_DE = ratb_trim_or_na_local(.data$CODE_DE),
+      de_domain_ref = ratb_trim_or_na_local(.data$de_domain_ref),
+      denominator_profile_id = .data$denominator_profile_id,
+      exposure_value = as.integer(.data$exposure_value),
+      exposure_unit = .data$exposure_unit
+    ) |>
+    dplyr::arrange(
+      .data$calendar_year,
+      .data$SEJUM,
+      .data$SEJUF,
+      .data$CODE_TA,
+      .data$CODE_DE,
+      .data$de_domain_ref,
+      .data$denominator_profile_id
+    )
 
   denominator_identity <- denominator$hospital_nights_by_year_unit |>
     dplyr::group_by(.data$calendar_year) |>
@@ -143,6 +166,37 @@ build_rouen_pmsi_handoff_v1 <- function(
   if (any(denominator_identity$difference != 0L)) {
     stop(
       "Rouen annual denominator differs from the sum of unit-year nights.",
+      call. = FALSE
+    )
+  }
+  current_context <- ratb_analysis_context_profile()
+  v3_current_profile_identity <-
+    incidence_exposure_by_year_um_uf_ta_de_profile |>
+    dplyr::filter(
+      .data$denominator_profile_id ==
+        current_context$denominator_profile_id,
+      .data$exposure_unit == current_context$exposure_unit,
+      .data$CODE_TA %in% current_context$eligible_ta_codes,
+      .data$de_domain_ref %in% current_context$eligible_de_domains
+    ) |>
+    dplyr::group_by(.data$calendar_year) |>
+    dplyr::summarise(
+      current_profile_exposure = sum(.data$exposure_value),
+      .groups = "drop"
+    ) |>
+    dplyr::full_join(denominator_by_year, by = "calendar_year") |>
+    dplyr::mutate(
+      current_profile_exposure = dplyr::coalesce(
+        .data$current_profile_exposure,
+        0L
+      ),
+      hospital_nights = dplyr::coalesce(.data$hospital_nights, 0L),
+      difference = .data$current_profile_exposure - .data$hospital_nights
+    ) |>
+    dplyr::arrange(.data$calendar_year)
+  if (any(v3_current_profile_identity$difference != 0L)) {
+    stop(
+      "Rouen v3 current-profile exposure differs from the v2 denominator.",
       call. = FALSE
     )
   }
@@ -201,7 +255,9 @@ build_rouen_pmsi_handoff_v1 <- function(
   list(
     site_inputs = list(
       unit_mapping = unit_mapping,
-      denominator_by_year = denominator_by_year
+      denominator_by_year = denominator_by_year,
+      incidence_exposure_by_year_um_uf_ta_de_profile =
+        incidence_exposure_by_year_um_uf_ta_de_profile
     ),
     sample_attribution = sample_attribution,
     audit = list(
@@ -211,17 +267,23 @@ build_rouen_pmsi_handoff_v1 <- function(
       attribution_summary = attribution_summary,
       unmapped_pmsi_units = missing_pmsi_units,
       denominator_identity = denominator_identity,
+      v3_current_profile_identity = v3_current_profile_identity,
       ratb_unit_stay_scope_audit = denominator$ratb_unit_stay_scope_audit,
       hospital_nights_by_year_unit = denominator$hospital_nights_by_year_unit,
+      hospital_nights_by_year_um_uf_ta_de =
+        denominator$hospital_nights_by_year_um_uf_ta_de,
+      incidence_exposure_by_year_um_uf_ta_de_profile =
+        denominator$incidence_exposure_by_year_um_uf_ta_de_profile,
       hospital_days_year_summary =
         denominator$hospital_days_year_summary_provisional
     )
   )
 }
 
-compose_rouen_external_bundle_v2 <- function(
+compose_rouen_external_bundle <- function(
     microbiology_handoff,
-    pmsi_handoff
+    pmsi_handoff,
+    contract
   ) {
   if (!is.list(microbiology_handoff) ||
       !is.list(microbiology_handoff$site_inputs) ||
@@ -234,7 +296,17 @@ compose_rouen_external_bundle_v2 <- function(
     "microbiology_observations", "bacteria_mapping",
     "sample_type_mapping", "antibiotic_mapping"
   )
-  pmsi_names <- c("unit_mapping", "denominator_by_year")
+  contract_version <- if (is.list(contract)) contract$version else NULL
+  if (!is.character(contract_version) || length(contract_version) != 1L ||
+      !contract_version %in% c("v2", "v3")) {
+    stop("Rouen bundle composition requires contract v2 or v3.", call. = FALSE)
+  }
+  denominator_input_name <- if (identical(contract_version, "v3")) {
+    "incidence_exposure_by_year_um_uf_ta_de_profile"
+  } else {
+    "denominator_by_year"
+  }
+  pmsi_names <- c("unit_mapping", denominator_input_name)
   if (!all(microbiology_names %in% names(microbiology_handoff$site_inputs)) ||
       !all(pmsi_names %in% names(pmsi_handoff$site_inputs))) {
     stop("Rouen handoff objects do not expose the expected six inputs.", call. = FALSE)
@@ -278,18 +350,29 @@ compose_rouen_external_bundle_v2 <- function(
     bacteria_mapping = microbiology_handoff$site_inputs$bacteria_mapping,
     sample_type_mapping = microbiology_handoff$site_inputs$sample_type_mapping,
     antibiotic_mapping = microbiology_handoff$site_inputs$antibiotic_mapping,
-    unit_mapping = pmsi_handoff$site_inputs$unit_mapping,
-    denominator_by_year = pmsi_handoff$site_inputs$denominator_by_year
+    unit_mapping = pmsi_handoff$site_inputs$unit_mapping
   )
-  contract <- orchidee_external_contract_v2()
+  site_inputs[[denominator_input_name]] <-
+    pmsi_handoff$site_inputs[[denominator_input_name]]
   bundle <- orchidee_handoff_build_external_bundle_from_site_inputs(
     microbiology_observations = site_inputs$microbiology_observations,
     bacteria_mapping = site_inputs$bacteria_mapping,
     sample_type_mapping = site_inputs$sample_type_mapping,
     antibiotic_mapping = site_inputs$antibiotic_mapping,
     unit_mapping = site_inputs$unit_mapping,
-    denominator_by_year = site_inputs$denominator_by_year,
-    contract = contract
+    denominator_by_year = if (identical(contract$version, "v2")) {
+      site_inputs$denominator_by_year
+    } else {
+      NULL
+    },
+    contract = contract,
+    incidence_exposure_by_year_um_uf_ta_de_profile = if (
+      identical(contract$version, "v3")
+    ) {
+      site_inputs$incidence_exposure_by_year_um_uf_ta_de_profile
+    } else {
+      NULL
+    }
   )
 
   validation <- list(
@@ -311,7 +394,7 @@ compose_rouen_external_bundle_v2 <- function(
   if (!all(validation_ok)) {
     errors <- unique(unlist(lapply(validation[!validation_ok], `[[`, "errors")))
     stop(
-      "Rouen v2 bundle failed in-memory validation: ",
+      "Rouen ", contract$version, " bundle failed in-memory validation: ",
       paste(errors, collapse = " | "),
       call. = FALSE
     )
@@ -324,7 +407,7 @@ compose_rouen_external_bundle_v2 <- function(
   )))
   missing_denominator_years <- setdiff(
     diagnostic_years,
-    site_inputs$denominator_by_year$calendar_year
+    site_inputs[[denominator_input_name]]$calendar_year
   )
   if (length(missing_denominator_years) > 0L) {
     stop(
@@ -354,7 +437,7 @@ compose_rouen_external_bundle_v2 <- function(
       "Long rows available before shared screening/document collapse.",
       "Long rows whose canonical SEJUF comes from active PMSI hospitalization.",
       "Long rows kept visible with missing canonical SEJUF and no fallback.",
-      "Canonical isolates in the validated v2 bundle."
+      paste0("Canonical isolates in the validated ", contract_version, " bundle.")
     )
   )
 
@@ -368,5 +451,27 @@ compose_rouen_external_bundle_v2 <- function(
       sample_attribution = pmsi_handoff$sample_attribution,
       composition_summary = composition_summary
     )
+  )
+}
+
+compose_rouen_external_bundle_v2 <- function(
+    microbiology_handoff,
+    pmsi_handoff
+  ) {
+  compose_rouen_external_bundle(
+    microbiology_handoff = microbiology_handoff,
+    pmsi_handoff = pmsi_handoff,
+    contract = orchidee_external_contract_v2()
+  )
+}
+
+compose_rouen_external_bundle_v3 <- function(
+    microbiology_handoff,
+    pmsi_handoff
+  ) {
+  compose_rouen_external_bundle(
+    microbiology_handoff = microbiology_handoff,
+    pmsi_handoff = pmsi_handoff,
+    contract = orchidee_external_contract_v3()
   )
 }

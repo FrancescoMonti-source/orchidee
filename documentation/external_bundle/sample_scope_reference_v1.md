@@ -51,6 +51,11 @@ validator warns about extra columns but does not reject them. Loader and
 materialization helpers retain only the required v1 columns at the portable
 ORCHIDEE boundary.
 
+Contract v2 retains the same four-column shape. Contract v3 instead requires
+and retains `sample_CODE_TA`, `sample_CODE_DE` and `sample_de_domain_ref` in
+addition to the four columns above. These character columns may be `NA` for an
+unmapped UF that remains visible for audit.
+
 ## Expected types
 
 - `SEJUF`: character
@@ -89,10 +94,10 @@ The reference does not remove rows from `sir_wide` by itself. It provides
 the mapped eligibility information that ORCHIDEE uses to decide which
 microbiology rows contribute to RATB numerators and proportions.
 
-The portable core consumes the final eligibility flag plus status/reason
-fields. TA/DE codes may be useful audit context for a local adapter, but the
-shared core does not need them once the adapter has produced the final scope
-decision.
+The v1/v2 portable core consumes the final eligibility flag plus status/reason
+fields. In v3, the shared runtime also uses the retained TA, DE and DE-domain
+values to verify that numerator scope and denominator exposure describe the
+same mapped UF before applying the closed analysis context.
 
 For the portable workflow, a site adapter should provide the broad canonical
 `sir_wide` artifact plus this scope reference. The adapter should not
