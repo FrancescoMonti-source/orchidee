@@ -43,7 +43,7 @@ if (help || length(args) != 3L) {
     "  site_inputs/: the six explicit handoff tables for the selected contract.\n",
     "  bundle/: the four validated canonical bundle files.\n",
     "  adapter_audit.rds: local audit; it may contain patient identifiers.\n",
-    "Default contract: v2. Contract v3 promotes the fine UM/UF/TA/DE denominator.\n",
+    "Default contract: v2. Contract v3 transports profiled UM/UF/TA/DE exposure.\n",
     sep = ""
   )
   quit(status = if (help) 0L else 1L)

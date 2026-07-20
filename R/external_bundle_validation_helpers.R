@@ -174,39 +174,112 @@ orchidee_external_contract_v2 <- function() {
   contract
 }
 
+ratb_spares_current_de_domains <- function() {
+  c(
+    "MÉDECINE",
+    "URGENCES",
+    "CHIRURGIE",
+    "RÉANIMATION",
+    "PÉDIATRIE",
+    "GYNÉCOLOGIE-OBSTÉTRIQUE",
+    "SOINS MÉDICAUX ET DE RÉADAPTATION",
+    "SOINS DE LONGUE DURÉE",
+    "PSYCHIATRIE",
+    "ÉTABLISSEMENT D'HÉBERGEMENT POUR PERSONNES ÂGÉES DÉPENDANTES"
+  )
+}
+
+ratb_denominator_profile_registry <- function() {
+  data.frame(
+    denominator_profile_id = "midnight_presence_v1",
+    exposure_unit = "patient_days",
+    profile_definition = paste(
+      "Local calendar-night count computed as",
+      "as.Date(exit) - as.Date(entry)."
+    ),
+    stringsAsFactors = FALSE
+  )
+}
+
+ratb_analysis_context_profile <- function(
+    analysis_context_id = "spares_current_v1"
+  ) {
+  if (!identical(analysis_context_id, "spares_current_v1")) {
+    stop(
+      "Unsupported RATB analysis context: ", analysis_context_id,
+      call. = FALSE
+    )
+  }
+  list(
+    analysis_context_id = analysis_context_id,
+    eligible_ta_codes = c("03", "20"),
+    eligible_de_domains = ratb_spares_current_de_domains(),
+    denominator_profile_id = "midnight_presence_v1",
+    exposure_unit = "patient_days",
+    incidence_multiplier = 1000,
+    incidence_unit = "per_1000_patient_days"
+  )
+}
+
 orchidee_external_contract_v3 <- function() {
   contract <- orchidee_external_contract_v2()
   contract$version <- "v3"
   contract$sir_wide$required_meta_values$contract_version <- "v3"
+  contract$sample_scope_reference$required_columns <- c(
+    "SEJUF",
+    "sample_CODE_TA",
+    "sample_CODE_DE",
+    "sample_de_domain_ref",
+    "sample_uf_is_eligible_by_ta_de",
+    "sample_uf_ta_de_status",
+    "sample_uf_ta_de_reason"
+  )
+  contract$sample_scope_reference$character_columns <- c(
+    "SEJUF",
+    "sample_CODE_TA",
+    "sample_CODE_DE",
+    "sample_de_domain_ref",
+    "sample_uf_ta_de_status",
+    "sample_uf_ta_de_reason"
+  )
+  denominator_profiles <- ratb_denominator_profile_registry()
   contract$denominator_bundle <- list(
-    required_tables = "incidence_denominator_by_year_um_uf_ta_de",
+    required_tables = "incidence_exposure_by_year_um_uf_ta_de_profile",
     compatibility_tables = character(),
     tables = list(
-      incidence_denominator_by_year_um_uf_ta_de = list(
+      incidence_exposure_by_year_um_uf_ta_de_profile = list(
         required_columns = c(
           "calendar_year",
           "SEJUM",
           "SEJUF",
           "CODE_TA",
           "CODE_DE",
-          "hospital_nights"
+          "de_domain_ref",
+          "denominator_profile_id",
+          "exposure_value",
+          "exposure_unit"
         ),
         row_grain_key = c(
           "calendar_year",
           "SEJUM",
           "SEJUF",
           "CODE_TA",
-          "CODE_DE"
+          "CODE_DE",
+          "de_domain_ref",
+          "denominator_profile_id"
         ),
         integerish_columns = c(
           "calendar_year",
-          "hospital_nights"
+          "exposure_value"
         ),
         character_columns = c(
           "SEJUM",
           "SEJUF",
           "CODE_TA",
-          "CODE_DE"
+          "CODE_DE",
+          "de_domain_ref",
+          "denominator_profile_id",
+          "exposure_unit"
         ),
         non_missing_columns = c(
           "calendar_year",
@@ -214,9 +287,19 @@ orchidee_external_contract_v3 <- function() {
           "SEJUF",
           "CODE_TA",
           "CODE_DE",
-          "hospital_nights"
+          "de_domain_ref",
+          "denominator_profile_id",
+          "exposure_value",
+          "exposure_unit"
         ),
-        non_negative_columns = "hospital_nights"
+        non_negative_columns = "exposure_value",
+        allowed_values = list(
+          denominator_profile_id = denominator_profiles$denominator_profile_id,
+          exposure_unit = denominator_profiles$exposure_unit
+        ),
+        allowed_pairs = denominator_profiles[c(
+          "denominator_profile_id", "exposure_unit"
+        )]
       )
     )
   )
@@ -224,7 +307,10 @@ orchidee_external_contract_v3 <- function() {
 }
 
 external_bundle_is_integerish <- function(x) {
-  is.numeric(x) && all(is.na(x) | abs(x - round(x)) < sqrt(.Machine$double.eps))
+  is.numeric(x) && all(
+    is.na(x) |
+      (is.finite(x) & abs(x - round(x)) < sqrt(.Machine$double.eps))
+  )
 }
 
 external_bundle_add_issue <- function(issues, text) {
@@ -792,6 +878,46 @@ external_bundle_validate_denominator_table <- function(
       )
     }
 
+    allowed_values <- table_spec$allowed_values
+    if (!is.null(allowed_values)) {
+      for (col in names(allowed_values)) {
+        observed <- unique(tbl[[col]][!is.na(tbl[[col]])])
+        unsupported <- setdiff(observed, allowed_values[[col]])
+        if (length(unsupported) > 0L) {
+          errors <- external_bundle_add_issue(
+            errors,
+            paste0(
+              table_name, "$", col, " contains unsupported values: ",
+              paste(unsupported, collapse = ", ")
+            )
+          )
+        }
+      }
+    }
+
+    allowed_pairs <- table_spec$allowed_pairs
+    if (!is.null(allowed_pairs)) {
+      pair_columns <- names(allowed_pairs)
+      observed_pairs <- unique(tbl[pair_columns])
+      observed_keys <- do.call(
+        paste,
+        c(observed_pairs, list(sep = "\r"))
+      )
+      allowed_keys <- do.call(
+        paste,
+        c(allowed_pairs, list(sep = "\r"))
+      )
+      if (any(!observed_keys %in% allowed_keys)) {
+        errors <- external_bundle_add_issue(
+          errors,
+          paste0(
+            table_name, " contains an unsupported ",
+            paste(pair_columns, collapse = " + "), " pair."
+          )
+        )
+      }
+    }
+
     non_missing_columns <- table_spec$non_missing_columns
     if (is.null(non_missing_columns)) non_missing_columns <- character()
     missing_value_cols <- non_missing_columns[
@@ -924,6 +1050,102 @@ external_bundle_subset_denominator_bundle <- function(
   denominator_bundle
 }
 
+external_bundle_validate_cross_artifacts <- function(
+    sample_scope_reference,
+    denominator_bundle,
+    contract = orchidee_external_contract_v1()
+  ) {
+  errors <- character(0)
+  warnings <- character(0)
+  if (!identical(contract$version, "v3")) {
+    return(list(ok = TRUE, errors = errors, warnings = warnings))
+  }
+
+  scope <- external_bundle_coerce_sample_scope_reference(
+    sample_scope_reference
+  )
+  denominator <- external_bundle_coerce_denominator_bundle(
+    denominator_bundle,
+    contract = contract
+  )
+  if (!is.data.frame(scope) || !is.list(denominator)) {
+    return(list(ok = TRUE, errors = errors, warnings = warnings))
+  }
+  exposure <- denominator[[
+    "incidence_exposure_by_year_um_uf_ta_de_profile"
+  ]]
+  required_scope <- c(
+    "SEJUF", "sample_CODE_TA", "sample_CODE_DE",
+    "sample_de_domain_ref", "sample_uf_is_eligible_by_ta_de"
+  )
+  required_exposure <- c("SEJUF", "CODE_TA", "CODE_DE", "de_domain_ref")
+  if (!is.data.frame(exposure) ||
+      !all(required_scope %in% names(scope)) ||
+      !all(required_exposure %in% names(exposure)) ||
+      any(duplicated(scope$SEJUF))) {
+    return(list(ok = TRUE, errors = errors, warnings = warnings))
+  }
+
+  scope_row <- match(exposure$SEJUF, scope$SEJUF)
+  absent <- is.na(scope_row)
+  if (any(absent)) {
+    absent_units <- sort(unique(exposure$SEJUF[absent]))
+    errors <- external_bundle_add_issue(
+      errors,
+      paste0(
+        "v3 incidence exposure contains SEJUF absent from ",
+        "sample_scope_reference: ",
+        paste(utils::head(absent_units, 10L), collapse = ", "),
+        if (length(absent_units) > 10L) " ..." else ""
+      )
+    )
+  }
+
+  matched <- !absent
+  if (any(matched)) {
+    exposure_matched <- exposure[matched, , drop = FALSE]
+    scope_matched <- scope[scope_row[matched], , drop = FALSE]
+    mapping_mismatch <-
+      is.na(scope_matched$sample_CODE_TA) |
+      is.na(scope_matched$sample_CODE_DE) |
+      is.na(scope_matched$sample_de_domain_ref) |
+      exposure_matched$CODE_TA != scope_matched$sample_CODE_TA |
+      exposure_matched$CODE_DE != scope_matched$sample_CODE_DE |
+      exposure_matched$de_domain_ref != scope_matched$sample_de_domain_ref
+    mapping_mismatch[is.na(mapping_mismatch)] <- TRUE
+    if (any(mapping_mismatch)) {
+      errors <- external_bundle_add_issue(
+        errors,
+        "v3 incidence exposure disagrees with sample scope TA/DE mapping."
+      )
+    }
+
+    context <- ratb_analysis_context_profile("spares_current_v1")
+    expected_scope <-
+      scope_matched$sample_CODE_TA %in% context$eligible_ta_codes &
+      scope_matched$sample_de_domain_ref %in% context$eligible_de_domains
+    eligibility_mismatch <-
+      is.na(scope_matched$sample_uf_is_eligible_by_ta_de) |
+      scope_matched$sample_uf_is_eligible_by_ta_de != expected_scope
+    eligibility_mismatch[is.na(eligibility_mismatch)] <- TRUE
+    if (any(eligibility_mismatch)) {
+      errors <- external_bundle_add_issue(
+        errors,
+        paste0(
+          "v3 sample scope eligibility disagrees with analysis context ",
+          "spares_current_v1 for incidence exposure SEJUF."
+        )
+      )
+    }
+  }
+
+  list(
+    ok = length(errors) == 0L,
+    errors = unique(errors),
+    warnings = unique(warnings)
+  )
+}
+
 validate_external_input_bundle <- function(
     bundle_dir = file.path("data"),
     contract = orchidee_external_contract_v1(),
@@ -963,9 +1185,26 @@ validate_external_input_bundle <- function(
     denominator_bundle = loaded$denominator_bundle,
     contract = contract
   )
+  cross_validation <- external_bundle_validate_cross_artifacts(
+    sample_scope_reference = loaded$sample_scope_reference,
+    denominator_bundle = loaded$denominator_bundle,
+    contract = contract
+  )
 
-  errors <- c(errors, sir_wide_validation$errors, sample_scope_validation$errors, denominator_validation$errors)
-  warnings <- c(warnings, sir_wide_validation$warnings, sample_scope_validation$warnings, denominator_validation$warnings)
+  errors <- c(
+    errors,
+    sir_wide_validation$errors,
+    sample_scope_validation$errors,
+    denominator_validation$errors,
+    cross_validation$errors
+  )
+  warnings <- c(
+    warnings,
+    sir_wide_validation$warnings,
+    sample_scope_validation$warnings,
+    denominator_validation$warnings,
+    cross_validation$warnings
+  )
 
   report <- list(
     ok = length(errors) == 0L,

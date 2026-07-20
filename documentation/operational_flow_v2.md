@@ -104,23 +104,27 @@ calendar_year + hospital_nights
 Ce grain suffit pour publier une densité d'incidence annuelle globale. Il ne
 permet pas de calculer correctement une densité par UM, UF, TA ou DE.
 
-Le contrat externe v3 promeut désormais la table fine calculée par l'adaptateur
-Rouen au grain :
+Le contrat externe v3 transporte désormais l'exposition profilée calculée par
+l'adaptateur Rouen au grain :
 
 ```text
-calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + hospital_nights
+calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + de_domain_ref +
+denominator_profile_id + exposure_value + exposure_unit
 ```
 
-Le bundle v3 transporte une seule table à ce grain. Le runtime en dérive le
-total annuel actuel et conserve aussi le détail, ce qui évite deux sources
-canoniques susceptibles de diverger. Cette table permettra ensuite d'agréger par
-année, UM, UF, TA, DE ou combinaison de ces dimensions.
+La table conserve toute contribution d'exposition positive issue d'une
+activité valide dont TA/DE sont mappés, même hors du périmètre actuel. Le
+runtime applique le contexte fermé `spares_current_v1`
+(TA 03/20, domaines DE ratifiés, `midnight_presence_v1`) et en dérive le total
+annuel v2. Il vérifie aussi la concordance TA/DE avec la référence de périmètre
+des prélèvements.
 
 Cette promotion ne modifie pas v2 et v3 n'est pas encore la valeur
 opérationnelle par défaut. Elle prépare le contrat et le runtime ; les panels
-stratifiés, leurs numérateurs et leurs choix de publication restent une étape
-séparée. Le dénominateur fin ne doit jamais être reconstruit à partir du total
-annuel.
+stratifiés, leurs numérateurs, leur dédoublonnage contextuel et leurs unités de
+publication restent une étape séparée. Les profils `noon_presence_v1`,
+`elapsed_minutes_v1` et `calendar_dates_touched_v1` sont réservés mais ne sont
+pas encore exécutables.
 
 ## Place de la complétion
 

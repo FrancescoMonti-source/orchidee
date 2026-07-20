@@ -28,8 +28,9 @@ You may also provide a seventh optional file:
 7. `de_reference`
 
 For contract v3, replace file 6 with
-`denominator_by_year_um_uf_ta_de`. It is still a six-file handoff: the fine
-denominator replaces the annual total rather than being added beside it.
+`incidence_exposure_by_year_um_uf_ta_de_profile`. It is still a six-file
+handoff: the profiled exposure replaces the annual total rather than being
+added beside it.
 
 Accepted formats are `.rds`, `.csv`, `.tsv`, `.tab`, or `.txt`. CSV files can
 use commas or semicolons. Text files must be UTF-8.
@@ -60,9 +61,11 @@ claim, not only a metadata switch. Validate and smoke that result with
 `--contract=v2 --strict-preferred` as shown in `sir_wide_v2.md`.
 
 Contract v3 makes a second explicit claim: it keeps the v2 hospitalization UF
-semantics and supplies the denominator at year + UM + UF + TA + DE grain. It
-does not change the current operational default and does not by itself publish
-stratified indicators. Its exact denominator schema is documented in
+semantics and supplies mapped hospital exposure at year + UM + UF + TA + DE +
+profile grain. The runtime applies the closed current analysis context; mapped
+activity outside that context remains available instead of being discarded.
+v3 does not change the current operational default and does not by itself
+publish stratified indicators. Its exact schema is documented in
 `denominator_bundle_v3.md`.
 
 ## File 1: microbiology_observations
@@ -198,8 +201,8 @@ columns. The builder fails if `atb_norm` is not one of those columns.
 
 ## File 5: unit_mapping
 
-This file tells ORCHIDEE which local sample units belong to the RATB TA/DE
-perimeter.
+This file maps the local UF codes used by the RATB scope. Under v3 it must also
+cover every hospitalization UF present in the exposure table.
 
 Required columns:
 
@@ -208,10 +211,14 @@ Required columns:
 | `SEJUF` | Sample unit. Must match `SEJUF` in `microbiology_observations`. |
 | `CODE_TA` | TA code for the unit. |
 
-The file must also provide either:
+Under v1/v2, the file must also provide either:
 
 - `de_domain_ref`, directly in `unit_mapping`;
 - or `CODE_DE`, together with a separate `de_reference` file.
+
+Under v3, `CODE_DE` is required. The DE domain must additionally be supplied
+either as `de_domain_ref` in the same table or through `de_reference`; a domain
+label alone cannot reconstruct its local DE code.
 
 Expected grain: one row per `SEJUF`.
 
@@ -280,7 +287,7 @@ It cannot support incidence stratified by hospitalization UM, UF, TA or DE.
 Contract v3 provides that successor path; sites must not try to reconstruct
 the detail from `denominator_by_year`.
 
-## File 6 under contract v3: denominator_by_year_um_uf_ta_de
+## File 6 under contract v3: profiled incidence exposure
 
 For `--contract=v3`, provide this table instead of `denominator_by_year`.
 
@@ -293,14 +300,24 @@ Required columns:
 | `SEJUF` | Hospitalization UF for the unit stay. |
 | `CODE_TA` | TA code joined to `SEJUF`. |
 | `CODE_DE` | DE code joined to `SEJUF`. |
-| `hospital_nights` | Eligible hospital nights at this exact grain. |
+| `de_domain_ref` | National DE domain joined to `CODE_DE`. |
+| `denominator_profile_id` | Closed counting profile; currently `midnight_presence_v1`. |
+| `exposure_value` | Exposure at this exact grain. |
+| `exposure_unit` | Unit fixed by the profile; currently `patient_days`. |
 
 Expected grain: one row per
-`calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE`.
+`calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + de_domain_ref +
+denominator_profile_id`.
 
-All six columns are required and non-missing. The shared runtime derives the
-annual total by summing `hospital_nights` within `calendar_year`; do not provide
-a second independently computed annual table.
+All nine columns are required and non-missing. Include positive exposure from
+valid mapped activity even when its TA/DE is outside the current RATB
+perimeter. The shared runtime selects `spares_current_v1` and derives the
+current annual total; do not provide a second independently computed annual
+table.
+
+For v3, `unit_mapping` must cover every `SEJUF` present in this exposure table.
+Its TA, DE and DE-domain values must agree exactly; strict validation rejects
+missing or contradictory cross-file mappings.
 
 ## Build and validate the ORCHIDEE input files
 
@@ -349,7 +366,7 @@ Rscript `
   inputs/sample_type_mapping.csv `
   inputs/antibiotic_mapping.csv `
   inputs/unit_mapping.csv `
-  inputs/denominator_by_year_um_uf_ta_de.csv `
+  inputs/incidence_exposure_by_year_um_uf_ta_de_profile.csv `
   outputs/site_bundle_v3 `
   --contract=v3 `
   --force

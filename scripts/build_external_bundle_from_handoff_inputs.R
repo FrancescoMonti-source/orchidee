@@ -39,10 +39,10 @@ if (length(args) < 4L || length(args) > 5L || "--help" %in% args || "-h" %in% ar
     "    [de_reference.{rds,csv,tsv}] [--contract=v1|v2|v3] [--force]\n\n",
     "Inputs:\n",
     "  sir_wide.rds: canonical wide microbiology artifact.\n",
-    "  unit_mapping: one row per SEJUF with CODE_TA and either de_domain_ref\n",
-    "    or CODE_DE plus a de_reference table.\n",
+    "  unit_mapping: one row per SEJUF with CODE_TA; v3 also requires CODE_DE.\n",
+    "    Provide de_domain_ref or a separate de_reference table.\n",
     "  denominator: v1/v2 use calendar_year + hospital_nights; v3 uses\n",
-    "    calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + hospital_nights.\n",
+    "    year + UM + UF + TA + DE + domain + profile + exposure + unit.\n",
     "  de_reference: optional CODE_DE + de_domain_ref/DOMAINE dictionary.\n",
     sep = ""
   )
@@ -92,7 +92,9 @@ bundle <- orchidee_handoff_build_external_bundle(
   },
   de_reference = de_reference,
   contract = contract,
-  denominator_by_year_um_uf_ta_de = if (identical(contract_version, "v3")) {
+  incidence_exposure_by_year_um_uf_ta_de_profile = if (
+    identical(contract_version, "v3")
+  ) {
     denominator_input
   } else {
     NULL

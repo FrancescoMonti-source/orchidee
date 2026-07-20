@@ -158,13 +158,13 @@ kept in the local audit and is never used as a hidden fallback.
 ## TA/DE and denominator
 
 The same C-over-DW PMSI table feeds the unit-stay denominator. The adapter
-joins the current institutional unit and CONSORES references, applies the
-TA/DE perimeter, and produces:
+joins the current institutional unit and CONSORES references and produces:
 
 - `denominator_by_year` for the portable v2 bundle;
-- `denominator_by_year_um_uf_ta_de` for the portable v3 bundle;
-- `hospital_nights_by_year_um_uf_ta_de` as the local audit source of the fine
-  table;
+- `incidence_exposure_by_year_um_uf_ta_de_profile` for the portable v3
+  bundle;
+- `hospital_nights_by_year_um_uf_ta_de` as the local audit source of the
+  current-perimeter table;
 - `hospital_nights_by_year_unit` unchanged for the existing v2 QA display.
 
 Every run verifies that the annual total equals the sum of its unit-year
@@ -172,10 +172,11 @@ rows. Intervals are clipped to the configured half-open window. Night bounds
 use the PMSI local calendar date, so a local midnight is not shifted into the
 previous UTC date.
 
-The v3 fine table carries exactly `calendar_year + SEJUM + SEJUF + CODE_TA +
-CODE_DE + hospital_nights`. The v3 bundle transports only that table and the
-runtime derives the annual total; it does not maintain two canonical
-denominators that could diverge.
+The v3 exposure table carries mapped valid activity even when TA/DE is outside
+the current perimeter. It adds `de_domain_ref`, `denominator_profile_id`,
+`exposure_value` and `exposure_unit` to the year + UM + UF + TA + DE
+dimensions. The adapter verifies that selecting the current
+`spares_current_v1` context reproduces the v2 annual denominator exactly.
 
 ## Run
 
@@ -191,8 +192,8 @@ Rscript scripts/build_rouen_external_bundle.R `
 
 Add `--force` only to replace existing outputs.
 
-Use `--contract=v3` and a separate output directory to build the fine
-denominator candidate. v2 remains the default of this command and the current
+Use `--contract=v3` and a separate output directory to build the profiled
+exposure candidate. v2 remains the default of this command and the current
 operational notebook contract.
 
 The output contains:
@@ -205,7 +206,7 @@ site_inputs/
   antibiotic_mapping.rds
   unit_mapping.rds
   denominator_by_year.rds                  # v2
-  denominator_by_year_um_uf_ta_de.rds      # v3 instead of the line above
+  incidence_exposure_by_year_um_uf_ta_de_profile.rds # v3 instead
 
 bundle/
   sir_wide.rds
@@ -242,7 +243,7 @@ them to Git or publish them with the source repository.
 With `--contract=v2`, this command produces the strict preferred bundle
 accepted by the operational `external_bundle_v2` notebook mode, which remains
 the canonical default. With `--contract=v3`, it produces a validated candidate
-for the fine denominator contract; the operational selector does not adopt it
+for the profiled exposure contract; the operational selector does not adopt it
 implicitly. Selection remains explicit and fail-closed; the CHU-native path is
 an opt-in legacy comparison/rollback mode, and its caches are not overwritten.
 A full render is required after an explicit future adoption so raw

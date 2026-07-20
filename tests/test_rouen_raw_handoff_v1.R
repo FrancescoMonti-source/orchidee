@@ -195,11 +195,11 @@ ta_de_ref <- load_ratb_consores_ta_de_reference(
   codes_de_path = "ref/consores_codes_de.csv"
 )
 pmsi_main <- tibble::tibble(
-  PATID = c("P1", "P1", "P5", "P6", "P7"),
-  EVTID = c("E1", "E1", "E5", "E6", "E7"),
+  PATID = c("P1", "P1", "P5", "P6", "P7", "P8"),
+  EVTID = c("E1", "E1", "E5", "E6", "E7", "E8"),
   ELTID = c(
     "PMSI_C", "PMSI_DW_DUPLICATE", "PMSI_DW_ONLY",
-    "PMSI_CROSS_START", "PMSI_AFTER_WINDOW"
+    "PMSI_CROSS_START", "PMSI_AFTER_WINDOW", "PMSI_URGENCES"
   ),
   DATENT = as.POSIXct(
     c(
@@ -207,7 +207,8 @@ pmsi_main <- tibble::tibble(
       "2024-02-01 00:00:00",
       "2024-03-01 00:00:00",
       "2023-12-31 00:00:00",
-      "2025-01-01 00:00:00"
+      "2025-01-01 00:00:00",
+      "2024-04-01 00:00:00"
     ),
     tz = "Europe/Paris"
   ),
@@ -217,16 +218,17 @@ pmsi_main <- tibble::tibble(
       "2024-03-01 00:00:00",
       "2024-03-02 00:00:00",
       "2024-01-02 00:00:00",
-      "2025-01-02 00:00:00"
+      "2025-01-02 00:00:00",
+      "2024-04-02 00:00:00"
     ),
     tz = "Europe/Paris"
   ),
-  SEJUM = rep("INTB", 5L),
-  SEJUF = c("5130", "5130", "5136", "5136", "5136"),
-  SRC = c("C", "DW", "DW", "DW", "DW"),
-  PMSISTATUT = rep("H", 5L),
-  SEJDUR = c("29", "29", "1", "2", "1"),
-  GHM = rep("SYNTHETIC", 5L)
+  SEJUM = c(rep("INTB", 5L), "URGE"),
+  SEJUF = c("5130", "5130", "5136", "5136", "5136", "5701"),
+  SRC = c("C", "DW", "DW", "DW", "DW", "C"),
+  PMSISTATUT = rep("H", 6L),
+  SEJDUR = c("29", "29", "1", "2", "1", "1"),
+  GHM = rep("SYNTHETIC", 6L)
 )
 
 # Why: protects the Rouen adapter integration contract that redsan-normalized
@@ -279,27 +281,33 @@ stopifnot(
     pmsi_handoff$site_inputs$denominator_by_year$hospital_nights,
     31L
   ),
-  identical(pmsi_handoff$audit$source_policy_summary$value, c(5L, 4L)),
+  identical(pmsi_handoff$audit$source_policy_summary$value, c(6L, 5L)),
   identical(
     pmsi_handoff$audit$time_window_summary$value,
-    c(0L, 0L, 1L, 3L)
+    c(0L, 0L, 1L, 4L)
   ),
   nrow(pmsi_handoff$audit$hospital_nights_by_year_unit) == 2L,
   all(vapply(composed$validation, function(x) isTRUE(x$ok), logical(1)))
 )
 
-fine_denominator <-
-  composed_v3$bundle$denominator_bundle$incidence_denominator_by_year_um_uf_ta_de
-fine_annual <- fine_denominator |>
+incidence_exposure <- composed_v3$bundle$denominator_bundle$
+  incidence_exposure_by_year_um_uf_ta_de_profile
+current_profile_annual <- incidence_exposure |>
+  dplyr::filter(
+    .data$denominator_profile_id == "midnight_presence_v1",
+    .data$exposure_unit == "patient_days",
+    .data$CODE_TA %in% c("03", "20"),
+    .data$de_domain_ref %in% ratb_included_ta_de_domains()
+  ) |>
   dplyr::group_by(.data$calendar_year) |>
   dplyr::summarise(
-    hospital_nights = as.integer(sum(.data$hospital_nights)),
+    hospital_nights = as.integer(sum(.data$exposure_value)),
     .groups = "drop"
   )
 
 # Why: protects the Rouen v3 handoff contract: the same eligible PMSI unit
-# stays carry explicit UM, UF, TA and DE dimensions, and their annual sum is
-# identical to the already-ratified v2 denominator.
+# exposure transports mapped TA/DE activity outside today's perimeter while
+# the current profile still derives the already-ratified v2 denominator.
 stopifnot(
   identical(
     names(composed_v3$site_inputs),
@@ -309,26 +317,38 @@ stopifnot(
       "sample_type_mapping",
       "antibiotic_mapping",
       "unit_mapping",
-      "denominator_by_year_um_uf_ta_de"
+      "incidence_exposure_by_year_um_uf_ta_de_profile"
     )
   ),
   identical(composed_v3$bundle$sir_wide_meta$contract_version, "v3"),
   identical(
     names(composed_v3$bundle$denominator_bundle),
-    "incidence_denominator_by_year_um_uf_ta_de"
+    "incidence_exposure_by_year_um_uf_ta_de_profile"
   ),
   identical(
-    names(fine_denominator),
+    names(incidence_exposure),
     c(
       "calendar_year", "SEJUM", "SEJUF", "CODE_TA", "CODE_DE",
-      "hospital_nights"
+      "de_domain_ref", "denominator_profile_id", "exposure_value",
+      "exposure_unit"
     )
   ),
-  !anyNA(fine_denominator),
+  !anyNA(incidence_exposure),
+  any(
+    incidence_exposure$SEJUF == "5701" &
+      incidence_exposure$CODE_TA == "10" &
+      incidence_exposure$de_domain_ref == "URGENCES" &
+      incidence_exposure$exposure_value == 1L
+  ),
+  sum(incidence_exposure$exposure_value) == 32L,
   identical(
-    fine_annual$hospital_nights,
+    current_profile_annual$hospital_nights,
     pmsi_handoff$site_inputs$denominator_by_year$hospital_nights
   ),
+  all(pmsi_handoff$audit$v3_current_profile_identity$difference == 0L),
+  all(c(
+    "sample_CODE_TA", "sample_CODE_DE", "sample_de_domain_ref"
+  ) %in% names(composed_v3$bundle$sample_scope_reference)),
   all(vapply(composed_v3$validation, function(x) isTRUE(x$ok), logical(1)))
 )
 
