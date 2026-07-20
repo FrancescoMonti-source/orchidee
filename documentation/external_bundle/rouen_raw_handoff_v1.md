@@ -27,7 +27,9 @@ completion, deduplication, indicators or reporting.
 
 ## Inputs
 
-The command takes two local RDS files.
+The command takes two local RDS files as positional inputs. Building the two
+PMSI handoff blocks also requires the local unit references and the private
+CONSORES structure workbook described below.
 
 The versioned default window is the half-open interval
 `[2022-01-01, 2025-01-01)`, covering sample years 2022 through 2024. Both
@@ -62,6 +64,22 @@ The adapter reapplies `redsan::prefer_pmsi_src_c_over_dw()` to `pmsi$main`.
 This is idempotent for a current `redsan` 0.2.0 output and safely normalizes
 an older processed local artifact. ORCHIDEE does not reimplement the source
 policy.
+
+### Local unit and CONSORES references
+
+The Rouen producer reads the versioned `ref_uf.txt`, `ref_um.txt`,
+`ref_uf2um.txt` and TA/DE code lists. The institutional structure workbook is
+not public and must not be added to `ref/`. It is read by default from:
+
+```text
+data/consores_structure_intranet_maj_2025.xlsx
+```
+
+Set `ORCHIDEE_CONSORES_STRUCTURE_PATH` when it is stored elsewhere. The
+workbook is a prerequisite of the local Rouen producer and of the legacy
+`chu_native` recompute only. It is not required by the operational
+`external_bundle_v2` runtime, nor by another site's builder when that site
+already supplies a complete `unit_mapping` block.
 
 ## Microbiology decisions
 

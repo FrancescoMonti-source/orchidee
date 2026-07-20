@@ -13,6 +13,15 @@ rouen_raw_handoff_v1_config <- list(
     "BGABMR_R.BGABMR_R2",
     "BGSAMR_R.BGSAMR_R2"
   ),
+  references = list(
+    unit_ref_dir = "ref",
+    consores_structure = Sys.getenv(
+      "ORCHIDEE_CONSORES_STRUCTURE_PATH",
+      unset = file.path("data", "consores_structure_intranet_maj_2025.xlsx")
+    ),
+    codes_ta = file.path("ref", "consores_codes_ta.csv"),
+    codes_de = file.path("ref", "consores_codes_de.csv")
+  ),
   dictionaries = list(
     species = file.path("dictionaries", "species_regex_map.csv"),
     sample_type_rules = file.path(

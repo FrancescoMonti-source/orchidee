@@ -44,8 +44,10 @@ hors noyau gelé de l'étape 1.
 
 # Objet et positionnement du document
 
-Ce document complète `Expression_besoins_RATB_2-10-25.docx`. Il ne remplace ni le document
-d'expression de besoins, ni le rapport indicateurs lui-même.
+Ce document transpose dans une forme versionnée les décisions exécutées à partir du document
+de travail privé `Expression_besoins_RATB_2-10-25.docx`. La frontière entre sources publiques,
+documents locaux et contrats du dépôt est décrite dans
+[`reference_sources.md`](reference_sources.md). Il ne remplace pas le rapport indicateurs.
 
 Son rôle est de décrire, dans un langage métier, les conventions d'implémentation retenues
 pour produire les résultats actuellement publiés, ainsi que les principales limites de la

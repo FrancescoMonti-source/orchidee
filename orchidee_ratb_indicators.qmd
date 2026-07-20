@@ -252,8 +252,11 @@ stopifnot(
 # Rapport indicateurs RATB
 
 Ce document présente la version annuelle actuellement livrée des indicateurs
-RATB issus de `Expression_besoins_RATB_2-10-25.docx`. Il restitue les résultats
-publiés du noyau actuellement disponible et ne reprend pas les audits détaillés
+RATB définis par le catalogue versionné
+[`documentation/ratb_indicator_spec.csv`](documentation/ratb_indicator_spec.csv).
+La provenance méthodologique et les documents privés sont distingués dans
+[`documentation/reference_sources.md`](documentation/reference_sources.md).
+Il restitue les résultats publiés du noyau actuellement disponible et ne reprend pas les audits détaillés
 de qualité, de périmètre ou de validation, qui restent dans les artefacts du
 runtime et les documents méthodologiques.
 La méthode détaillée, les conventions ORCHIDEE et les choix d'implémentation
