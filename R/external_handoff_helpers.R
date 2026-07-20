@@ -825,7 +825,90 @@ orchidee_handoff_build_sample_scope_reference <- function(
   )
 }
 
-orchidee_handoff_build_denominator_bundle <- function(denominator_by_year) {
+orchidee_handoff_build_denominator_bundle <- function(
+    denominator_by_year = NULL,
+    denominator_by_year_um_uf_ta_de = NULL,
+    contract = orchidee_external_contract_v1()
+  ) {
+  if (identical(contract$version, "v3")) {
+    orchidee_handoff_require_functions(c(
+      "ratb_normalize_code_ta",
+      "ratb_normalize_code_de"
+    ))
+    fine <- denominator_by_year_um_uf_ta_de
+    if (!is.data.frame(fine)) {
+      stop(
+        "denominator_by_year_um_uf_ta_de must be a data frame for contract v3.",
+        call. = FALSE
+      )
+    }
+    required_cols <- c(
+      "calendar_year", "SEJUM", "SEJUF", "CODE_TA", "CODE_DE",
+      "hospital_nights"
+    )
+    missing_cols <- setdiff(required_cols, names(fine))
+    if (length(missing_cols) > 0L) {
+      stop(
+        "denominator_by_year_um_uf_ta_de is missing required columns: ",
+        paste(missing_cols, collapse = ", "),
+        call. = FALSE
+      )
+    }
+
+    canonical_fine <- data.frame(
+      calendar_year = orchidee_handoff_integerish_vector(
+        fine$calendar_year,
+        "denominator_by_year_um_uf_ta_de$calendar_year"
+      ),
+      SEJUM = orchidee_handoff_trim_or_na(fine$SEJUM),
+      SEJUF = orchidee_handoff_trim_or_na(fine$SEJUF),
+      CODE_TA = ratb_normalize_code_ta(fine$CODE_TA),
+      CODE_DE = ratb_normalize_code_de(fine$CODE_DE),
+      hospital_nights = orchidee_handoff_integerish_vector(
+        fine$hospital_nights,
+        "denominator_by_year_um_uf_ta_de$hospital_nights"
+      ),
+      stringsAsFactors = FALSE
+    )
+    missing_dimension <- vapply(
+      canonical_fine[required_cols],
+      function(x) any(is.na(x)),
+      logical(1)
+    )
+    if (any(missing_dimension)) {
+      stop(
+        "denominator_by_year_um_uf_ta_de must not contain missing values in: ",
+        paste(names(missing_dimension)[missing_dimension], collapse = ", "),
+        call. = FALSE
+      )
+    }
+    if (any(canonical_fine$hospital_nights < 0L)) {
+      stop(
+        "denominator_by_year_um_uf_ta_de$hospital_nights must be non-negative.",
+        call. = FALSE
+      )
+    }
+    grain_cols <- setdiff(required_cols, "hospital_nights")
+    if (any(duplicated(canonical_fine[grain_cols]))) {
+      stop(
+        "denominator_by_year_um_uf_ta_de contains duplicate rows at grain ",
+        paste(grain_cols, collapse = " + "),
+        ".",
+        call. = FALSE
+      )
+    }
+    canonical_fine <- canonical_fine[
+      do.call(order, canonical_fine[grain_cols]),
+      ,
+      drop = FALSE
+    ]
+    row.names(canonical_fine) <- NULL
+
+    return(list(
+      incidence_denominator_by_year_um_uf_ta_de = canonical_fine
+    ))
+  }
+
   if (!is.data.frame(denominator_by_year)) {
     stop("denominator_by_year must be a data frame.", call. = FALSE)
   }
@@ -867,9 +950,10 @@ orchidee_handoff_build_denominator_bundle <- function(denominator_by_year) {
 orchidee_handoff_build_external_bundle <- function(
     sir_wide,
     unit_mapping,
-    denominator_by_year,
+    denominator_by_year = NULL,
     de_reference = NULL,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v1(),
+    denominator_by_year_um_uf_ta_de = NULL
   ) {
   list(
     sir_wide = sir_wide,
@@ -882,7 +966,9 @@ orchidee_handoff_build_external_bundle <- function(
       de_reference = de_reference
     ),
     denominator_bundle = orchidee_handoff_build_denominator_bundle(
-      denominator_by_year = denominator_by_year
+      denominator_by_year = denominator_by_year,
+      denominator_by_year_um_uf_ta_de = denominator_by_year_um_uf_ta_de,
+      contract = contract
     )
   )
 }
@@ -893,9 +979,10 @@ orchidee_handoff_build_external_bundle_from_site_inputs <- function(
     sample_type_mapping,
     antibiotic_mapping,
     unit_mapping,
-    denominator_by_year,
+    denominator_by_year = NULL,
     de_reference = NULL,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v1(),
+    denominator_by_year_um_uf_ta_de = NULL
   ) {
   sir_wide <- orchidee_handoff_build_sir_wide_from_microbiology(
     microbiology_observations = microbiology_observations,
@@ -910,6 +997,7 @@ orchidee_handoff_build_external_bundle_from_site_inputs <- function(
     unit_mapping = unit_mapping,
     denominator_by_year = denominator_by_year,
     de_reference = de_reference,
-    contract = contract
+    contract = contract,
+    denominator_by_year_um_uf_ta_de = denominator_by_year_um_uf_ta_de
   )
 }

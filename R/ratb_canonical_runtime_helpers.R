@@ -99,14 +99,41 @@ build_ratb_analytic_scope_dataset <- function(sir_wide_ratb_scope) {
 extract_incidence_denominator_by_year <- function(denominator_bundle) {
   stopifnot(is.list(denominator_bundle))
 
-  if (is.data.frame(denominator_bundle$incidence_denominator_by_year)) {
-    return(denominator_bundle$incidence_denominator_by_year)
+  annual <- denominator_bundle[["incidence_denominator_by_year"]]
+  if (is.data.frame(annual)) {
+    return(annual)
+  }
+
+  fine <- denominator_bundle[[
+    "incidence_denominator_by_year_um_uf_ta_de"
+  ]]
+  if (is.data.frame(fine)) {
+    return(
+      fine %>%
+        dplyr::group_by(.data$calendar_year) %>%
+        dplyr::summarise(
+          hospital_nights = as.integer(sum(.data$hospital_nights)),
+          .groups = "drop"
+        ) %>%
+        dplyr::arrange(.data$calendar_year)
+    )
   }
 
   stop(
-    "denominator_bundle must contain incidence_denominator_by_year.",
+    "denominator_bundle must contain incidence_denominator_by_year or ",
+    "incidence_denominator_by_year_um_uf_ta_de.",
     call. = FALSE
   )
+}
+
+extract_incidence_denominator_by_year_um_uf_ta_de <- function(
+    denominator_bundle
+  ) {
+  stopifnot(is.list(denominator_bundle))
+  fine <- denominator_bundle[[
+    "incidence_denominator_by_year_um_uf_ta_de"
+  ]]
+  if (is.data.frame(fine)) fine else NULL
 }
 
 build_ratb_downstream_scope_from_canonical_inputs <- function(
@@ -123,19 +150,26 @@ build_ratb_downstream_scope_from_canonical_inputs <- function(
   incidence_denominator_by_year <- extract_incidence_denominator_by_year(
     denominator_bundle
   )
+  incidence_denominator_by_year_um_uf_ta_de <-
+    extract_incidence_denominator_by_year_um_uf_ta_de(denominator_bundle)
 
   sir_wide_ratb_scope <- apply_ratb_sample_ta_de_scope(
     sir_wide = sir_wide,
     sample_scope_reference = sample_scope_reference
   )
 
-  list(
+  runtime_inputs <- list(
     sir_wide_ratb_scope = sir_wide_ratb_scope,
     sir_wide_ratb_analytic_scope = build_ratb_analytic_scope_dataset(
       sir_wide_ratb_scope
     ),
     incidence_denominator_by_year = incidence_denominator_by_year
   )
+  if (is.data.frame(incidence_denominator_by_year_um_uf_ta_de)) {
+    runtime_inputs$incidence_denominator_by_year_um_uf_ta_de <-
+      incidence_denominator_by_year_um_uf_ta_de
+  }
+  runtime_inputs
 }
 
 ratb_runtime_add_issue <- function(issues, text) {
@@ -287,6 +321,86 @@ validate_ratb_canonical_runtime_inputs <- function(runtime_inputs, sir_wide = NU
           errors,
           "incidence_denominator_by_year contains negative nights."
         )
+      }
+    }
+  }
+
+  fine_denominator <-
+    runtime_inputs$incidence_denominator_by_year_um_uf_ta_de
+  if (!is.null(fine_denominator)) {
+    fine_cols <- c(
+      "calendar_year", "SEJUM", "SEJUF", "CODE_TA", "CODE_DE",
+      "hospital_nights"
+    )
+    fine_key <- setdiff(fine_cols, "hospital_nights")
+    if (!is.data.frame(fine_denominator)) {
+      errors <- ratb_runtime_add_issue(
+        errors,
+        "incidence_denominator_by_year_um_uf_ta_de is not a data frame."
+      )
+    } else {
+      missing_fine_cols <- setdiff(fine_cols, names(fine_denominator))
+      if (length(missing_fine_cols) > 0L) {
+        errors <- ratb_runtime_add_issue(
+          errors,
+          paste0(
+            "incidence_denominator_by_year_um_uf_ta_de is missing columns: ",
+            paste(missing_fine_cols, collapse = ", ")
+          )
+        )
+      } else {
+        if (!ratb_runtime_is_integerish(fine_denominator$calendar_year) ||
+            !ratb_runtime_is_integerish(fine_denominator$hospital_nights)) {
+          errors <- ratb_runtime_add_issue(
+            errors,
+            paste0(
+              "incidence_denominator_by_year_um_uf_ta_de calendar_year and ",
+              "hospital_nights must be integer-like."
+            )
+          )
+        }
+        bad_character <- c("SEJUM", "SEJUF", "CODE_TA", "CODE_DE")[
+          !vapply(
+            fine_denominator[c("SEJUM", "SEJUF", "CODE_TA", "CODE_DE")],
+            is.character,
+            logical(1)
+          )
+        ]
+        if (length(bad_character) > 0L) {
+          errors <- ratb_runtime_add_issue(
+            errors,
+            paste0(
+              "incidence_denominator_by_year_um_uf_ta_de columns must be character: ",
+              paste(bad_character, collapse = ", ")
+            )
+          )
+        }
+        if (any(vapply(
+          fine_denominator[fine_cols],
+          function(x) any(is.na(x)),
+          logical(1)
+        ))) {
+          errors <- ratb_runtime_add_issue(
+            errors,
+            "incidence_denominator_by_year_um_uf_ta_de contains missing values."
+          )
+        }
+        if (any(duplicated(fine_denominator[fine_key]))) {
+          errors <- ratb_runtime_add_issue(
+            errors,
+            paste0(
+              "incidence_denominator_by_year_um_uf_ta_de contains duplicate ",
+              "rows at its declared grain."
+            )
+          )
+        }
+        if (is.numeric(fine_denominator$hospital_nights) &&
+            any(fine_denominator$hospital_nights < 0, na.rm = TRUE)) {
+          errors <- ratb_runtime_add_issue(
+            errors,
+            "incidence_denominator_by_year_um_uf_ta_de contains negative nights."
+          )
+        }
       }
     }
   }

@@ -16,20 +16,33 @@ setwd(project_root)
 
 args <- commandArgs(trailingOnly = TRUE)
 force <- "--force" %in% args
-args <- setdiff(args, "--force")
+contract_args <- grep("^--contract=", args, value = TRUE)
+if (length(contract_args) > 1L) {
+  stop("Pass at most one --contract option.", call. = FALSE)
+}
+contract_version <- if (length(contract_args) == 0L) {
+  "v1"
+} else {
+  sub("^--contract=", "", contract_args[[1L]])
+}
+if (!contract_version %in% c("v1", "v2", "v3")) {
+  stop("--contract must be v1, v2 or v3.", call. = FALSE)
+}
+args <- setdiff(args, c("--force", contract_args))
 
 if (length(args) < 4L || length(args) > 5L || "--help" %in% args || "-h" %in% args) {
   cat(
     "Usage:\n",
     "  Rscript scripts/build_external_bundle_from_handoff_inputs.R \\\n",
     "    <sir_wide.rds> <unit_mapping.{rds,csv,tsv}> \\\n",
-    "    <denominator_by_year.{rds,csv,tsv}> <output_bundle_dir> \\\n",
-    "    [de_reference.{rds,csv,tsv}] [--force]\n\n",
+    "    <denominator.{rds,csv,tsv}> <output_bundle_dir> \\\n",
+    "    [de_reference.{rds,csv,tsv}] [--contract=v1|v2|v3] [--force]\n\n",
     "Inputs:\n",
     "  sir_wide.rds: canonical wide microbiology artifact.\n",
     "  unit_mapping: one row per SEJUF with CODE_TA and either de_domain_ref\n",
     "    or CODE_DE plus a de_reference table.\n",
-    "  denominator_by_year: calendar_year + hospital_nights.\n",
+    "  denominator: v1/v2 use calendar_year + hospital_nights; v3 uses\n",
+    "    calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + hospital_nights.\n",
     "  de_reference: optional CODE_DE + de_domain_ref/DOMAINE dictionary.\n",
     sep = ""
   )
@@ -57,17 +70,33 @@ if (!identical(tolower(tools::file_ext(sir_wide_path)), "rds")) {
 
 sir_wide <- readRDS(sir_wide_path)
 unit_mapping <- orchidee_handoff_read_table(unit_mapping_path)
-denominator_by_year <- orchidee_handoff_read_table(denominator_path)
+denominator_input <- orchidee_handoff_read_table(denominator_path)
 de_reference <- NULL
 if (!is.na(de_reference_path) && nzchar(de_reference_path)) {
   de_reference <- orchidee_handoff_read_table(de_reference_path)
 }
 
+contract <- switch(
+  contract_version,
+  v1 = orchidee_external_contract_v1(),
+  v2 = orchidee_external_contract_v2(),
+  v3 = orchidee_external_contract_v3()
+)
 bundle <- orchidee_handoff_build_external_bundle(
   sir_wide = sir_wide,
   unit_mapping = unit_mapping,
-  denominator_by_year = denominator_by_year,
-  de_reference = de_reference
+  denominator_by_year = if (identical(contract_version, "v3")) {
+    NULL
+  } else {
+    denominator_input
+  },
+  de_reference = de_reference,
+  contract = contract,
+  denominator_by_year_um_uf_ta_de = if (identical(contract_version, "v3")) {
+    denominator_input
+  } else {
+    NULL
+  }
 )
 
 dir.create(output_bundle_dir, recursive = TRUE, showWarnings = FALSE)
@@ -101,6 +130,7 @@ saveRDS(
 
 report <- validate_external_input_bundle(
   bundle_dir = output_bundle_dir,
+  contract = contract,
   strict_preferred = TRUE
 )
 print_external_input_bundle_validation(report)
@@ -108,4 +138,8 @@ if (!isTRUE(report$ok)) {
   quit(status = 1L)
 }
 
-cat("Built strict preferred ORCHIDEE external bundle: ", output_bundle_dir, "\n", sep = "")
+cat(
+  "Built strict preferred ORCHIDEE ", contract_version,
+  " external bundle: ", output_bundle_dir, "\n",
+  sep = ""
+)
