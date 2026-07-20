@@ -17,12 +17,15 @@ Ce document s'adresse aux mainteneurs. Il répond à deux questions :
     l'artefact S/I/R large.
 2.  Construire le périmètre analytique d'hospitalisation et les objets
     annuels de dénominateur en nuits d'hospitalisation.
-3.  Construire les jeux de données de complétion selon plusieurs
-    stratégies.
-4.  Exécuter un dédoublonnage de type SPARES sur chaque jeu comparé.
-5.  Calculer les panels annuels d'indicateurs RATB.
-6.  Rendre le rapport produit et les documents méthodologiques de
+3.  Exécuter le dédoublonnage SPARES brut, global et par type de prélèvement.
+4.  Calculer les panels annuels d'indicateurs RATB.
+5.  Rendre le rapport produit et les documents méthodologiques de
     support.
+
+La complétion reste actuellement imbriquée dans le notebook de dédoublonnage,
+mais elle n'appartient pas à la méthode canonique. La décision ratifiée est de
+la déplacer vers un diagnostic opt-in séparé. La vue d'ensemble et l'état de
+cette transition sont documentés dans `documentation/operational_flow_v2.md`.
 
 ## Frontière opérationnelle vers le coeur ORCHIDEE
 
@@ -81,6 +84,11 @@ Les tables comme `ratb_scope_join_audit`, `hospital_stays_validated`,
 `hospital_days_year_summary` ou `incidence_denominator_pmsi_ta_de_audit`
 restent du contexte de QA natif CHU. Elles aident à comprendre le workflow
 actuel, mais elles ne font pas partie du contrat portable minimal.
+
+Le dénominateur portable actuel est annuel. Une future stratification de la
+densité d'incidence doit promouvoir la table fine
+`calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + hospital_nights` dans un
+nouveau contrat ; elle ne peut pas être reconstruite depuis le total annuel.
 
 Pour brancher Rennes ou un autre entrepôt, ne pas utiliser cette carte comme
 contrat d'onboarding. La source de vérité est
