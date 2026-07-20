@@ -296,6 +296,7 @@ load_ratb_consores_ta_de_reference <- function(
   required_structure_cols <- c(
     "UF",
     "Libellé UF (libellé de référence)",
+    "Libellé court UF",
     "CODE_TA",
     "Libellé type activité - Uf",
     "CODE_DE",
@@ -1225,7 +1226,10 @@ build_ratb_provisional_perimeter_audit <- function(
     pmsi_main,
     pmsi_event_bounds,
     status_lookup = NULL,
-    structure_path = file.path("ref", "consores_structure_intranet_maj_2025.xlsx"),
+    structure_path = Sys.getenv(
+      "ORCHIDEE_CONSORES_STRUCTURE_PATH",
+      unset = file.path("data", "consores_structure_intranet_maj_2025.xlsx")
+    ),
     codes_ta_path = file.path("ref", "consores_codes_ta.csv"),
     codes_de_path = file.path("ref", "consores_codes_de.csv"),
     ref_dir = "ref"

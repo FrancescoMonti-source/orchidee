@@ -56,7 +56,10 @@ build_chu_incidence_denominator_by_year <- function(
 build_chu_native_ratb_scope_cache_payload <- function(
     sir_wide,
     pmsi_path_candidates = c("pmsi", file.path("data", "pmsi")),
-    structure_path = file.path("ref", "consores_structure_intranet_maj_2025.xlsx"),
+    structure_path = Sys.getenv(
+      "ORCHIDEE_CONSORES_STRUCTURE_PATH",
+      unset = file.path("data", "consores_structure_intranet_maj_2025.xlsx")
+    ),
     codes_ta_path = file.path("ref", "consores_codes_ta.csv"),
     codes_de_path = file.path("ref", "consores_codes_de.csv"),
     ref_dir = "ref"

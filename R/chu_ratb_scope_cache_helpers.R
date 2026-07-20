@@ -159,7 +159,10 @@ chu_ratb_scope_cache_canonical_inputs_match <- function(loaded_meta, current_met
 
 chu_ratb_resolve_ref_paths <- function(
     ref_dir = "ref",
-    structure_path = file.path(ref_dir, "consores_structure_intranet_maj_2025.xlsx"),
+    structure_path = Sys.getenv(
+      "ORCHIDEE_CONSORES_STRUCTURE_PATH",
+      unset = file.path("data", "consores_structure_intranet_maj_2025.xlsx")
+    ),
     codes_ta_path = file.path(ref_dir, "consores_codes_ta.csv"),
     codes_de_path = file.path(ref_dir, "consores_codes_de.csv")
   ) {
@@ -361,7 +364,10 @@ load_or_build_chu_ratb_scope_cache <- function(
     data_dir = "data",
     recompute = FALSE,
     ref_dir = "ref",
-    structure_path = file.path(ref_dir, "consores_structure_intranet_maj_2025.xlsx"),
+    structure_path = Sys.getenv(
+      "ORCHIDEE_CONSORES_STRUCTURE_PATH",
+      unset = file.path("data", "consores_structure_intranet_maj_2025.xlsx")
+    ),
     codes_ta_path = file.path(ref_dir, "consores_codes_ta.csv"),
     codes_de_path = file.path(ref_dir, "consores_codes_de.csv"),
     pmsi_path_candidates = c("pmsi", file.path(data_dir, "pmsi")),

@@ -43,6 +43,8 @@ if (help || length(args) != 3L) {
     "  site_inputs/: the six explicit handoff tables for the selected contract.\n",
     "  bundle/: the four validated canonical bundle files.\n",
     "  adapter_audit.rds: local audit; it may contain patient identifiers.\n",
+    "References:\n",
+    "  Set ORCHIDEE_CONSORES_STRUCTURE_PATH to override the private local workbook.\n",
     "Default contract: v2. Contract v3 transports profiled UM/UF/TA/DE exposure.\n",
     sep = ""
   )
@@ -122,11 +124,11 @@ microbiology_handoff <- build_rouen_microbiology_handoff_v1(
   antibiotic_expansion = antibiotic_expansion,
   supported_species_antibiotics = supported_pairs
 )
-unit_refs <- load_ratb_unit_references(ref_dir = "ref")
+unit_refs <- load_ratb_unit_references(ref_dir = config$references$unit_ref_dir)
 ta_de_ref <- load_ratb_consores_ta_de_reference(
-  structure_path = "ref/consores_structure_intranet_maj_2025.xlsx",
-  codes_ta_path = "ref/consores_codes_ta.csv",
-  codes_de_path = "ref/consores_codes_de.csv"
+  structure_path = config$references$consores_structure,
+  codes_ta_path = config$references$codes_ta,
+  codes_de_path = config$references$codes_de
 )
 pmsi_handoff <- build_rouen_pmsi_handoff_v1(
   sample_context = microbiology_handoff$sample_context,
@@ -203,6 +205,14 @@ input_paths <- c(
   pmsi = pmsi_path
 )
 dictionary_paths <- unlist(config$dictionaries, use.names = TRUE)
+reference_paths <- c(
+  consores_structure = config$references$consores_structure,
+  codes_ta = config$references$codes_ta,
+  codes_de = config$references$codes_de,
+  unit_uf = file.path(config$references$unit_ref_dir, "ref_uf.txt"),
+  unit_um = file.path(config$references$unit_ref_dir, "ref_um.txt"),
+  unit_uf_to_um = file.path(config$references$unit_ref_dir, "ref_uf2um.txt")
+)
 audit$metadata <- list(
   adapter_version = config$adapter_version,
   contract_version = contract_version,
@@ -221,6 +231,11 @@ audit$metadata <- list(
   dictionary_signatures = tibble::tibble(
     dictionary = names(dictionary_paths),
     md5 = unname(tools::md5sum(dictionary_paths))
+  ),
+  reference_signatures = tibble::tibble(
+    reference = names(reference_paths),
+    bytes = unname(file.info(reference_paths)$size),
+    md5 = unname(tools::md5sum(reference_paths))
   )
 )
 audit$runtime_validation <- runtime_validation
