@@ -343,7 +343,8 @@ ORCHIDEE owns:
   level, with the composite identity and missing-`EVTID` fallback described
   under File 1;
 - applying the RATB perimeter;
-- running completion, deduplication and indicator calculation.
+- running raw deduplication and indicator calculation;
+- exposing completion only as a separate opt-in diagnostic.
 
 ## Advanced note
 

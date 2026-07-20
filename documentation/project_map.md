@@ -466,7 +466,7 @@ Commencer par :
 Commencer par :
 
 -   `R/completion_helpers.R`
--   puis rerendre `full`
+-   puis rerendre `completion`
 
 ### Changer la logique de périmètre d'hospitalisation ou de dénominateur d'incidence
 
