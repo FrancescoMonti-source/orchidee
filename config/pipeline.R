@@ -28,9 +28,14 @@ orchidee_config <- list(
     dictionaries_dir = "dictionaries",
     ref_dir = "ref",
     documentation_dir = "documentation",
-    consores_structure_path = file.path(
-      "ref",
-      "consores_structure_intranet_maj_2025.xlsx"
+    # The institutional structure workbook is a private operational input.
+    # Keep it outside Git and override the local default when needed.
+    consores_structure_path = Sys.getenv(
+      "ORCHIDEE_CONSORES_STRUCTURE_PATH",
+      unset = file.path(
+        "data",
+        "consores_structure_intranet_maj_2025.xlsx"
+      )
     ),
     consores_codes_ta_path = file.path("ref", "consores_codes_ta.csv"),
     consores_codes_de_path = file.path("ref", "consores_codes_de.csv"),

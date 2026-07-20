@@ -32,10 +32,16 @@ d'affichage.
 
 Les tables de règles analytiques maintenues par le projet doivent rester
 dans `rules/` lorsqu'elles existent.
-Les dictionnaires biologiques restent dans `dictionaries/` et les
-référentiels institutionnels importés restent dans `ref/`, y compris les
-référentiels CONSORES TA/DE actifs du périmètre RATB.
+Les dictionnaires biologiques restent dans `dictionaries/`. Les tables de
+codes publiables restent dans `ref/`. Les inputs institutionnels privés ne
+doivent pas y être ajoutés : le classeur de structure CONSORES reste sous
+`data/` ou dans un emplacement protégé désigné par
+`ORCHIDEE_CONSORES_STRUCTURE_PATH`.
 Les fichiers de présentation Quarto restent dans `assets/`.
+
+```powershell
+$env:ORCHIDEE_CONSORES_STRUCTURE_PATH = "C:\chemin\protege\structure.xlsx"
+```
 
 ## Dépendances R
 
@@ -250,7 +256,8 @@ Ce rendu reste diagnostique et n'écrit pas dans le cache opérationnel brut.
     garder `main` propre.
 -   Traiter les sorties HTML comme des artefacts dérivés, pas comme la
     source.
--   Garder `data/` pour les artefacts internes générés.
+-   Garder `data/` pour les artefacts internes générés et les inputs privés
+    nécessaires au runtime local.
 -   Garder `downloads/` pour les artefacts d'export produits par les
     rapports.
 -   Garder `outputs/` comme espace local ignoré par Git pour brouillons,
