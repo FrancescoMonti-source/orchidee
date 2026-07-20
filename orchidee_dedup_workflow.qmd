@@ -1,5 +1,5 @@
 ---
-title: "ORCHIDEE Dedup Framework"
+title: "ORCHIDEE Completion Diagnostic"
 engine: knitr
 format:
   html:
@@ -72,9 +72,17 @@ orchidee_source_required_script(
   "RATB operational input helpers"
 )
 ratb_operational_context <- resolve_ratb_operational_context(orchidee_config)
-dir.create(ratb_operational_context$cache_dir, recursive = TRUE, showWarnings = FALSE)
-dir.create(ratb_operational_context$download_dir, recursive = TRUE, showWarnings = FALSE)
-download_dir <- ratb_operational_context$download_dir
+completion_diagnostic_cache_dir <- file.path(
+  ratb_operational_context$cache_dir,
+  "completion_diagnostic"
+)
+completion_diagnostic_download_dir <- file.path(
+  ratb_operational_context$download_dir,
+  "completion_diagnostic"
+)
+dir.create(completion_diagnostic_cache_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(completion_diagnostic_download_dir, recursive = TRUE, showWarnings = FALSE)
+download_dir <- completion_diagnostic_download_dir
 datatable_digits <- orchidee_config$report$datatable_digits
 datatable_filter_default <- orchidee_config$report$datatable_filter_default
 datatable_initial_zoom <- orchidee_config$report$datatable_initial_zoom
@@ -176,7 +184,8 @@ operational_runtime <- load_ratb_operational_runtime(
   chu_cache_policy = "load_or_build"
 )
 ratb_operational_context <- operational_runtime$context
-cache_dir <- ratb_operational_context$cache_dir
+cache_dir <- file.path(ratb_operational_context$cache_dir, "completion_diagnostic")
+dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
 sir_wide_meta <- operational_runtime$sir_wide_meta
 sir_wide <- operational_runtime$sir_wide
 
@@ -848,6 +857,11 @@ show_download_button(
 ```
 
 # Completion
+
+This notebook is an optional diagnostic. Its caches and downloads are isolated
+under `completion_diagnostic/`; they never feed the canonical raw indicator
+report. Run it explicitly with
+`scripts/render_orchidee.ps1 -Target completion`.
 
 ## Execution
 

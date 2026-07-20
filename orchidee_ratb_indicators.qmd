@@ -96,14 +96,6 @@ orchidee_source_required_script(
   "spares_dedup script"
 )
 orchidee_source_required_script(
-  "completion_helpers.R",
-  "completion_helpers script"
-)
-orchidee_source_required_script(
-  "completion_workflow_helpers.R",
-  "completion_workflow_helpers script"
-)
-orchidee_source_required_script(
   "ratb_indicator_helpers.R",
   "ratb_indicator_helpers script"
 )
@@ -216,7 +208,7 @@ for (candidate in dedup_cache_candidates) {
 
 if (is.null(dedup_results) || is.null(dedup_cache_meta)) {
   stop(
-    "Missing dedup cache artifacts. Render orchidee_dedup_workflow.qmd first.",
+    "Missing canonical raw dedup cache. Run scripts/build_ratb_raw_runtime.R first.",
     call. = FALSE
   )
 }
@@ -228,7 +220,7 @@ if (!"runtime_input_signature" %in% names(dedup_cache_meta) ||
     )) {
   stop(
     "Dedup cache does not match the selected RATB operational input. ",
-    "Render orchidee_dedup_workflow.qmd first.",
+    "Run scripts/build_ratb_raw_runtime.R first.",
     call. = FALSE
   )
 }
@@ -245,7 +237,7 @@ stop_if_invalid_ratb_canonical_runtime_inputs(
 
 stopifnot(
   is.list(dedup_results),
-  length(dedup_results) > 0L,
+  identical(names(dedup_results), "sir_wide_raw"),
   all(vapply(
     dedup_results,
     function(x) is.list(x) && all(c("global", "by_type") %in% names(x)),
@@ -262,8 +254,8 @@ stopifnot(
 Ce document présente la version annuelle actuellement livrée des indicateurs
 RATB issus de `Expression_besoins_RATB_2-10-25.docx`. Il restitue les résultats
 publiés du noyau actuellement disponible et ne reprend pas les audits détaillés
-de qualité, de périmètre ou de validation, qui restent documentés dans
-`orchidee_dedup_workflow.qmd`.
+de qualité, de périmètre ou de validation, qui restent dans les artefacts du
+runtime et les documents méthodologiques.
 La méthode détaillée, les conventions ORCHIDEE et les choix d'implémentation
 sont décrits dans
 [`documentation/ratb_implementation_decisions.html`](documentation/ratb_implementation_decisions.html).
@@ -279,13 +271,13 @@ sont décrits dans
 5. Terminer par les sorties par type, limitées ici à `hemoculture` et `urines`.
 6. Les indicateurs phénotypiques publiés couvrent désormais la grille canonique `2 taxons × 2 phénotypes × 2 métriques` pour `K. pneumoniae` et `Enterobacterales` ; une sortie additionnelle de compatibilité reste publiée pour respecter la demande actuelle : `K. pneumoniae` carbapénémase en proportion sur `hemoculture`.
 7. Ce rapport correspond à la livraison annuelle actuelle ; il ne couvre pas encore la déclinaison trimestrielle ni les autres stratifications demandées dans l'expression de besoins.
-8. Pour la méthode détaillée et les validations, se reporter au mémo d'implémentation et au notebook interne de validation.
+8. Pour la méthode détaillée et les validations, se reporter au mémo d'implémentation et à `documentation/operational_flow_v2.md`.
 9. Les cartes thermiques utilisent une transformation de couleur réglée par `ratb_fill_transform` ; avec `"sqrt"`, les faibles écarts deviennent plus visibles (et le gros écarts moins visibles).
 10. Les cartes thermiques de densité d'incidence partagent une borne supérieure commune, réglée par `ratb_incidence_fill_limit_mode`, afin de rendre les taxons comparables entre eux. La borne supérieure actuelle est provisoire.
 
 ## Périmètre de livraison
 
-- le même périmètre analytique hospitalisation éligible alimente la complétion, la déduplication, les proportions annuelles de résistance, la densité d'incidence et les nuits d'hospitalisation éligibles
+- le même périmètre analytique hospitalisation éligible alimente la déduplication, les proportions annuelles de résistance, la densité d'incidence et les nuits d'hospitalisation éligibles
 - la densité d'incidence annuelle est publiée en vue globale uniquement ; elle se distingue des proportions par sa métrique finale, avec un dénominateur en nuits d'hospitalisation éligibles
 - le même catalogue biologique pilote les deux familles de métriques, avec des contrôles explicites de publication pour respecter la matrice demandée ; les familles actuellement normées sont `Fluoroquinolones = ofloxacine + levofloxacine + moxifloxacine + ciprofloxacine`, `C3G = cefotaxime + ceftazidime + ceftriaxone` et `Carbapénèmes = ertapénème + imipénème + méropénème`
 - les vues par type restent limitées à `hemoculture` et `urines`
@@ -295,21 +287,15 @@ sont décrits dans
 - la déclinaison trimestrielle et les autres stratifications demandées (âge, sexe, infection, site de prélèvement, service, établissement, etc.) **ne sont pas encore** publiées dans ce rapport
 - le catalogue de référence est `documentation/ratb_indicator_spec.csv`
 
-## Jeux comparés
+## Jeu publié
 
-Les jeux comparés dans les tableaux et les cartes thermiques sont affichés sous des
-libellés courts :
+Le rapport opérationnel utilise uniquement :
 
-- `brut` : données sans complétion additionnelle ;
-- `compl. date` : complétion à la date de prélèvement au sein du séjour ;
-- `compl. séjour` : complétion au niveau du séjour ;
-- `compl. patient 30 j` : complétion au niveau du patient sur 30 jours ;
-- `compl. patient année` : complétion au niveau du patient sur l'année civile.
+- `brut` : données sans complétion additionnelle.
 
-Ces cinq jeux ne correspondent pas à cinq produits concurrents. Ils sont comparés en amont
-pour évaluer si la complétion modifie suffisamment les sorties dédupliquées pour justifier
-son maintien. La complétion doit donc être lue ici comme une analyse exploratoire, et non
-comme une exigence explicite de l'expression de besoins ni comme une logique SPARES stricte.
+Les quatre stratégies exploratoires de complétion ont été déplacées dans le
+diagnostic opt-in `orchidee_dedup_workflow.qmd`. Elles ne définissent pas les
+sorties opérationnelles.
 ```{r}
 #| label: ratb_indicator_controls_to_tweak
 #| #| echo: false
@@ -322,11 +308,7 @@ recompute_incidence_pipeline <- orchidee_config$cache$recompute_incidence_pipeli
 ratb_incidence_excluded_years <- orchidee_config$ratb$incidence_excluded_years
 
 ratb_dataset_display_map <- c(
-  sir_wide_raw = "brut",
-  completion_date = "compl. date",
-  completion_evtid = "compl. séjour",
-  completion_patid_30d = "compl. patient 30 j",
-  completion_patid_year = "compl. patient année"
+  sir_wide_raw = "brut"
 )
 
 ratb_indicator_axis_text_x_size <- 9

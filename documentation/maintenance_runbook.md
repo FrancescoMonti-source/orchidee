@@ -21,6 +21,7 @@ Cibles disponibles :
 -   `memo`
 -   `docs`
 -   `indicators`
+-   `completion`
 -   `full`
 
 ## Point d'entrée des réglages
@@ -102,6 +103,18 @@ complet :
 & .\scripts\render_orchidee.ps1 -Target full
 ```
 
+`full` construit le cache RATB brut canonique puis rend le rapport
+d'indicateurs. La complétion ne fait pas partie de ce chemin.
+
+Pour exécuter explicitement le diagnostic de complétion :
+
+```powershell
+& .\scripts\render_orchidee.ps1 -Target completion
+```
+
+Ses caches et téléchargements sont isolés dans un sous-dossier
+`completion_diagnostic/` du workspace sélectionné.
+
 Pour utiliser un bundle ou un workspace protégé situé ailleurs :
 
 ```powershell
@@ -111,7 +124,7 @@ $env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = "C:\chemin\protege\runtime"
 ```
 
 Le loader exige les quatre fichiers préférés du contrat v2 et échoue sans
-fallback vers CHU ou v1. Completion, dédoublonnage et téléchargements sont
+fallback vers CHU ou v1. Cache brut, dédoublonnage et téléchargements sont
 écrits sous le workspace externe, pas dans `data/` ni `downloads/`.
 
 Le mode `chu_native` est conservé uniquement comme chemin legacy explicite de
@@ -150,10 +163,9 @@ Rscript scripts/characterize_current_outputs.R check
 Si `Rscript` n'est pas disponible dans le `PATH`, utiliser le chemin complet
 de l'installation R locale.
 
-Cette vérification compare des signatures agrégées des artefacts
-canoniques, des jeux de complétion, des sorties de dédoublonnage et des
-panels d'indicateurs recalculés depuis les caches. Elle sert à détecter
-un changement non intentionnel ; elle ne remplace pas le rendu Quarto.
+Cet ancien helper caractérise les artefacts locaux `chu_native`, y compris les
+jeux de complétion historiques. Il ne constitue pas le gate du runtime v2.
+Pour v2, comparer le cache brut isolé et les panels produits sur le même bundle.
 
 ## Matrice de rendu
 
@@ -194,7 +206,6 @@ Commande :
 
 Exemples :
 
--   complétion
 -   dédoublonnage
 -   dénominateur / périmètre
 -   calcul des indicateurs
@@ -207,10 +218,20 @@ Commande :
 & .\scripts\render_orchidee.ps1 -Target full
 ```
 
-`full` rend dans cet ordre :
+`full` exécute dans cet ordre :
 
-1.  `orchidee_dedup_workflow.qmd`
+1.  `scripts/build_ratb_raw_runtime.R`
 2.  `orchidee_ratb_indicators.qmd`
+
+### Si seule la complétion exploratoire a changé
+
+Commande :
+
+```powershell
+& .\scripts\render_orchidee.ps1 -Target completion
+```
+
+Ce rendu reste diagnostique et n'écrit pas dans le cache opérationnel brut.
 
 ## Règles courantes de maintenance
 
