@@ -241,6 +241,7 @@ pmsi_handoff <- build_rouen_pmsi_handoff_v1(
   target_end_exclusive = as.Date("2025-01-01")
 )
 composed <- compose_rouen_external_bundle_v2(handoff, pmsi_handoff)
+composed_v3 <- compose_rouen_external_bundle_v3(handoff, pmsi_handoff)
 
 bundle_p1 <- composed$bundle$sir_wide[
   composed$bundle$sir_wide$PATID == "P1",
@@ -285,6 +286,50 @@ stopifnot(
   ),
   nrow(pmsi_handoff$audit$hospital_nights_by_year_unit) == 2L,
   all(vapply(composed$validation, function(x) isTRUE(x$ok), logical(1)))
+)
+
+fine_denominator <-
+  composed_v3$bundle$denominator_bundle$incidence_denominator_by_year_um_uf_ta_de
+fine_annual <- fine_denominator |>
+  dplyr::group_by(.data$calendar_year) |>
+  dplyr::summarise(
+    hospital_nights = as.integer(sum(.data$hospital_nights)),
+    .groups = "drop"
+  )
+
+# Why: protects the Rouen v3 handoff contract: the same eligible PMSI unit
+# stays carry explicit UM, UF, TA and DE dimensions, and their annual sum is
+# identical to the already-ratified v2 denominator.
+stopifnot(
+  identical(
+    names(composed_v3$site_inputs),
+    c(
+      "microbiology_observations",
+      "bacteria_mapping",
+      "sample_type_mapping",
+      "antibiotic_mapping",
+      "unit_mapping",
+      "denominator_by_year_um_uf_ta_de"
+    )
+  ),
+  identical(composed_v3$bundle$sir_wide_meta$contract_version, "v3"),
+  identical(
+    names(composed_v3$bundle$denominator_bundle),
+    "incidence_denominator_by_year_um_uf_ta_de"
+  ),
+  identical(
+    names(fine_denominator),
+    c(
+      "calendar_year", "SEJUM", "SEJUF", "CODE_TA", "CODE_DE",
+      "hospital_nights"
+    )
+  ),
+  !anyNA(fine_denominator),
+  identical(
+    fine_annual$hospital_nights,
+    pmsi_handoff$site_inputs$denominator_by_year$hospital_nights
+  ),
+  all(vapply(composed_v3$validation, function(x) isTRUE(x$ok), logical(1)))
 )
 
 # Why: protects the canonical unit-mapping contract before the historical

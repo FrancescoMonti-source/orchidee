@@ -2,7 +2,7 @@
 #
 # This layer documents and validates the canonical external input contract.
 # Strict bundle v2 is the canonical operational notebook input; v1 remains the
-# compatibility contract for the external builder and validation interfaces.
+# compatibility default and v3 is the explicit fine-denominator successor.
 
 orchidee_external_contract_v1 <- function() {
   atb_cols <- c(
@@ -171,6 +171,55 @@ orchidee_external_contract_v2 <- function() {
     contract$sir_wide$required_meta_fields,
     names(contract$sir_wide$required_meta_values)
   ))
+  contract
+}
+
+orchidee_external_contract_v3 <- function() {
+  contract <- orchidee_external_contract_v2()
+  contract$version <- "v3"
+  contract$sir_wide$required_meta_values$contract_version <- "v3"
+  contract$denominator_bundle <- list(
+    required_tables = "incidence_denominator_by_year_um_uf_ta_de",
+    compatibility_tables = character(),
+    tables = list(
+      incidence_denominator_by_year_um_uf_ta_de = list(
+        required_columns = c(
+          "calendar_year",
+          "SEJUM",
+          "SEJUF",
+          "CODE_TA",
+          "CODE_DE",
+          "hospital_nights"
+        ),
+        row_grain_key = c(
+          "calendar_year",
+          "SEJUM",
+          "SEJUF",
+          "CODE_TA",
+          "CODE_DE"
+        ),
+        integerish_columns = c(
+          "calendar_year",
+          "hospital_nights"
+        ),
+        character_columns = c(
+          "SEJUM",
+          "SEJUF",
+          "CODE_TA",
+          "CODE_DE"
+        ),
+        non_missing_columns = c(
+          "calendar_year",
+          "SEJUM",
+          "SEJUF",
+          "CODE_TA",
+          "CODE_DE",
+          "hospital_nights"
+        ),
+        non_negative_columns = "hospital_nights"
+      )
+    )
+  )
   contract
 }
 
@@ -727,6 +776,22 @@ external_bundle_validate_denominator_table <- function(
       )
     }
 
+    character_columns <- table_spec$character_columns
+    if (is.null(character_columns)) character_columns <- character()
+    bad_character <- character_columns[
+      !vapply(tbl[character_columns], is.character, logical(1))
+    ]
+    if (length(bad_character) > 0L) {
+      errors <- external_bundle_add_issue(
+        errors,
+        paste0(
+          table_name,
+          " columns must be character: ",
+          paste(bad_character, collapse = ", ")
+        )
+      )
+    }
+
     non_missing_columns <- table_spec$non_missing_columns
     if (is.null(non_missing_columns)) non_missing_columns <- character()
     missing_value_cols <- non_missing_columns[
@@ -747,8 +812,18 @@ external_bundle_validate_denominator_table <- function(
       }
     }
 
-    if (any(duplicated(tbl$calendar_year))) {
-      errors <- external_bundle_add_issue(errors, paste0(table_name, " contains duplicate calendar_year values."))
+    row_grain_key <- table_spec$row_grain_key
+    if (is.null(row_grain_key)) row_grain_key <- "calendar_year"
+    if (any(duplicated(tbl[row_grain_key]))) {
+      errors <- external_bundle_add_issue(
+        errors,
+        paste0(
+          table_name,
+          " contains duplicate rows at grain ",
+          paste(row_grain_key, collapse = " + "),
+          "."
+        )
+      )
     }
   }
 
