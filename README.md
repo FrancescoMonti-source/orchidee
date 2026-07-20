@@ -94,8 +94,9 @@ Le contrat, les décisions locales et le contenu de l'audit sont décrits dans :
 Le point d'entrée est :
 
 ```powershell
-Rscript scripts/build_rouen_external_bundle_v2.R `
-  <bacteriology_raw.rds> <pmsi.rds> outputs/rouen_bundle_v2
+Rscript scripts/build_rouen_external_bundle.R `
+  <bacteriology_raw.rds> <pmsi.rds> outputs/rouen_bundle_v2 `
+  --contract=v2
 ```
 
 Le profil v1 Rouen couvre par défaut les années 2022 à 2024 ; la même fenêtre
@@ -104,6 +105,13 @@ est appliquée à la microbiologie et au dénominateur PMSI.
 Les sorties restent locales et ignorées par Git. Le bundle v2 alimente ensuite
 le chemin opérationnel par défaut des notebooks sans remplacer ni écraser les
 artefacts CHU.
+
+Le contrat v3 est disponible explicitement avec `--contract=v3`. Il conserve
+la sémantique d'UF d'hébergement de v2 et remplace le total annuel transporté
+par une seule table de dénominateur au grain année + UM + UF + TA + DE. Le
+runtime en redérive le total annuel utilisé par les indicateurs actuels. v3
+n'est pas encore la valeur opérationnelle par défaut et n'ajoute pas encore de
+panels stratifiés.
 
 ## Carte des documents
 
@@ -126,6 +134,8 @@ artefacts CHU.
     -   schéma de la référence de périmètre au niveau prélèvement / `SEJUF` ;
 -   `documentation/external_bundle/denominator_bundle_v1.md`
     -   schéma du dénominateur annuel d'incidence ;
+-   `documentation/external_bundle/denominator_bundle_v3.md`
+    -   schéma du dénominateur fin année + UM + UF + TA + DE ;
 -   `documentation/project_map.md`
     -   carte mainteneur : où se trouve la logique dans le code ;
 -   `documentation/maintenance_runbook.md`

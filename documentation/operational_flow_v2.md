@@ -93,7 +93,7 @@ Cette décision explique les différences ratifiées entre `external_bundle_v2` 
 le chemin historique `chu_native`. Elle ne modifie pas le catalogue biologique
 ni les règles de dédoublonnage.
 
-## Dénominateur : contrat actuel et extension nécessaire
+## Dénominateur : contrat opérationnel et extension v3
 
 Le contrat portable actuel transporte uniquement :
 
@@ -104,22 +104,23 @@ calendar_year + hospital_nights
 Ce grain suffit pour publier une densité d'incidence annuelle globale. Il ne
 permet pas de calculer correctement une densité par UM, UF, TA ou DE.
 
-L'adaptateur Rouen calcule déjà, pour son audit, une table plus fine à partir des
-séjours PMSI. Le futur contrat devra promouvoir une table au grain :
+Le contrat externe v3 promeut désormais la table fine calculée par l'adaptateur
+Rouen au grain :
 
 ```text
 calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + hospital_nights
 ```
 
-Une seule table à ce grain est préférable à plusieurs dénominateurs calculés
-séparément. Elle permet d'agréger ensuite par année, UM, UF, TA, DE ou combinaison
-de ces dimensions, tout en vérifiant que la somme des unités reproduit le total
-annuel.
+Le bundle v3 transporte une seule table à ce grain. Le runtime en dérive le
+total annuel actuel et conserve aussi le détail, ce qui évite deux sources
+canoniques susceptibles de diverger. Cette table permettra ensuite d'agréger par
+année, UM, UF, TA, DE ou combinaison de ces dimensions.
 
-Cette promotion n'appartient pas au contrat v2 actuel. Elle devra être introduite
-comme une évolution explicite du handoff et du `denominator_bundle`, avec ses
-propres validations. Le dénominateur fin ne doit jamais être reconstruit à partir
-du total annuel.
+Cette promotion ne modifie pas v2 et v3 n'est pas encore la valeur
+opérationnelle par défaut. Elle prépare le contrat et le runtime ; les panels
+stratifiés, leurs numérateurs et leurs choix de publication restent une étape
+séparée. Le dénominateur fin ne doit jamais être reconstruit à partir du total
+annuel.
 
 ## Place de la complétion
 
