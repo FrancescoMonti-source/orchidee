@@ -43,6 +43,8 @@ site prepare, with which columns?
   - What is the exact schema of the sample-level TA/DE scope file?
 - `denominator_bundle_v1.md`
   - What is the exact schema of the incidence denominator file?
+- `denominator_bundle_v3.md`
+  - What is the exact year + UM + UF + TA + DE denominator schema?
 - `operational_v2_adoption_2026-07-19.md`
   - Why is strict v2 now the canonical operational notebook input?
 - `../operational_flow_v2.md`
@@ -62,7 +64,7 @@ Rscript `
   <denominator_by_year> `
   <output_bundle_dir> `
   [de_reference] `
-  [--contract=v1|v2] `
+  [--contract=v1|v2|v3] `
   [--force]
 ```
 
@@ -72,6 +74,13 @@ assigned the hospitalization unit at sampling as documented in
 `sir_wide_v2.md`. A v1 bundle remains a compatibility artifact; the default
 operational notebook runtime requires strict v2 inputs and rejects v1 without
 fallback.
+
+Contract v3 retains the v2 hospitalization-unit semantics and interprets the
+sixth site input as a fine denominator at
+`calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE`. The bundle carries only
+that fine denominator table; the runtime derives the annual total. v3 is
+available for validation and forward-compatible construction but is not yet
+the operational notebook default.
 
 ## Maintainer-only helpers
 

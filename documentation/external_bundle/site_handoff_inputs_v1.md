@@ -21,11 +21,15 @@ Prepare these six required files:
 3. `sample_type_mapping`
 4. `antibiotic_mapping`
 5. `unit_mapping`
-6. `denominator_by_year`
+6. `denominator_by_year` for contract v1 or v2
 
 You may also provide a seventh optional file:
 
 7. `de_reference`
+
+For contract v3, replace file 6 with
+`denominator_by_year_um_uf_ta_de`. It is still a six-file handoff: the fine
+denominator replaces the annual total rather than being added beside it.
 
 Accepted formats are `.rds`, `.csv`, `.tsv`, `.tab`, or `.txt`. CSV files can
 use commas or semicolons. Text files must be UTF-8.
@@ -54,6 +58,12 @@ hospitalization unit active at sampling, then call the builder with
 `--contract=v2`. Do not add the flag to unchanged v1 inputs: v2 is a semantic
 claim, not only a metadata switch. Validate and smoke that result with
 `--contract=v2 --strict-preferred` as shown in `sir_wide_v2.md`.
+
+Contract v3 makes a second explicit claim: it keeps the v2 hospitalization UF
+semantics and supplies the denominator at year + UM + UF + TA + DE grain. It
+does not change the current operational default and does not by itself publish
+stratified indicators. Its exact denominator schema is documented in
+`denominator_bundle_v3.md`.
 
 ## File 1: microbiology_observations
 
@@ -266,11 +276,31 @@ calendar_year,hospital_nights
 This denominator must be computed independently from microbiology rows.
 
 This annual grain supports only the current global annual incidence density.
-It cannot support incidence stratified by hospitalization UM, UF, TA or DE. A
-future contract must promote a denominator table at
-`calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE`, with
-`hospital_nights` as its measure. Sites should not try to reconstruct that
-detail from `denominator_by_year`.
+It cannot support incidence stratified by hospitalization UM, UF, TA or DE.
+Contract v3 provides that successor path; sites must not try to reconstruct
+the detail from `denominator_by_year`.
+
+## File 6 under contract v3: denominator_by_year_um_uf_ta_de
+
+For `--contract=v3`, provide this table instead of `denominator_by_year`.
+
+Required columns:
+
+| Column | Meaning |
+| --- | --- |
+| `calendar_year` | Calendar year. |
+| `SEJUM` | Hospitalization UM for the unit stay. |
+| `SEJUF` | Hospitalization UF for the unit stay. |
+| `CODE_TA` | TA code joined to `SEJUF`. |
+| `CODE_DE` | DE code joined to `SEJUF`. |
+| `hospital_nights` | Eligible hospital nights at this exact grain. |
+
+Expected grain: one row per
+`calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE`.
+
+All six columns are required and non-missing. The shared runtime derives the
+annual total by summing `hospital_nights` within `calendar_year`; do not provide
+a second independently computed annual table.
 
 ## Build and validate the ORCHIDEE input files
 
@@ -309,6 +339,22 @@ Rscript `
 A successful run validates the inputs and writes the four ORCHIDEE internal
 files to `outputs/site_bundle`.
 
+For a v3 handoff, replace the sixth path and declare the contract explicitly:
+
+```powershell
+Rscript `
+  scripts/build_external_bundle_from_site_inputs.R `
+  inputs/microbiology_observations.csv `
+  inputs/bacteria_mapping.csv `
+  inputs/sample_type_mapping.csv `
+  inputs/antibiotic_mapping.csv `
+  inputs/unit_mapping.csv `
+  inputs/denominator_by_year_um_uf_ta_de.csv `
+  outputs/site_bundle_v3 `
+  --contract=v3 `
+  --force
+```
+
 ## If validation fails
 
 Read the first error message. The most common failures are:
@@ -333,7 +379,8 @@ The hospital owns:
 - deciding which microbiology rows are diagnostic RATB rows;
 - mapping local bacteria, sample types and antibiotics to ORCHIDEE values;
 - mapping local units to TA/DE information;
-- computing the annual hospital-night denominator.
+- computing the hospital-night denominator at the grain required by the
+  selected contract.
 
 ORCHIDEE owns:
 
