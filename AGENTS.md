@@ -25,14 +25,31 @@ For analytical or methodological changes, also consult
 - Keep reusable implementation logic in `R/` rather than expanding notebook
   chunks unnecessarily.
 - Keep operational settings in `config/pipeline.R`.
-- Keep internal generated artifacts and caches in `data/`.
+- Keep internal generated artifacts, caches, and private operational inputs in
+  `data/`; never add them to Git.
 - Keep reader-facing report exports in `downloads/`.
 - Keep local drafts, inspections, and temporary artifacts in `outputs/`;
   do not treat `outputs/` as a canonical source.
-- Keep biological mappings in `dictionaries/`, institutional references in
-  `ref/`, and maintained analytical rule tables in `rules/` when they exist.
+- Keep biological mappings in `dictionaries/`, consumed publishable reference
+  tables in `ref/`, and maintained analytical rule tables in `rules/` when
+  they exist. Private institutional references belong in `data/` or another
+  protected path selected through configuration or an environment variable.
+- Archive snapshots with no active consumer outside the repository.
 - Update the corresponding methodological documentation when analytical
   behavior changes.
+
+## Current Operational Boundaries
+
+- `redsan` owns EDSaN retrieval, batching, and PMSI/BIOL normalization.
+  ORCHIDEE consumes its outputs and does not maintain a second source client.
+- The preferred site handoff contains exactly the six unversioned blocks in
+  `documentation/external_bundle/site_handoff_inputs.md`. Version labels apply
+  to materialized bundles, not to those site-owned blocks.
+- Bundle v3 is the complete durable construction contract. The notebook
+  runtime remains on strict `external_bundle_v2`, produced through the closed
+  `spares_current_v1` projection when starting from v3.
+- Completion remains an opt-in diagnostic. `chu_native` remains an explicit
+  legacy comparison and rollback path.
 
 ## Multi-Agent Collaboration
 
