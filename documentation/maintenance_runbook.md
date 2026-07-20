@@ -93,11 +93,12 @@ Le script valide strictement le contrat v2 puis exécute le smoke du runtime
 canonique. Un changement limité à cet adaptateur se valide avec les tests
 source et un gate local sur les exports privés.
 
-Pour construire sans l'adopter un candidat v3 au dénominateur fin, utiliser un
-répertoire distinct et `--contract=v3`. Le bundle v3 transporte la table année
-+ UM + UF + TA + DE et le smoke en dérive le total annuel actuel. Le sélecteur
-opérationnel reste explicitement sur v2 tant qu'une décision d'adoption séparée
-n'a pas été prise.
+Pour construire sans l'adopter un candidat v3, utiliser un répertoire distinct
+et `--contract=v3`. Le bundle transporte l'exposition profilée année + UM + UF
++ TA + DE, y compris l'activité mappée hors périmètre. Le smoke applique
+`spares_current_v1` et doit redériver exactement le total annuel v2. Le
+sélecteur opérationnel reste explicitement sur v2 tant qu'une décision
+d'adoption séparée n'a pas été prise.
 
 ## Exécution opérationnelle sur un bundle v2
 

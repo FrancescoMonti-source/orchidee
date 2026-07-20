@@ -8,27 +8,23 @@ editor_options:
 
 ## Purpose
 
-External bundle v3 promotes the incidence denominator to the finest grain
-currently required for later stratification by hospitalization UM, UF, TA or
-DE. It retains the v2 meaning of `sir_wide$SEJUF`: the hospitalization UF
-active at sampling.
+External bundle v3 separates two decisions that v2 had already combined:
 
-This is an explicit successor contract. It does not change the accepted v1 or
-v2 bundle shapes, and it is not yet the default operational notebook input.
+1. which TA/DE care context is analysed;
+2. how the corresponding hospital exposure is counted.
 
-## Preferred file
+It retains the v2 meaning of `sir_wide$SEJUF`: the hospitalization UF active
+at sampling. It does not change the accepted v1 or v2 bundle shapes, and it is
+not yet the default operational notebook input.
 
-The preferred file remains `denominator_bundle.rds`. Under contract v3 it must
-be an R list containing exactly the required canonical table after loading:
+## Preferred file and required table
+
+The preferred file remains `denominator_bundle.rds`. After canonical
+subsetting, its required portable table is:
 
 ```text
-incidence_denominator_by_year_um_uf_ta_de
+incidence_exposure_by_year_um_uf_ta_de_profile
 ```
-
-The long name states the grain deliberately; `unit` alone would not say
-whether the table refers to UM, UF or both.
-
-## Required table
 
 Required columns, in order:
 
@@ -38,60 +34,129 @@ SEJUM
 SEJUF
 CODE_TA
 CODE_DE
-hospital_nights
+de_domain_ref
+denominator_profile_id
+exposure_value
+exposure_unit
 ```
 
 The row grain is:
 
 ```text
-calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE
+calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE +
+de_domain_ref + denominator_profile_id
 ```
 
-Type and integrity requirements:
+All required columns are non-missing. Codes and labels are character values;
+`calendar_year` and `exposure_value` are integer-like in the currently accepted
+profile. Exposure is non-negative and the declared grain is unique.
 
-- `calendar_year` and `hospital_nights` are integer-like;
-- `SEJUM`, `SEJUF`, `CODE_TA` and `CODE_DE` are character columns;
-- none of the six required columns may be missing;
-- `hospital_nights` is non-negative;
-- the declared row grain is unique.
+The Rouen producer transports every positive exposure contribution from valid
+unit intervals for which UM, UF, TA, DE and DE domain are mapped, including
+mapped activity outside the current RATB perimeter. Zero-exposure and unmapped
+intervals remain visible in its site audit. The generic contract permits an
+explicit zero row because exposure is non-negative; such a row is semantically
+inert. Extra local tables may be tolerated on input, but canonical loading
+retains only the required portable table above.
 
-Only hospital nights inside the RATB TA/DE perimeter belong in this table. The
-table must be computed independently from microbiology rows.
+## Closed denominator profile
 
-## One source table, derived annual total
-
-Contract v3 does not transport a second annual denominator table. The runtime
-derives the unchanged global annual input with:
+Contract v3 currently accepts one profile/unit pair:
 
 ```text
-group by calendar_year
-hospital_nights = sum(hospital_nights)
+denominator_profile_id = midnight_presence_v1
+exposure_unit           = patient_days
 ```
 
-This avoids two canonical tables that could diverge. The current indicator
-engine continues to consume the derived
-`incidence_denominator_by_year`; the fine table is also retained in runtime
-inputs for a future, separate implementation of stratified incidence.
+Its executable definition is the existing Rouen calculation, after clipping
+to the requested window:
 
-No stratified panel is added merely by adopting this contract. Indicator
-specification, numerator dimensions and publication decisions remain separate
-work.
+```r
+as.Date(exit, tz = source_tz) - as.Date(entry, tz = source_tz)
+```
+
+A same-date stay contributes zero; crossing one local calendar boundary
+contributes one. The explicit formula is authoritative where informal wording
+such as "presence at midnight" could leave an endpoint ambiguous.
+
+The following names describe possible later profiles only; v3 validation does
+not accept them yet:
+
+- `noon_presence_v1`: intended count of local-noon instants;
+- `elapsed_minutes_v1`: intended exact clipped duration in minutes;
+- `calendar_dates_touched_v1`: intended count of local dates with positive
+  overlap, including one for a positive same-date stay.
+
+A second profile must arrive with its exact formula, unit, adapter gate and
+publication rule. Arbitrary formulas or executable configuration are outside
+the contract. The aggregate v3 table does not preserve timestamps, so a future
+profile must be calculated upstream from precise stay intervals; it cannot be
+reconstructed from `midnight_presence_v1`.
+
+## Current analysis context
+
+The only executable context is `spares_current_v1`. It combines:
+
+- TA codes `03` and `20`;
+- the currently ratified SPARES DE-domain list;
+- denominator profile `midnight_presence_v1`;
+- publication per 1,000 patient-days.
+
+The runtime joins the exposure table to `sample_scope_reference` by `SEJUF`,
+requires TA, DE and DE domain to agree, then applies this context before annual
+aggregation. It derives the unchanged engine input:
+
+Every exposure `SEJUF` must therefore exist in `sample_scope_reference` with
+the same TA, DE and DE domain. Strict bundle validation rejects an absent or
+contradictory mapping before runtime.
+
+```text
+calendar_year + hospital_nights
+```
+
+For the current context, that derived annual table must equal the v2
+denominator exactly. The broader v3 table is retained in runtime inputs for
+future work.
+
+This version assumes one stable TA/DE mapping per `SEJUF` over the target
+window. A site with historical structure changes needs a later dated mapping
+contract; it must not encode conflicting mappings as duplicate `SEJUF` rows.
+
+A future emergency context may select TA `10` and an elapsed-time profile, but
+it cannot be enabled by changing one string: numerator scope, context-specific
+deduplication and publication units must be implemented together.
+
+## Sample scope v3
+
+Under v3, `sample_scope_reference` also carries:
+
+```text
+sample_CODE_TA
+sample_CODE_DE
+sample_de_domain_ref
+```
+
+The columns must exist and be character; they may be missing for an unmapped UF
+that remains audit-only. v1 and v2 keep their existing four-column portable
+shape.
 
 ## Site handoff input
 
 For `--contract=v3`, the sixth site-owned input is
-`denominator_by_year_um_uf_ta_de` with the same six columns and grain. The
-shared builder validates and stores it as the canonical table above.
+`incidence_exposure_by_year_um_uf_ta_de_profile`, with the nine columns above.
+The shared builder validates and stores it under the same canonical name.
 
 For `--contract=v1` or `--contract=v2`, the sixth input remains
 `denominator_by_year` with `calendar_year + hospital_nights`.
 
 ## Rouen producer
 
-The Rouen PMSI adapter derives `hospital_nights_by_year_um_uf_ta_de` from
-eligible PMSI unit stays
-after the `redsan` `C > DW` source policy and joins the maintained TA/DE
-reference before aggregation. Build a v3 candidate with:
+The Rouen PMSI adapter builds the v3 exposure after the `redsan` `C > DW`
+source policy and the maintained TA/DE joins. Its existing v2 path remains
+unchanged. Every build verifies that selecting `spares_current_v1` from the v3
+table reproduces the v2 annual denominator.
+
+Build a separate v3 candidate with:
 
 ```powershell
 Rscript scripts/build_rouen_external_bundle.R `
@@ -101,5 +166,4 @@ Rscript scripts/build_rouen_external_bundle.R `
   --contract=v3
 ```
 
-The previous `scripts/build_rouen_external_bundle_v2.R` entry point remains a
-compatibility wrapper and still defaults to v2.
+No stratified indicator panel is added merely by adopting this contract.

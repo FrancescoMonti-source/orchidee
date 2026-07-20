@@ -192,6 +192,9 @@ ratb_read_delimited_reference <- function(path) {
 }
 
 ratb_included_ta_de_domains <- function() {
+  if (exists("ratb_spares_current_de_domains", mode = "function")) {
+    return(ratb_spares_current_de_domains())
+  }
   c(
     "MÉDECINE",
     "URGENCES",
@@ -1112,6 +1115,30 @@ build_ratb_pmsi_ta_de_denominator <- function(
     )
   )
 
+  incidence_exposure_year_split <- ratb_split_stays_nights_by_year(
+    ratb_unit_stay_scope_audit %>%
+      filter(
+        !missing_bounds,
+        !negative_nights,
+        !is.na(SEJUM),
+        !is.na(SEJUF),
+        !is.na(unit_CODE_TA),
+        !is.na(unit_CODE_DE),
+        !is.na(unit_de_domains)
+      ) %>%
+      transmute(
+        PATID, EVTID, SEJUM, SEJUF,
+        CODE_TA = unit_CODE_TA,
+        CODE_DE = unit_CODE_DE,
+        de_domain_ref = unit_de_domains,
+        datent_min, datsort_max, cross_year
+      ),
+    id_cols = c(
+      "PATID", "EVTID", "SEJUM", "SEJUF", "CODE_TA", "CODE_DE",
+      "de_domain_ref"
+    )
+  )
+
   hospital_nights_by_year_unit <- hospital_days_year_split_provisional %>%
     mutate(
       .episode_key = paste(PATID, EVTID, sep = "\r"),
@@ -1141,6 +1168,28 @@ build_ratb_pmsi_ta_de_denominator <- function(
       ) %>%
       arrange(calendar_year, SEJUM, SEJUF, CODE_TA, CODE_DE)
 
+  incidence_exposure_by_year_um_uf_ta_de_profile <-
+    incidence_exposure_year_split %>%
+      group_by(
+        calendar_year, SEJUM, SEJUF, CODE_TA, CODE_DE, de_domain_ref
+      ) %>%
+      summarise(
+        exposure_value = as.integer(sum(overlap_nights, na.rm = TRUE)),
+        .groups = "drop"
+      ) %>%
+      mutate(
+        denominator_profile_id = "midnight_presence_v1",
+        exposure_unit = "patient_days"
+      ) %>%
+      select(
+        calendar_year, SEJUM, SEJUF, CODE_TA, CODE_DE, de_domain_ref,
+        denominator_profile_id, exposure_value, exposure_unit
+      ) %>%
+      arrange(
+        calendar_year, SEJUM, SEJUF, CODE_TA, CODE_DE, de_domain_ref,
+        denominator_profile_id
+      )
+
   hospital_days_year_summary_provisional <- hospital_days_year_split_provisional %>%
     mutate(
       .episode_key = paste(PATID, EVTID, sep = "\r"),
@@ -1165,6 +1214,8 @@ build_ratb_pmsi_ta_de_denominator <- function(
     hospital_nights_by_year_unit = hospital_nights_by_year_unit,
     hospital_nights_by_year_um_uf_ta_de =
       hospital_nights_by_year_um_uf_ta_de,
+    incidence_exposure_by_year_um_uf_ta_de_profile =
+      incidence_exposure_by_year_um_uf_ta_de_profile,
     hospital_days_year_summary_provisional = hospital_days_year_summary_provisional
   )
 }
@@ -1227,6 +1278,8 @@ build_ratb_provisional_perimeter_audit <- function(
   hospital_nights_by_year_unit <- denominator_objects$hospital_nights_by_year_unit
   hospital_nights_by_year_um_uf_ta_de <-
     denominator_objects$hospital_nights_by_year_um_uf_ta_de
+  incidence_exposure_by_year_um_uf_ta_de_profile <-
+    denominator_objects$incidence_exposure_by_year_um_uf_ta_de_profile
   hospital_days_year_summary_provisional <- denominator_objects$hospital_days_year_summary_provisional
 
   ratb_numerator_scope_impact_audit <- sir_wide_ratb_scope %>%
@@ -1262,6 +1315,8 @@ build_ratb_provisional_perimeter_audit <- function(
     hospital_nights_by_year_unit = hospital_nights_by_year_unit,
     hospital_nights_by_year_um_uf_ta_de =
       hospital_nights_by_year_um_uf_ta_de,
+    incidence_exposure_by_year_um_uf_ta_de_profile =
+      incidence_exposure_by_year_um_uf_ta_de_profile,
     hospital_days_year_summary_provisional = hospital_days_year_summary_provisional,
     ratb_numerator_scope_impact_audit = ratb_numerator_scope_impact_audit
   )

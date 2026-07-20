@@ -87,10 +87,11 @@ restent du contexte de QA natif CHU. Elles aident à comprendre le workflow
 actuel, mais elles ne font pas partie du contrat portable minimal.
 
 Le dénominateur du contrat opérationnel v2 reste annuel. Le contrat externe v3
-promet désormais une table fine
-`calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + hospital_nights` et le
-runtime en dérive le total annuel actuel. v3 n'est pas encore la valeur
-opérationnelle par défaut et ne publie pas encore de panels stratifiés.
+transporte une table d'exposition profilée à année + UM + UF + TA + DE, y
+compris l'activité mappée hors périmètre. Le runtime applique
+`spares_current_v1` et en dérive exactement le total annuel v2. v3 n'est pas
+encore la valeur opérationnelle par défaut et ne publie pas encore de panels
+stratifiés.
 
 Pour brancher Rennes ou un autre entrepôt, ne pas utiliser cette carte comme
 contrat d'onboarding. La source de vérité est
@@ -245,15 +246,15 @@ chargés hors notebook.
         `sample_scope_reference` à `sir_wide`
     -   construit le périmètre microbiologique analytique et expose la
         table annuelle de dénominateur au workflow RATB
-    -   sous contrat v3, dérive cette table annuelle depuis l'unique table
-        fine année + UM + UF + TA + DE et conserve aussi le détail dans les
-        entrées runtime
+    -   sous contrat v3, sélectionne le profil et le contexte TA/DE courants
+        dans la table d'exposition année + UM + UF + TA + DE, puis conserve
+        aussi cette table complète dans les entrées runtime
     -   valide les invariants minimaux des entrées runtime canoniques
 -   `R/ratb_hospital_days_helpers.R`
     -   helpers natifs PMSI / CHU pour les audits de séjour et le
         dénominateur local
-    -   produit les nuits éligibles par année, UM, UF, TA et DE avant
-        leur agrégation annuelle globale
+    -   produit les nuits éligibles v2 et, séparément, l'exposition v3 de toute
+        l'activité mappée par année, UM, UF, TA et DE
     -   transformation des références CONSORES TA/DE locales vers la
         `sample_scope_reference` canonique
     -   découpage inter-annuel
@@ -262,7 +263,7 @@ chargés hors notebook.
         de `sir_wide`, construit `sir_wide` depuis des observations
         microbiologiques longues et des dictionnaires locaux, construit la
         `sample_scope_reference` depuis un mapping simple UF/TA-DE et
-        enveloppe le dénominateur annuel v1/v2 ou le dénominateur fin v3 en
+        enveloppe le dénominateur annuel v1/v2 ou l'exposition profilée v3 en
         `denominator_bundle`
     -   ne constitue pas un connecteur universel d'entrepôt ; il attend
         des blocs locaux déjà compréhensibles et mappés par le site
@@ -320,6 +321,8 @@ chargés hors notebook.
     -   porte les profils exécutables v1, v2 et v3 via
         `orchidee_external_contract_v1()`, `orchidee_external_contract_v2()`
         et `orchidee_external_contract_v3()`
+    -   ferme actuellement le contexte `spares_current_v1` et le seul profil
+        de dénominateur `midnight_presence_v1`
     -   charge aussi un bundle validé via
         `load_validated_external_input_bundle()`
 -   `R/ratb_hospital_days_helpers.R`

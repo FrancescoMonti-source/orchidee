@@ -108,10 +108,11 @@ artefacts CHU.
 
 Le contrat v3 est disponible explicitement avec `--contract=v3`. Il conserve
 la sémantique d'UF d'hébergement de v2 et remplace le total annuel transporté
-par une seule table de dénominateur au grain année + UM + UF + TA + DE. Le
-runtime en redérive le total annuel utilisé par les indicateurs actuels. v3
-n'est pas encore la valeur opérationnelle par défaut et n'ajoute pas encore de
-panels stratifiés.
+par une table d'exposition profilée au grain année + UM + UF + TA + DE. Elle
+conserve aussi l'activité mappée hors du périmètre courant. Le runtime applique
+le contexte fermé `spares_current_v1` et redérive exactement le total annuel
+v2. v3 n'est pas encore la valeur opérationnelle par défaut et n'ajoute pas
+encore de panels stratifiés.
 
 ## Carte des documents
 
@@ -135,7 +136,7 @@ panels stratifiés.
 -   `documentation/external_bundle/denominator_bundle_v1.md`
     -   schéma du dénominateur annuel d'incidence ;
 -   `documentation/external_bundle/denominator_bundle_v3.md`
-    -   schéma du dénominateur fin année + UM + UF + TA + DE ;
+    -   exposition profilée, contexte TA/DE courant et évolutions prévues ;
 -   `documentation/project_map.md`
     -   carte mainteneur : où se trouve la logique dans le code ;
 -   `documentation/maintenance_runbook.md`

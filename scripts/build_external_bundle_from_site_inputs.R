@@ -49,13 +49,13 @@ if (length(args) < 7L || length(args) > 8L || "--help" %in% args || "-h" %in% ar
     "  bacteria_mapping: bacteria_local + bact_norm.\n",
     "  sample_type_mapping: sample_type_local + naturepvt_norm.\n",
     "  antibiotic_mapping: antibiotic_local + atb_norm.\n",
-    "  unit_mapping: one row per SEJUF with CODE_TA and either de_domain_ref\n",
-    "    or CODE_DE plus a de_reference table.\n",
+    "  unit_mapping: one row per SEJUF with CODE_TA; v3 also requires CODE_DE.\n",
+    "    Provide de_domain_ref or a separate de_reference table.\n",
     "  denominator: v1/v2 use calendar_year + hospital_nights; v3 uses\n",
-    "    calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + hospital_nights.\n",
+    "    year + UM + UF + TA + DE + domain + profile + exposure + unit.\n",
     "  de_reference: optional CODE_DE + de_domain_ref/DOMAINE dictionary.\n",
     "  --contract=v2: declare SEJUF as the hospitalization unit at sampling.\n",
-    "  --contract=v3: keep v2 SEJUF semantics and require the fine denominator.\n",
+    "  --contract=v3: keep v2 SEJUF semantics and require profiled exposure.\n",
     sep = ""
   )
   quit(status = if (length(args) == 0L || "--help" %in% args || "-h" %in% args) 0L else 1L)
@@ -108,7 +108,9 @@ bundle <- orchidee_handoff_build_external_bundle_from_site_inputs(
   },
   de_reference = de_reference,
   contract = contract,
-  denominator_by_year_um_uf_ta_de = if (identical(contract_version, "v3")) {
+  incidence_exposure_by_year_um_uf_ta_de_profile = if (
+    identical(contract_version, "v3")
+  ) {
     denominator_input
   } else {
     NULL
