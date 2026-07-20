@@ -114,6 +114,19 @@ runtime_validation <- validate_ratb_canonical_runtime_inputs(
   sir_wide = sir_wide
 )
 
+external_bundle_v3 <- list(
+  sir_wide = sir_wide,
+  sir_wide_meta = orchidee_handoff_build_sir_wide_meta(
+    sir_wide,
+    contract = contract_v3
+  ),
+  sample_scope_reference = sample_scope_reference,
+  denominator_bundle = denominator_bundle
+)
+operational_v2_bundle <- project_external_bundle_v3_to_operational_v2(
+  external_bundle_v3
+)
+
 mismatched_scope <- sample_scope_reference
 mismatched_scope$sample_CODE_DE[mismatched_scope$SEJUF == "UF1"] <- "D07"
 mismatch_error <- capture_error(
@@ -158,6 +171,22 @@ missing_exposure_scope_report <- validate_external_input_bundle(
   contract = contract_v3,
   strict_preferred = TRUE
 )
+operational_v2_dir <- tempfile("orchidee-v3-projected-v2-")
+dir.create(operational_v2_dir)
+invisible(Map(
+  saveRDS,
+  operational_v2_bundle,
+  file.path(
+    operational_v2_dir,
+    paste0(names(operational_v2_bundle), ".rds")
+  )
+))
+operational_v2_report <- validate_external_input_bundle(
+  operational_v2_dir,
+  contract = orchidee_external_contract_v2(),
+  strict_preferred = TRUE
+)
+unlink(operational_v2_dir, recursive = TRUE)
 unlink(bundle_dir, recursive = TRUE)
 missing_v3_code_de_error <- capture_error(
   orchidee_handoff_build_sample_scope_reference(
@@ -170,6 +199,154 @@ missing_v3_code_de_error <- capture_error(
     contract = contract_v3
   )
 )
+missing_v3_direct_domain_error <- capture_error(
+  orchidee_handoff_build_sample_scope_reference(
+    unit_mapping = data.frame(
+      SEJUF = "UF1",
+      CODE_TA = "03",
+      CODE_DE = "D03",
+      stringsAsFactors = FALSE
+    ),
+    de_reference = data.frame(
+      CODE_DE = "D03",
+      de_domain_ref = "MÉDECINE",
+      stringsAsFactors = FALSE
+    ),
+    contract = contract_v3
+  )
+)
+
+cli_root <- tempfile("orchidee-six-block-cli-")
+cli_input_dir <- file.path(cli_root, "inputs")
+cli_v3_dir <- file.path(cli_root, "bundle_v3")
+cli_v2_dir <- file.path(cli_root, "bundle_v2")
+dir.create(cli_input_dir, recursive = TRUE)
+cli_blocks <- list(
+  microbiology_observations = data.frame(
+    PATID = "P1",
+    EVTID = "E1",
+    ELTID = "L1",
+    DATEPRELEV = as.Date("2024-01-15"),
+    HEUREPRELEV = "09:00",
+    SEJUF = "UF1",
+    bacteria_local = "E. coli local",
+    sample_type_local = "Urine local",
+    antibiotic_local = "Cefotaxime local",
+    sir_result = "S",
+    ratb_diagnostic_scope = TRUE,
+    stringsAsFactors = FALSE
+  ),
+  bacteria_mapping = data.frame(
+    bacteria_local = "E. coli local",
+    bact_norm = "Escherichia coli",
+    stringsAsFactors = FALSE
+  ),
+  sample_type_mapping = data.frame(
+    sample_type_local = "Urine local",
+    naturepvt_norm = "urines",
+    stringsAsFactors = FALSE
+  ),
+  antibiotic_mapping = data.frame(
+    antibiotic_local = "Cefotaxime local",
+    atb_norm = "cefotaxime",
+    stringsAsFactors = FALSE
+  ),
+  unit_mapping = data.frame(
+    SEJUF = c("UF1", "UF2"),
+    CODE_TA = c("03", "10"),
+    CODE_DE = c("D03", "D07"),
+    de_domain_ref = c("MÉDECINE", "URGENCES"),
+    stringsAsFactors = FALSE
+  ),
+  incidence_exposure_by_year_um_uf_ta_de_profile = exposure
+)
+cli_block_paths <- file.path(
+  cli_input_dir,
+  paste0(names(cli_blocks), ".rds")
+)
+invisible(Map(saveRDS, cli_blocks, cli_block_paths))
+rscript <- file.path(
+  R.home("bin"),
+  if (.Platform$OS.type == "windows") "Rscript.exe" else "Rscript"
+)
+cli_output <- system2(
+  rscript,
+  c(
+    "--vanilla",
+    shQuote("scripts/build_external_bundle_from_site_inputs.R"),
+    shQuote(unname(cli_block_paths)),
+    shQuote(cli_v3_dir),
+    "--contract=v3",
+    shQuote(paste0("--operational-v2-output=", cli_v2_dir))
+  ),
+  stdout = TRUE,
+  stderr = TRUE
+)
+cli_status <- attr(cli_output, "status")
+if (is.null(cli_status)) cli_status <- 0L
+cli_v3_report <- validate_external_input_bundle(
+  cli_v3_dir,
+  contract = contract_v3,
+  strict_preferred = TRUE
+)
+cli_v2_report <- validate_external_input_bundle(
+  cli_v2_dir,
+  contract = orchidee_external_contract_v2(),
+  strict_preferred = TRUE
+)
+cli_v3_sir_wide <- readRDS(file.path(cli_v3_dir, "sir_wide.rds"))
+cli_v2_sir_wide <- readRDS(file.path(cli_v2_dir, "sir_wide.rds"))
+cli_v2_denominator <- readRDS(file.path(cli_v2_dir, "denominator_bundle.rds"))
+cli_de_reference_path <- file.path(cli_input_dir, "de_reference.rds")
+saveRDS(
+  data.frame(
+    CODE_DE = c("D03", "D07"),
+    de_domain_ref = c("MÉDECINE", "URGENCES"),
+    stringsAsFactors = FALSE
+  ),
+  cli_de_reference_path
+)
+cli_seventh_block_output <- suppressWarnings(
+  system2(
+    rscript,
+    c(
+      "--vanilla",
+      shQuote("scripts/build_external_bundle_from_site_inputs.R"),
+      shQuote(unname(cli_block_paths)),
+      shQuote(file.path(cli_root, "invalid_v3")),
+      shQuote(cli_de_reference_path),
+      "--contract=v3"
+    ),
+    stdout = TRUE,
+    stderr = TRUE
+  )
+)
+cli_seventh_block_status <- attr(cli_seventh_block_output, "status")
+if (is.null(cli_seventh_block_status)) cli_seventh_block_status <- 0L
+cli_colliding_v2_dir <- if (identical(.Platform$OS.type, "windows")) {
+  tolower(cli_v3_dir)
+} else {
+  cli_v3_dir
+}
+cli_colliding_output <- suppressWarnings(
+  system2(
+    rscript,
+    c(
+      "--vanilla",
+      shQuote("scripts/build_external_bundle_from_site_inputs.R"),
+      shQuote(unname(cli_block_paths)),
+      shQuote(cli_v3_dir),
+      "--contract=v3",
+      shQuote(paste0("--operational-v2-output=", cli_colliding_v2_dir)),
+      "--force"
+    ),
+    stdout = TRUE,
+    stderr = TRUE
+  )
+)
+cli_colliding_status <- attr(cli_colliding_output, "status")
+if (is.null(cli_colliding_status)) cli_colliding_status <- 0L
+unlink(cli_root, recursive = TRUE)
 
 # Why: protects the v3 canonical input contract: the exposure table is long by
 # closed denominator profile, retains mapped activity outside today's scope,
@@ -228,6 +405,57 @@ stopifnot(
   ),
   grepl("disagrees with sample scope TA/DE mapping", mismatch_error),
   grepl("Unsupported RATB analysis context", unknown_context_error)
+)
+
+# Why: protects the v3-to-v2 projection contract: the durable profiled bundle
+# keeps its exact microbiology rows while the operational artifact declares v2,
+# carries only the v2 scope shape and derives the closed current annual total.
+stopifnot(
+  identical(operational_v2_bundle$sir_wide, external_bundle_v3$sir_wide),
+  identical(operational_v2_bundle$sir_wide_meta$contract_version, "v2"),
+  identical(
+    operational_v2_bundle$sir_wide_meta$sejuf_semantics,
+    "hospitalization_unit_at_sampling"
+  ),
+  identical(
+    names(operational_v2_bundle$sample_scope_reference),
+    orchidee_external_contract_v2()$sample_scope_reference$required_columns
+  ),
+  identical(
+    operational_v2_bundle$denominator_bundle$incidence_denominator_by_year,
+    runtime_inputs$incidence_denominator_by_year
+  ),
+  isTRUE(operational_v2_report$ok),
+  grepl("missing required columns: CODE_DE", missing_v3_code_de_error),
+  grepl("missing required columns: de_domain_ref", missing_v3_direct_domain_error)
+)
+
+# Why: protects the preferred six-block onboarding contract: one CLI run must
+# validate and retain v3, then materialize an independently validated v2
+# projection without changing microbiology rows, accepting a seventh block or
+# allowing two aliases of the same output directory.
+stopifnot(
+  identical(cli_status, 0L),
+  isTRUE(cli_v3_report$ok),
+  isTRUE(cli_v2_report$ok),
+  identical(cli_v3_sir_wide, cli_v2_sir_wide),
+  !identical(cli_seventh_block_status, 0L),
+  any(grepl(
+    "do not pass a seventh de_reference block",
+    cli_seventh_block_output
+  )),
+  !identical(cli_colliding_status, 0L),
+  any(grepl(
+    "must differ from output_bundle_dir",
+    cli_colliding_output
+  )),
+  identical(
+    cli_v2_denominator$incidence_denominator_by_year,
+    tibble::tibble(
+      calendar_year = c(2024L, 2025L),
+      hospital_nights = c(100L, 75L)
+    )
+  )
 )
 
 # Why: protects the canonical cross-artifact contract: strict v3 validation

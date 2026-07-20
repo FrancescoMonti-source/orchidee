@@ -8,17 +8,17 @@ editor_options:
 
 ## Purpose
 
-This adapter gives Rouen the same explicit handoff boundary already used for
-an external site. It starts from the two local raw-domain objects and stops at
-the portable ORCHIDEE v2 bundle:
+This adapter gives Rouen the same explicit handoff boundary used for an
+external site. It starts from the two local raw-domain objects and stops at the
+six handoff blocks plus the selected portable ORCHIDEE bundle:
 
 ```text
 Rouen bacteriology export ──> four microbiology blocks ─┐
-                                                        ├─> six site inputs
+                                                        ├─> six handoff blocks
 redsan PMSI output ─────────> two PMSI blocks ──────────┘
                                                                   |
                                                                   v
-                                                     canonical bundle v2
+                                                  canonical bundle v2 or v3
 ```
 
 The shared builder still owns `sir_wide`, its metadata, the sample-scope
@@ -252,7 +252,7 @@ documents with SIR, all raw rows in those documents and their SIR rows. It
 also reports rows received, invalid or missing dates, and rows outside the
 configured window.
 
-The raw files, six site inputs, bundle and audit are local clinical artifacts.
+The raw files, six handoff blocks, bundle and audit are local clinical artifacts.
 Write them under ignored `outputs/` or another protected location. Never add
 them to Git or publish them with the source repository.
 

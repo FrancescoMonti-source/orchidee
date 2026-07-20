@@ -57,18 +57,24 @@ handoff d'un site externe.
 
 La page à lire en premier est :
 
-`documentation/external_bundle/site_handoff_inputs_v1.md`
+`documentation/external_bundle/site_handoff_inputs.md`
 
 Elle décrit les fichiers élémentaires attendus d'un site externe. C'est la
 source de vérité pour l'onboarding Rennes.
 
-En résumé, le site doit préparer :
+En résumé, le site prépare exactement six blocs de handoff non versionnés :
 
--   des observations microbiologiques longues ;
--   des dictionnaires de mapping microbiologique ;
--   un mapping unité / structure / TA-DE au niveau `SEJUF` ;
--   un dénominateur annuel d'activité hospitalière, indépendant des lignes
-    microbiologiques.
+-   `microbiology_observations` ;
+-   `bacteria_mapping` ;
+-   `sample_type_mapping` ;
+-   `antibiotic_mapping` ;
+-   `unit_mapping`, avec `CODE_TA`, `CODE_DE` et `de_domain_ref` ;
+-   `incidence_exposure_by_year_um_uf_ta_de_profile`.
+
+Ces blocs conservent les informations nécessaires au bundle v3, même si le
+runtime opérationnel consomme encore v2. Le builder peut valider et conserver
+v3 puis en matérialiser la projection v2 `spares_current_v1` sans modifier le
+sélecteur des notebooks.
 
 ORCHIDEE dérive ensuite :
 
@@ -85,14 +91,16 @@ Le script de construction depuis les blocs site est :
 `scripts/build_external_bundle_from_site_inputs.R`
 
 Le détail des colonnes, des valeurs attendues et de la commande complète est
-dans `documentation/external_bundle/site_handoff_inputs_v1.md`.
+dans `documentation/external_bundle/site_handoff_inputs.md`.
 
 ## Rouen : des exports locaux au même handoff
 
 Rouen dispose maintenant d'un adaptateur explicite qui transforme l'export
-bactériologique long et l'objet PMSI produit par `redsan` en ces mêmes six
-blocs, puis construit le bundle canonique v2. Il applique l'UF d'hébergement
-active au prélèvement sans fallback silencieux vers l'UF microbiologique.
+bactériologique long et l'objet PMSI produit par `redsan` en ces mêmes familles
+de blocs, puis construit le bundle canonique demandé. Il applique l'UF
+d'hébergement active au prélèvement sans fallback silencieux vers l'UF
+microbiologique. Le mode v3 produit les six blocs complets du handoff préféré ;
+le mode v2 reste le chemin direct vers le runtime opérationnel actuel.
 
 Le contrat, les décisions locales et le contenu de l'audit sont décrits dans :
 
@@ -126,7 +134,7 @@ encore de panels stratifiés.
 -   `documentation/operational_flow_v2.md`
     -   vue d'ensemble du chemin Rouen brut vers les indicateurs, responsabilités,
         place de la complétion et évolution attendue du dénominateur ;
--   `documentation/external_bundle/site_handoff_inputs_v1.md`
+-   `documentation/external_bundle/site_handoff_inputs.md`
     -   source de vérité pour ce qu'un site externe doit fournir ;
 -   `documentation/external_bundle/canonical_inputs_v1.md`
     -   limite entre adaptation locale et coeur ORCHIDEE ;
@@ -135,7 +143,8 @@ encore de panels stratifiés.
 -   `documentation/external_bundle/sir_wide_v2.md`
     -   profil successeur où `SEJUF` désigne l'UF d'hébergement au prélèvement ;
 -   `documentation/external_bundle/rouen_raw_handoff_v1.md`
-    -   chemin Rouen brut bactériologie + PMSI vers les six blocs et le bundle v2 ;
+    -   chemin Rouen brut bactériologie + PMSI vers les six blocs et le bundle
+        v2 ou v3 ;
 -   `documentation/external_bundle/operational_v2_adoption_2026-07-19.md`
     -   décision et éléments agrégés ayant conduit à adopter v2 par défaut ;
 -   `documentation/external_bundle/sample_scope_reference_v1.md`
@@ -174,16 +183,18 @@ un diagnostic opt-in séparé ; le chemin canonique reste brut. Il n'existe aucu
 autodétecteur ni fallback entre les deux modes : un bundle v2 absent ou invalide
 fait échouer explicitement le chemin par défaut.
 
-Le builder générique reste v1 par défaut. Un site ne doit demander
-`--contract=v2` qu'après avoir attribué l'UF d'hébergement active au prélèvement
-comme décrit dans `documentation/external_bundle/sir_wide_v2.md` ; un bundle v1
-reste un artefact de compatibilité et n'est pas accepté par le runtime v2 par
-défaut.
+Le builder générique reste v1 par défaut pour compatibilité. Le parcours
+d'onboarding préféré construit v3 à partir des six blocs complets et demande
+`--operational-v2-output` pour produire l'entrée du runtime actuel. Un site ne
+doit déclarer ni v2 ni v3 avant d'avoir attribué l'UF d'hébergement active au
+prélèvement comme décrit dans `documentation/external_bundle/sir_wide_v2.md`.
+Un bundle v1 reste un artefact de compatibilité et n'est pas accepté par le
+runtime v2 par défaut.
 
 Pour comprendre la frontière technique actuelle, lire
 `documentation/project_map.md`.
 Pour brancher un autre entrepôt, commencer par
-`documentation/external_bundle/site_handoff_inputs_v1.md`.
+`documentation/external_bundle/site_handoff_inputs.md`.
 
 ## Répertoires principaux
 
