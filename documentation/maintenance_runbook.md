@@ -37,6 +37,8 @@ codes publiables restent dans `ref/`. Les inputs institutionnels privés ne
 doivent pas y être ajoutés : le classeur de structure CONSORES reste sous
 `data/` ou dans un emplacement protégé désigné par
 `ORCHIDEE_CONSORES_STRUCTURE_PATH`.
+Un référentiel ou snapshot sans consumer actif doit être archivé hors du dépôt,
+pas conservé dans `ref/` par précaution.
 Les fichiers de présentation Quarto restent dans `assets/`.
 
 ```powershell
@@ -63,6 +65,15 @@ Rscript -e "renv::status(); renv::snapshot(prompt = FALSE)"
 Ne pas snapshotter après avoir seulement chargé des artefacts locaux ou rendu un
 rapport : `renv.lock` doit représenter les dépendances du code, pas l'état d'une
 session de travail.
+
+## Frontière EDSaN / redsan
+
+`redsan` possède l'interrogation EDSaN, le batching et la normalisation des
+modules PMSI/BIOL. ORCHIDEE ne duplique plus ces fonctions. Pour le chemin
+Rouen, partir de l'export bactériologique long et de l'objet PMSI produit par
+`redsan`, puis utiliser `scripts/build_rouen_external_bundle.R`. Toute évolution
+du contrat source EDSaN doit donc être réalisée et testée dans `redsan` avant
+son adoption par ORCHIDEE.
 
 ## Tests R autonomes
 
