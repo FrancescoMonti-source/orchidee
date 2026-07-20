@@ -145,9 +145,16 @@ shape.
 For `--contract=v3`, the sixth site-owned input is
 `incidence_exposure_by_year_um_uf_ta_de_profile`, with the nine columns above.
 The shared builder validates and stores it under the same canonical name.
+Together with the other five blocks, this is the preferred unversioned handoff;
+`unit_mapping` carries `CODE_TA`, `CODE_DE` and `de_domain_ref` directly.
+
+Pass `--operational-v2-output=<directory>` to retain the validated v3 bundle
+and materialize its closed `spares_current_v1` projection as a separate strict
+v2 bundle. This construction bridge does not adopt v3 in the notebook runtime.
 
 For `--contract=v1` or `--contract=v2`, the sixth input remains
-`denominator_by_year` with `calendar_year + hospital_nights`.
+`denominator_by_year` with `calendar_year + hospital_nights` as a compatibility
+shape for older integrations.
 
 ## Rouen producer
 

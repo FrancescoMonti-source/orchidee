@@ -39,11 +39,11 @@ if (length(args) < 4L || length(args) > 5L || "--help" %in% args || "-h" %in% ar
     "    [de_reference.{rds,csv,tsv}] [--contract=v1|v2|v3] [--force]\n\n",
     "Inputs:\n",
     "  sir_wide.rds: canonical wide microbiology artifact.\n",
-    "  unit_mapping: one row per SEJUF with CODE_TA; v3 also requires CODE_DE.\n",
-    "    Provide de_domain_ref or a separate de_reference table.\n",
+    "  unit_mapping: one row per SEJUF; v3 requires CODE_TA, CODE_DE and\n",
+    "    de_domain_ref directly.\n",
     "  denominator: v1/v2 use calendar_year + hospital_nights; v3 uses\n",
     "    year + UM + UF + TA + DE + domain + profile + exposure + unit.\n",
-    "  de_reference: optional CODE_DE + de_domain_ref/DOMAINE dictionary.\n",
+    "  de_reference: optional v1/v2 compatibility dictionary only.\n",
     sep = ""
   )
   quit(status = if (length(args) == 0L || "--help" %in% args || "-h" %in% args) 0L else 1L)
@@ -54,6 +54,14 @@ unit_mapping_path <- args[[2L]]
 denominator_path <- args[[3L]]
 output_bundle_dir <- args[[4L]]
 de_reference_path <- if (length(args) >= 5L) args[[5L]] else NA_character_
+
+if (identical(contract_version, "v3") && !is.na(de_reference_path)) {
+  stop(
+    "Contract v3 requires de_domain_ref directly in unit_mapping; ",
+    "do not pass a separate de_reference table.",
+    call. = FALSE
+  )
+}
 
 source("R/bootstrap.R")
 orchidee_source_required_script("helpers.R")
