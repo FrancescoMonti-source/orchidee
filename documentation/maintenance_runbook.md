@@ -73,10 +73,11 @@ Chaque fichier `tests/test_*.R` est exécuté dans un processus R distinct.
 Pour transformer les exports locaux Rouen en bundle canonique v2 :
 
 ```powershell
-Rscript scripts/build_rouen_external_bundle_v2.R `
+Rscript scripts/build_rouen_external_bundle.R `
   <bacteriology_raw.rds> `
   <pmsi.rds> `
-  outputs/rouen_bundle_v2
+  outputs/rouen_bundle_v2 `
+  --contract=v2
 ```
 
 La commande écrit les six blocs sous `site_inputs/`, les quatre fichiers
@@ -91,6 +92,13 @@ doit rester visible dans les métadonnées d'audit.
 Le script valide strictement le contrat v2 puis exécute le smoke du runtime
 canonique. Un changement limité à cet adaptateur se valide avec les tests
 source et un gate local sur les exports privés.
+
+Pour construire sans l'adopter un candidat v3, utiliser un répertoire distinct
+et `--contract=v3`. Le bundle transporte l'exposition profilée année + UM + UF
++ TA + DE, y compris l'activité mappée hors périmètre. Le smoke applique
+`spares_current_v1` et doit redériver exactement le total annuel v2. Le
+sélecteur opérationnel reste explicitement sur v2 tant qu'une décision
+d'adoption séparée n'a pas été prise.
 
 ## Exécution opérationnelle sur un bundle v2
 

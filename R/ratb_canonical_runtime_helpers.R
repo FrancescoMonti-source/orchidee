@@ -96,23 +96,116 @@ build_ratb_analytic_scope_dataset <- function(sir_wide_ratb_scope) {
     dplyr::filter(sample_uf_is_eligible_by_ta_de)
 }
 
-extract_incidence_denominator_by_year <- function(denominator_bundle) {
+extract_incidence_denominator_by_year <- function(
+    denominator_bundle,
+    sample_scope_reference = NULL,
+    analysis_context_id = "spares_current_v1"
+  ) {
   stopifnot(is.list(denominator_bundle))
 
-  if (is.data.frame(denominator_bundle$incidence_denominator_by_year)) {
-    return(denominator_bundle$incidence_denominator_by_year)
+  annual <- denominator_bundle[["incidence_denominator_by_year"]]
+  if (is.data.frame(annual)) {
+    return(annual)
+  }
+
+  exposure <- denominator_bundle[[
+    "incidence_exposure_by_year_um_uf_ta_de_profile"
+  ]]
+  if (is.data.frame(exposure)) {
+    if (!is.data.frame(sample_scope_reference)) {
+      stop(
+        "sample_scope_reference is required to derive the v3 denominator.",
+        call. = FALSE
+      )
+    }
+    context <- ratb_analysis_context_profile(analysis_context_id)
+    required_scope_cols <- c(
+      "SEJUF", "sample_CODE_TA", "sample_CODE_DE",
+      "sample_de_domain_ref", "sample_uf_is_eligible_by_ta_de"
+    )
+    missing_scope_cols <- setdiff(
+      required_scope_cols,
+      names(sample_scope_reference)
+    )
+    if (length(missing_scope_cols) > 0L) {
+      stop(
+        "v3 sample_scope_reference is missing columns: ",
+        paste(missing_scope_cols, collapse = ", "),
+        call. = FALSE
+      )
+    }
+    scope_lookup <- sample_scope_reference %>%
+      dplyr::select(dplyr::all_of(required_scope_cols)) %>%
+      dplyr::mutate(.scope_reference_matched = TRUE)
+    exposure_with_scope <- exposure %>%
+      dplyr::left_join(scope_lookup, by = "SEJUF")
+    inconsistent_scope <-
+      !(exposure_with_scope$.scope_reference_matched %in% TRUE) |
+      exposure_with_scope$CODE_TA != exposure_with_scope$sample_CODE_TA |
+      exposure_with_scope$CODE_DE != exposure_with_scope$sample_CODE_DE |
+      exposure_with_scope$de_domain_ref !=
+        exposure_with_scope$sample_de_domain_ref
+    inconsistent_scope[is.na(inconsistent_scope)] <- TRUE
+    if (any(inconsistent_scope)) {
+      stop(
+        "v3 incidence exposure disagrees with sample scope TA/DE mapping.",
+        call. = FALSE
+      )
+    }
+    expected_scope <-
+      exposure_with_scope$sample_CODE_TA %in% context$eligible_ta_codes &
+      exposure_with_scope$sample_de_domain_ref %in%
+        context$eligible_de_domains
+    if (any(
+      exposure_with_scope$sample_uf_is_eligible_by_ta_de != expected_scope
+    )) {
+      stop(
+        "v3 sample scope eligibility disagrees with analysis context ",
+        analysis_context_id,
+        ".",
+        call. = FALSE
+      )
+    }
+    return(
+      exposure_with_scope %>%
+        dplyr::filter(
+          .data$denominator_profile_id == context$denominator_profile_id,
+          .data$exposure_unit == context$exposure_unit,
+          .data$CODE_TA %in% context$eligible_ta_codes,
+          .data$de_domain_ref %in% context$eligible_de_domains,
+          .data$sample_uf_is_eligible_by_ta_de
+        ) %>%
+        dplyr::group_by(.data$calendar_year) %>%
+        dplyr::summarise(
+          hospital_nights = as.integer(sum(.data$exposure_value)),
+          .groups = "drop"
+        ) %>%
+        dplyr::arrange(.data$calendar_year)
+    )
   }
 
   stop(
-    "denominator_bundle must contain incidence_denominator_by_year.",
+    "denominator_bundle must contain incidence_denominator_by_year or ",
+    "incidence_exposure_by_year_um_uf_ta_de_profile.",
     call. = FALSE
   )
+}
+
+extract_incidence_exposure_by_year_um_uf_ta_de_profile <- function(
+    denominator_bundle
+  ) {
+  stopifnot(is.list(denominator_bundle))
+  exposure <- denominator_bundle[[
+    "incidence_exposure_by_year_um_uf_ta_de_profile"
+  ]]
+  if (is.data.frame(exposure)) exposure else NULL
 }
 
 build_ratb_downstream_scope_from_canonical_inputs <- function(
     sir_wide,
     sample_scope_reference,
-    denominator_bundle
+    denominator_bundle,
+    analysis_context_id = "spares_current_v1"
   ) {
   stopifnot(
     is.data.frame(sir_wide),
@@ -121,21 +214,32 @@ build_ratb_downstream_scope_from_canonical_inputs <- function(
   )
 
   incidence_denominator_by_year <- extract_incidence_denominator_by_year(
-    denominator_bundle
+    denominator_bundle,
+    sample_scope_reference = sample_scope_reference,
+    analysis_context_id = analysis_context_id
   )
+  incidence_exposure_by_year_um_uf_ta_de_profile <-
+    extract_incidence_exposure_by_year_um_uf_ta_de_profile(
+      denominator_bundle
+    )
 
   sir_wide_ratb_scope <- apply_ratb_sample_ta_de_scope(
     sir_wide = sir_wide,
     sample_scope_reference = sample_scope_reference
   )
 
-  list(
+  runtime_inputs <- list(
     sir_wide_ratb_scope = sir_wide_ratb_scope,
     sir_wide_ratb_analytic_scope = build_ratb_analytic_scope_dataset(
       sir_wide_ratb_scope
     ),
     incidence_denominator_by_year = incidence_denominator_by_year
   )
+  if (is.data.frame(incidence_exposure_by_year_um_uf_ta_de_profile)) {
+    runtime_inputs$incidence_exposure_by_year_um_uf_ta_de_profile <-
+      incidence_exposure_by_year_um_uf_ta_de_profile
+  }
+  runtime_inputs
 }
 
 ratb_runtime_add_issue <- function(issues, text) {
@@ -289,6 +393,15 @@ validate_ratb_canonical_runtime_inputs <- function(runtime_inputs, sir_wide = NU
         )
       }
     }
+  }
+
+  exposure <- runtime_inputs$incidence_exposure_by_year_um_uf_ta_de_profile
+  if (!is.null(exposure)) {
+    exposure_validation <- external_bundle_validate_denominator_bundle(
+      list(incidence_exposure_by_year_um_uf_ta_de_profile = exposure),
+      contract = orchidee_external_contract_v3()
+    )
+    errors <- c(errors, exposure_validation$errors)
   }
 
   list(

@@ -86,10 +86,12 @@ Les tables comme `ratb_scope_join_audit`, `hospital_stays_validated`,
 restent du contexte de QA natif CHU. Elles aident à comprendre le workflow
 actuel, mais elles ne font pas partie du contrat portable minimal.
 
-Le dénominateur portable actuel est annuel. Une future stratification de la
-densité d'incidence doit promouvoir la table fine
-`calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + hospital_nights` dans un
-nouveau contrat ; elle ne peut pas être reconstruite depuis le total annuel.
+Le dénominateur du contrat opérationnel v2 reste annuel. Le contrat externe v3
+transporte une table d'exposition profilée à année + UM + UF + TA + DE, y
+compris l'activité mappée hors périmètre. Le runtime applique
+`spares_current_v1` et en dérive exactement le total annuel v2. v3 n'est pas
+encore la valeur opérationnelle par défaut et ne publie pas encore de panels
+stratifiés.
 
 Pour brancher Rennes ou un autre entrepôt, ne pas utiliser cette carte comme
 contrat d'onboarding. La source de vérité est
@@ -243,14 +245,16 @@ chargés hors notebook.
     -   coeur aval indépendant de l'entrepôt : applique
         `sample_scope_reference` à `sir_wide`
     -   construit le périmètre microbiologique analytique et expose la
-        table annuelle de dénominateur du `denominator_bundle` au
-        workflow RATB
+        table annuelle de dénominateur au workflow RATB
+    -   sous contrat v3, sélectionne le profil et le contexte TA/DE courants
+        dans la table d'exposition année + UM + UF + TA + DE, puis conserve
+        aussi cette table complète dans les entrées runtime
     -   valide les invariants minimaux des entrées runtime canoniques
 -   `R/ratb_hospital_days_helpers.R`
     -   helpers natifs PMSI / CHU pour les audits de séjour et le
         dénominateur local
-    -   produit les nuits éligibles par année et unité de séjour avant
-        leur agrégation annuelle globale
+    -   produit les nuits éligibles v2 et, séparément, l'exposition v3 de toute
+        l'activité mappée par année, UM, UF, TA et DE
     -   transformation des références CONSORES TA/DE locales vers la
         `sample_scope_reference` canonique
     -   découpage inter-annuel
@@ -259,7 +263,8 @@ chargés hors notebook.
         de `sir_wide`, construit `sir_wide` depuis des observations
         microbiologiques longues et des dictionnaires locaux, construit la
         `sample_scope_reference` depuis un mapping simple UF/TA-DE et
-        enveloppe le dénominateur annuel en `denominator_bundle`
+        enveloppe le dénominateur annuel v1/v2 ou l'exposition profilée v3 en
+        `denominator_bundle`
     -   ne constitue pas un connecteur universel d'entrepôt ; il attend
         des blocs locaux déjà compréhensibles et mappés par le site
 
@@ -313,8 +318,11 @@ chargés hors notebook.
 -   `R/external_bundle_validation_helpers.R`
     -   helpers de validation réutilisables pour le contrat d'entrée
         externe
-    -   porte les profils exécutables v1 et v2 via
-        `orchidee_external_contract_v1()` et `orchidee_external_contract_v2()`
+    -   porte les profils exécutables v1, v2 et v3 via
+        `orchidee_external_contract_v1()`, `orchidee_external_contract_v2()`
+        et `orchidee_external_contract_v3()`
+    -   ferme actuellement le contexte `spares_current_v1` et le seul profil
+        de dénominateur `midnight_presence_v1`
     -   charge aussi un bundle validé via
         `load_validated_external_input_bundle()`
 -   `R/ratb_hospital_days_helpers.R`
@@ -344,10 +352,13 @@ chargés hors notebook.
     -   dérive `sir_wide.rds`, `sir_wide_meta.rds`,
         `sample_scope_reference.rds` et `denominator_bundle.rds`, puis
         lance la validation stricte
--   `scripts/build_rouen_external_bundle_v2.R`
+-   `scripts/build_rouen_external_bundle.R`
     -   point d'entrée Rouen bactériologie brute + objet PMSI `redsan`
-    -   écrit séparément les six blocs, le bundle canonique v2 et l'audit local,
-        puis exécute validation stricte et smoke runtime
+    -   écrit séparément les six blocs, le bundle canonique v2 ou v3 et l'audit
+        local, puis exécute validation stricte et smoke runtime
+    -   v2 reste le défaut ; v3 doit être demandé explicitement
+-   `scripts/build_rouen_external_bundle_v2.R`
+    -   wrapper de compatibilité qui conserve l'ancienne commande v2
 -   `scripts/audit_chu_site_handoff.R`
     -   diagnostic mainteneur : dérive des blocs élémentaires depuis les
         artefacts CHU courants (observations et mappings depuis

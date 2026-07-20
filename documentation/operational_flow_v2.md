@@ -93,7 +93,7 @@ Cette décision explique les différences ratifiées entre `external_bundle_v2` 
 le chemin historique `chu_native`. Elle ne modifie pas le catalogue biologique
 ni les règles de dédoublonnage.
 
-## Dénominateur : contrat actuel et extension nécessaire
+## Dénominateur : contrat opérationnel et extension v3
 
 Le contrat portable actuel transporte uniquement :
 
@@ -104,22 +104,27 @@ calendar_year + hospital_nights
 Ce grain suffit pour publier une densité d'incidence annuelle globale. Il ne
 permet pas de calculer correctement une densité par UM, UF, TA ou DE.
 
-L'adaptateur Rouen calcule déjà, pour son audit, une table plus fine à partir des
-séjours PMSI. Le futur contrat devra promouvoir une table au grain :
+Le contrat externe v3 transporte désormais l'exposition profilée calculée par
+l'adaptateur Rouen au grain :
 
 ```text
-calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + hospital_nights
+calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + de_domain_ref +
+denominator_profile_id + exposure_value + exposure_unit
 ```
 
-Une seule table à ce grain est préférable à plusieurs dénominateurs calculés
-séparément. Elle permet d'agréger ensuite par année, UM, UF, TA, DE ou combinaison
-de ces dimensions, tout en vérifiant que la somme des unités reproduit le total
-annuel.
+La table conserve toute contribution d'exposition positive issue d'une
+activité valide dont TA/DE sont mappés, même hors du périmètre actuel. Le
+runtime applique le contexte fermé `spares_current_v1`
+(TA 03/20, domaines DE ratifiés, `midnight_presence_v1`) et en dérive le total
+annuel v2. Il vérifie aussi la concordance TA/DE avec la référence de périmètre
+des prélèvements.
 
-Cette promotion n'appartient pas au contrat v2 actuel. Elle devra être introduite
-comme une évolution explicite du handoff et du `denominator_bundle`, avec ses
-propres validations. Le dénominateur fin ne doit jamais être reconstruit à partir
-du total annuel.
+Cette promotion ne modifie pas v2 et v3 n'est pas encore la valeur
+opérationnelle par défaut. Elle prépare le contrat et le runtime ; les panels
+stratifiés, leurs numérateurs, leur dédoublonnage contextuel et leurs unités de
+publication restent une étape séparée. Les profils `noon_presence_v1`,
+`elapsed_minutes_v1` et `calendar_dates_touched_v1` sont réservés mais ne sont
+pas encore exécutables.
 
 ## Place de la complétion
 
