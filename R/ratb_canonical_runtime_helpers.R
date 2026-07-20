@@ -191,6 +191,88 @@ extract_incidence_denominator_by_year <- function(
   )
 }
 
+# Internal construction bridge: keep the complete v3 bundle as the durable
+# handoff, while materializing the exact v2 shape accepted by today's runtime.
+project_external_bundle_v3_to_operational_v2 <- function(
+    external_bundle_v3,
+    analysis_context_id = "spares_current_v1"
+  ) {
+  required_bundle_objects <- c(
+    "sir_wide",
+    "sir_wide_meta",
+    "sample_scope_reference",
+    "denominator_bundle"
+  )
+  if (!is.list(external_bundle_v3)) {
+    stop("external_bundle_v3 must be a list.", call. = FALSE)
+  }
+  missing_objects <- setdiff(required_bundle_objects, names(external_bundle_v3))
+  if (length(missing_objects) > 0L) {
+    stop(
+      "external_bundle_v3 is missing objects: ",
+      paste(missing_objects, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  contract_v3 <- orchidee_external_contract_v3()
+  validations <- list(
+    external_bundle_validate_sir_wide(
+      external_bundle_v3$sir_wide,
+      external_bundle_v3$sir_wide_meta,
+      contract = contract_v3
+    ),
+    external_bundle_validate_sample_scope_reference(
+      external_bundle_v3$sample_scope_reference,
+      contract = contract_v3
+    ),
+    external_bundle_validate_denominator_bundle(
+      external_bundle_v3$denominator_bundle,
+      contract = contract_v3
+    ),
+    external_bundle_validate_cross_artifacts(
+      external_bundle_v3$sample_scope_reference,
+      external_bundle_v3$denominator_bundle,
+      contract = contract_v3
+    )
+  )
+  validation_errors <- unique(unlist(lapply(validations, `[[`, "errors")))
+  if (length(validation_errors) > 0L) {
+    stop(
+      "Cannot project an invalid external bundle v3:\n - ",
+      paste(validation_errors, collapse = "\n - "),
+      call. = FALSE
+    )
+  }
+
+  contract_v2 <- orchidee_external_contract_v2()
+  sir_wide <- external_bundle_v3$sir_wide
+  source_meta <- external_bundle_v3$sir_wide_meta
+  projected <- list(
+    sir_wide = sir_wide,
+    sir_wide_meta = orchidee_handoff_build_sir_wide_meta(
+      sir_wide,
+      contract = contract_v2,
+      artifact_version = source_meta$artifact_version,
+      created_at = source_meta$created_at,
+      source_label = "external_handoff_v3_projection"
+    ),
+    sample_scope_reference = external_bundle_subset_sample_scope_reference(
+      external_bundle_v3$sample_scope_reference,
+      contract = contract_v2
+    ),
+    denominator_bundle = list(
+      incidence_denominator_by_year = extract_incidence_denominator_by_year(
+        external_bundle_v3$denominator_bundle,
+        sample_scope_reference = external_bundle_v3$sample_scope_reference,
+        analysis_context_id = analysis_context_id
+      )
+    )
+  )
+
+  projected
+}
+
 extract_incidence_exposure_by_year_um_uf_ta_de_profile <- function(
     denominator_bundle
   ) {
