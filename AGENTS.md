@@ -60,9 +60,12 @@ Notes:
 ## Rendering And Verification
 
 - Use `scripts/render_orchidee.ps1` for routine renders.
-- Available targets are `memo`, `docs`, `indicators`, and `full`.
-- Use `full` after changes to upstream pipeline, completion, deduplication,
-  perimeter, denominator, or indicator logic.
+- Available targets are `memo`, `docs`, `indicators`, `completion`, and `full`.
+- Use `full` after changes to upstream pipeline, raw deduplication, perimeter,
+  denominator, or indicator logic; it builds the canonical raw cache and then
+  renders the indicator report.
+- Use `completion` only for explicit changes to the optional completion
+  diagnostic.
 - Before changing code because a report looks wrong, determine whether the
   issue belongs to the source pipeline, indicator specification, or report
   display layer.
