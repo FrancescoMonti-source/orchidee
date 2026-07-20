@@ -265,6 +265,13 @@ calendar_year,hospital_nights
 
 This denominator must be computed independently from microbiology rows.
 
+This annual grain supports only the current global annual incidence density.
+It cannot support incidence stratified by hospitalization UM, UF, TA or DE. A
+future contract must promote a denominator table at
+`calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE`, with
+`hospital_nights` as its measure. Sites should not try to reconstruct that
+detail from `denominator_by_year`.
+
 ## Build and validate the ORCHIDEE input files
 
 From the repository root:
