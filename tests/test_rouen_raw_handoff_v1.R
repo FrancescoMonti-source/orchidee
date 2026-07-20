@@ -188,11 +188,78 @@ stopifnot(
   handoff$audit$phenotype_signal_gate$n_signal_rows_without_exact_candidate_key == 0L
 )
 
-unit_refs <- load_ratb_unit_references("ref")
+synthetic_reference_fixture_dir <- tempfile("orchidee-reference-fixture-")
+dir.create(synthetic_reference_fixture_dir)
+writeLines(
+  c("5130;UF 5130", "5136;UF 5136", "5701;UF 5701"),
+  file.path(synthetic_reference_fixture_dir, "ref_uf.txt"),
+  useBytes = TRUE
+)
+writeLines(
+  c("INTB;Hospitalisation", "URGE;Urgences"),
+  file.path(synthetic_reference_fixture_dir, "ref_um.txt"),
+  useBytes = TRUE
+)
+writeLines(
+  c("5130;INTB", "5136;INTB", "5701;URGE"),
+  file.path(synthetic_reference_fixture_dir, "ref_uf2um.txt"),
+  useBytes = TRUE
+)
+
+structure_fixture_path <- file.path(
+  synthetic_reference_fixture_dir,
+  "consores_structure_synthetic.xlsx"
+)
+openxlsx::write.xlsx(
+  tibble::tibble(
+    UF = c("5130", "5136", "5701"),
+    `Libellé UF (libellé de référence)` = c("UF 5130", "UF 5136", "UF 5701"),
+    `Libellé court UF` = c("UF5130", "UF5136", "UF5701"),
+    CODE_TA = c("03", "03", "10"),
+    `Libellé type activité - Uf` = c(
+      "HOSPITALISATION COMPLETE",
+      "HOSPITALISATION COMPLETE",
+      "URGENCES"
+    ),
+    CODE_DE = c("D03", "D03", "D07"),
+    `Nom discipline - Ds` = c("MEDECINE", "MEDECINE", "URGENCES"),
+    `Type prise en charge` = c("HOSPITALISATION", "HOSPITALISATION", "URGENCES")
+  ),
+  structure_fixture_path,
+  overwrite = TRUE
+)
+writeLines(
+  c(
+    "CODE_TA;LIBELLE_TA",
+    "03;HOSPITALISATION_COMPLETE",
+    "10;URGENCES"
+  ),
+  file.path(synthetic_reference_fixture_dir, "consores_codes_ta.csv"),
+  useBytes = TRUE
+)
+writeLines(
+  c(
+    "DOMAINE;CODE_DE;LIBELLE_DE",
+    "MÉDECINE;D03;MEDECINE",
+    "URGENCES;D07;URGENCES"
+  ),
+  file.path(synthetic_reference_fixture_dir, "consores_codes_de.csv"),
+  useBytes = TRUE
+)
+
+# Why: protects the public/private source boundary and the complete synthetic
+# contract required to load local unit and CONSORES TA/DE references.
+unit_refs <- load_ratb_unit_references(synthetic_reference_fixture_dir)
 ta_de_ref <- load_ratb_consores_ta_de_reference(
-  structure_path = "ref/consores_structure_intranet_maj_2025.xlsx",
-  codes_ta_path = "ref/consores_codes_ta.csv",
-  codes_de_path = "ref/consores_codes_de.csv"
+  structure_path = structure_fixture_path,
+  codes_ta_path = file.path(
+    synthetic_reference_fixture_dir,
+    "consores_codes_ta.csv"
+  ),
+  codes_de_path = file.path(
+    synthetic_reference_fixture_dir,
+    "consores_codes_de.csv"
+  )
 )
 pmsi_main <- tibble::tibble(
   PATID = c("P1", "P1", "P5", "P6", "P7", "P8"),

@@ -289,16 +289,18 @@ chargés hors notebook.
 -   `config/pipeline.R`
     -   point d'entrée des réglages opérationnels : chemins, fenêtres de
         dates, flags de recompute et paramètres d'affichage
--   `ref/consores_structure_intranet_maj_2025.xlsx`,
-    `ref/consores_codes_ta.csv`, `ref/consores_codes_de.csv`
-    -   référentiels CONSORES actifs pour l'éligibilité TA/DE du
-        périmètre RATB d'hospitalisation
+-   `data/consores_structure_intranet_maj_2025.xlsx`
+    -   classeur de structure CONSORES privé, ignoré par Git ; son chemin peut
+        être remplacé avec `ORCHIDEE_CONSORES_STRUCTURE_PATH`
+-   `ref/consores_codes_ta.csv`, `ref/consores_codes_de.csv`
+    -   listes de codes CONSORES tabulaires versionnées pour l'éligibilité
+        TA/DE du périmètre RATB d'hospitalisation
 -   `rules/`
     -   emplacement réservé aux tables de règles analytiques maintenues
         par le projet
     -   ne contient plus de table active pour le périmètre RATB ; ce
-        périmètre repose sur les référentiels CONSORES TA/DE dans `ref/`
-        et sur `R/ratb_hospital_days_helpers.R`
+        périmètre repose sur le classeur CONSORES privé, les listes de codes
+        TA/DE versionnées et `R/ratb_hospital_days_helpers.R`
 -   `documentation/ratb_indicator_spec.csv`
     -   contrat de publication des indicateurs
     -   premier endroit à vérifier quand on ajoute ou retire des sorties

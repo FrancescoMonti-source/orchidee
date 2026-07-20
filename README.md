@@ -23,9 +23,16 @@ Le noyau actuel de l'étape 1 est gelé. Les changements courants doivent donc
 préserver les sorties validées, sauf décision explicite de modifier la méthode
 ou le périmètre publié.
 
-Les artefacts générés ou locaux (`data/`, `downloads/`, `outputs/`, `archive/`)
-ne sont pas versionnés. Un clone frais ne contient donc pas les caches, les
-exports ou les rendus locaux.
+Les artefacts générés et les inputs opérationnels privés (`data/`,
+`downloads/`, `outputs/`, `archive/`) ne sont pas versionnés. Un clone frais ne
+contient donc pas les caches, les exports, les rendus locaux ni le classeur de
+structure CONSORES.
+
+Ce classeur est recherché par défaut sous
+`data/consores_structure_intranet_maj_2025.xlsx`. Le chemin peut être fourni
+avec `ORCHIDEE_CONSORES_STRUCTURE_PATH`. Les sources méthodologiques publiques
+et la frontière avec les documents privés sont recensées dans
+`documentation/reference_sources.md`.
 
 ## Installation R
 
@@ -143,6 +150,8 @@ encore de panels stratifiés.
     -   commandes de rendu, validation locale et dépannage courant ;
 -   `documentation/ratb_implementation_decisions.qmd`
     -   mémo méthodologique du noyau RATB gelé ;
+-   `documentation/reference_sources.md`
+    -   sources publiques et frontière avec les documents locaux privés ;
 -   `documentation/ratb_indicator_spec.csv`
     -   catalogue des indicateurs publiés.
 
@@ -192,9 +201,9 @@ Pour brancher un autre entrepôt, commencer par
 -   `dictionaries/`
     -   dictionnaires de normalisation microbiologique ;
 -   `ref/`
-    -   référentiels institutionnels importés, dont les références TA/DE ;
+    -   référentiels tabulaires versionnables, dont les listes de codes TA/DE ;
 -   `data/`
-    -   artefacts internes générés, ignorés par Git ;
+    -   artefacts générés et inputs opérationnels privés, ignorés par Git ;
 -   `downloads/`
     -   exports de rapport, ignorés par Git ;
 -   `outputs/`
