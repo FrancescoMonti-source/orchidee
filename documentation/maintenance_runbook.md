@@ -85,44 +85,44 @@ Rscript tests/run_tests.R
 
 Chaque fichier `tests/test_*.R` est exécuté dans un processus R distinct.
 
-## Construction locale du handoff Rouen v2
+## Construction locale Rouen de bout en bout
 
-Pour transformer les exports locaux Rouen en bundle canonique v2 :
+Le parcours normal transforme les exports Rouen en six blocs complets, conserve
+le bundle v3 durable puis matérialise sa projection v2 opérationnelle :
 
 ```powershell
+$output = "outputs/rouen_current"
 Rscript scripts/build_rouen_external_bundle.R `
   <bacteriology_raw.rds> `
   <pmsi.rds> `
-  outputs/rouen_bundle_v2 `
-  --contract=v2
+  $output `
+  --contract=v3 `
+  --operational-v2-output="$output/bundle_v2_operational"
 ```
 
-La commande écrit les six blocs sous `site_inputs/`, les quatre fichiers
-canoniques sous `bundle/` et l'audit local dans `adapter_audit.rds`. Cet audit
-peut contenir des identifiants patients : conserver tout le répertoire sous
+La commande écrit les six blocs sous `site_inputs/`, les quatre fichiers v3 sous
+`bundle_v3/`, la projection courante sous `bundle_v2_operational/` et l'audit
+local dans `adapter_audit.rds`. `build_manifest.txt` donne les chemins, les hash,
+le HEAD, le profil de projection et les résultats de validation. L'audit peut
+contenir des identifiants patients : conserver tout le répertoire sous
 `outputs/` ou dans un autre emplacement protégé et non versionné.
 
 La fenêtre versionnée par défaut est `[2022-01-01, 2025-01-01)` pour les deux
 sources. Toute modification se fait dans `config/rouen_raw_handoff_v1.R` et
 doit rester visible dans les métadonnées d'audit.
 
-Le script valide strictement le contrat v2 puis exécute le smoke du runtime
-canonique. Un changement limité à cet adaptateur se valide avec les tests
-source et un gate local sur les exports privés.
-
-Pour construire sans l'adopter un candidat v3, utiliser un répertoire distinct
-et `--contract=v3`. Le bundle transporte l'exposition profilée année + UM + UF
-+ TA + DE, y compris l'activité mappée hors périmètre. Le smoke applique
-`spares_current_v1` et doit redériver exactement le total annuel v2. Le
-sélecteur opérationnel reste explicitement sur v2 tant qu'une décision
-d'adoption séparée n'a pas été prise.
+Le script valide strictement v3 et v2 puis exécute le smoke du runtime sur les
+deux. La projection applique `spares_current_v1` et doit redériver exactement le
+total annuel v2. Le sélecteur opérationnel reste explicitement sur v2 : cette
+commande conserve v3 sans l'adopter comme entrée des notebooks. Le build direct
+`--contract=v2` reste disponible comme compatibilité explicite.
 
 ## Exécution opérationnelle sur un bundle v2
 
 Le bundle v2 strict est le chemin opérationnel par défaut. Sans surcharge,
 `config/pipeline.R` cherche le bundle sous
-`outputs/rouen_bundle_v2/bundle`. Après sa construction, lancer un rendu
-complet :
+`outputs/rouen_current/bundle_v2_operational`. Après sa construction, lancer un
+rendu complet :
 
 ```powershell
 & .\scripts\render_orchidee.ps1 -Target full

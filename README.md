@@ -103,10 +103,10 @@ dans `documentation/external_bundle/site_handoff_inputs.md`.
 
 Rouen dispose maintenant d'un adaptateur explicite qui transforme l'export
 bactériologique long et l'objet PMSI produit par `redsan` en ces mêmes familles
-de blocs, puis construit le bundle canonique demandé. Il applique l'UF
+de blocs, puis construit dans une seule exécution le bundle v3 durable et sa
+projection v2 opérationnelle. Il applique l'UF
 d'hébergement active au prélèvement sans fallback silencieux vers l'UF
-microbiologique. Le mode v3 produit les six blocs complets du handoff préféré ;
-le mode v2 reste le chemin direct vers le runtime opérationnel actuel.
+microbiologique.
 
 Le contrat, les décisions locales et le contenu de l'audit sont décrits dans :
 
@@ -115,25 +115,30 @@ Le contrat, les décisions locales et le contenu de l'audit sont décrits dans :
 Le point d'entrée est :
 
 ```powershell
+$output = "outputs/rouen_current"
 Rscript scripts/build_rouen_external_bundle.R `
-  <bacteriology_raw.rds> <pmsi.rds> outputs/rouen_bundle_v2 `
-  --contract=v2
+  <bacteriology_raw.rds> <pmsi.rds> $output `
+  --contract=v3 `
+  --operational-v2-output="$output/bundle_v2_operational"
 ```
 
 Le profil v1 Rouen couvre par défaut les années 2022 à 2024 ; la même fenêtre
 est appliquée à la microbiologie et au dénominateur PMSI.
 
-Les sorties restent locales et ignorées par Git. Le bundle v2 alimente ensuite
-le chemin opérationnel par défaut des notebooks sans remplacer ni écraser les
-artefacts CHU.
+Les sorties restent locales et ignorées par Git. `site_inputs/` conserve les
+six blocs, `bundle_v3/` le contrat complet et `bundle_v2_operational/` l'entrée
+du runtime actuel. `build_manifest.txt` indique leurs chemins, empreintes et
+statuts de validation sans devoir ouvrir les objets RDS.
 
-Le contrat v3 est disponible explicitement avec `--contract=v3`. Il conserve
-la sémantique d'UF d'hébergement de v2 et remplace le total annuel transporté
+Le contrat v3 conserve la sémantique d'UF d'hébergement de v2 et remplace le
+total annuel transporté
 par une table d'exposition profilée au grain année + UM + UF + TA + DE. Elle
 conserve aussi l'activité mappée hors du périmètre courant. Le runtime applique
 le contexte fermé `spares_current_v1` et redérive exactement le total annuel
-v2. v3 n'est pas encore la valeur opérationnelle par défaut et n'ajoute pas
-encore de panels stratifiés.
+v2. v3 n'est pas consommé directement par les notebooks et n'ajoute pas encore
+de panels stratifiés. Le build direct `--contract=v2` reste disponible comme
+chemin de compatibilité explicite, mais ce n'est plus la commande d'onboarding
+Rouen recommandée.
 
 ## Carte des documents
 

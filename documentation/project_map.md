@@ -354,9 +354,10 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
         lance la validation stricte
 -   `scripts/build_rouen_external_bundle.R`
     -   point d'entrée Rouen bactériologie brute + objet PMSI `redsan`
-    -   écrit séparément les six blocs, le bundle canonique v2 ou v3 et l'audit
-        local, puis exécute validation stricte et smoke runtime
-    -   v2 reste le défaut ; v3 doit être demandé explicitement
+    -   le parcours recommandé écrit les six blocs, conserve le bundle v3,
+        projette `spares_current_v1` vers un bundle v2 opérationnel et produit
+        un manifest lisible, puis valide et smoke les deux contrats
+    -   le build direct v2 reste une compatibilité explicite
 -   `scripts/audit_chu_site_handoff.R`
     -   diagnostic mainteneur : dérive des blocs élémentaires depuis les
         artefacts CHU courants (observations et mappings depuis
