@@ -13,9 +13,10 @@ par défaut des notebooks. `chu_native` reste disponible explicitement pour la
 comparaison historique et le rollback ; ce changement ne le supprime pas et
 n'ajoute aucun fallback entre les deux chemins.
 
-Cette décision concerne le runtime des notebooks. Le builder générique reste
-v1 par défaut : un site ne doit déclarer v2 qu'après avoir attribué à `SEJUF`
-l'UF d'hébergement active au prélèvement, conformément à `sir_wide_v2.md`.
+Cette décision concerne le runtime des notebooks. Les builders demandent
+désormais explicitement v2 ou v3 : un site ne doit déclarer aucun de ces
+contrats avant d'avoir attribué à `SEJUF` l'UF d'hébergement active au
+prélèvement, conformément à `sir_wide.md`.
 
 ## Éléments observés avant adoption
 
@@ -48,6 +49,6 @@ Cette adoption ne valide pas automatiquement l'adaptateur brut d'un autre
 établissement. Chaque site doit encore démontrer son attribution d'UF, ses
 mappings et son dénominateur avant de déclarer un bundle v2.
 
-La suppression éventuelle de `chu_native`, la généralisation d'un outil de
-comparaison et la migration des builders v1 sont des décisions ultérieures et
-séparées.
+La suppression éventuelle de `chu_native` et la généralisation d'un outil de
+comparaison restent des décisions ultérieures et séparées. Le contrat de
+compatibilité antérieur a depuis été retiré sans modifier le runtime v2.

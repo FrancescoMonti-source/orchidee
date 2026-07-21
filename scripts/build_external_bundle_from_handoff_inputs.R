@@ -21,47 +21,40 @@ if (length(contract_args) > 1L) {
   stop("Pass at most one --contract option.", call. = FALSE)
 }
 contract_version <- if (length(contract_args) == 0L) {
-  "v1"
+  NA_character_
 } else {
   sub("^--contract=", "", contract_args[[1L]])
 }
-if (!contract_version %in% c("v1", "v2", "v3")) {
-  stop("--contract must be v1, v2 or v3.", call. = FALSE)
+if (!is.na(contract_version) && !contract_version %in% c("v2", "v3")) {
+  stop("--contract must be v2 or v3.", call. = FALSE)
 }
 args <- setdiff(args, c("--force", contract_args))
 
-if (length(args) < 4L || length(args) > 5L || "--help" %in% args || "-h" %in% args) {
+if (length(args) != 4L || "--help" %in% args || "-h" %in% args) {
   cat(
     "Usage:\n",
     "  Rscript scripts/build_external_bundle_from_handoff_inputs.R \\\n",
     "    <sir_wide.rds> <unit_mapping.{rds,csv,tsv}> \\\n",
     "    <denominator.{rds,csv,tsv}> <output_bundle_dir> \\\n",
-    "    [de_reference.{rds,csv,tsv}] [--contract=v1|v2|v3] [--force]\n\n",
+    "    --contract=v2|v3 [--force]\n\n",
     "Inputs:\n",
     "  sir_wide.rds: canonical wide microbiology artifact.\n",
-    "  unit_mapping: one row per SEJUF; v3 requires CODE_TA, CODE_DE and\n",
+    "  unit_mapping: one row per SEJUF with CODE_TA, CODE_DE and\n",
     "    de_domain_ref directly.\n",
-    "  denominator: v1/v2 use calendar_year + hospital_nights; v3 uses\n",
+    "  denominator: v2 uses calendar_year + hospital_nights; v3 uses\n",
     "    year + UM + UF + TA + DE + domain + profile + exposure + unit.\n",
-    "  de_reference: optional v1/v2 compatibility dictionary only.\n",
     sep = ""
   )
   quit(status = if (length(args) == 0L || "--help" %in% args || "-h" %in% args) 0L else 1L)
+}
+if (is.na(contract_version)) {
+  stop("Pass --contract=v2 or --contract=v3.", call. = FALSE)
 }
 
 sir_wide_path <- args[[1L]]
 unit_mapping_path <- args[[2L]]
 denominator_path <- args[[3L]]
 output_bundle_dir <- args[[4L]]
-de_reference_path <- if (length(args) >= 5L) args[[5L]] else NA_character_
-
-if (identical(contract_version, "v3") && !is.na(de_reference_path)) {
-  stop(
-    "Contract v3 requires de_domain_ref directly in unit_mapping; ",
-    "do not pass a separate de_reference table.",
-    call. = FALSE
-  )
-}
 
 source("R/bootstrap.R")
 orchidee_source_required_script("helpers.R")
@@ -79,14 +72,9 @@ if (!identical(tolower(tools::file_ext(sir_wide_path)), "rds")) {
 sir_wide <- readRDS(sir_wide_path)
 unit_mapping <- orchidee_handoff_read_table(unit_mapping_path)
 denominator_input <- orchidee_handoff_read_table(denominator_path)
-de_reference <- NULL
-if (!is.na(de_reference_path) && nzchar(de_reference_path)) {
-  de_reference <- orchidee_handoff_read_table(de_reference_path)
-}
 
 contract <- switch(
   contract_version,
-  v1 = orchidee_external_contract_v1(),
   v2 = orchidee_external_contract_v2(),
   v3 = orchidee_external_contract_v3()
 )
@@ -98,7 +86,6 @@ bundle <- orchidee_handoff_build_external_bundle(
   } else {
     denominator_input
   },
-  de_reference = de_reference,
   contract = contract,
   incidence_exposure_by_year_um_uf_ta_de_profile = if (
     identical(contract_version, "v3")

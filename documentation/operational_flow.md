@@ -4,7 +4,7 @@ editor_options:
     wrap: 80
 ---
 
-# Flux opérationnel ORCHIDEE v2
+# Flux opérationnel ORCHIDEE
 
 ## Pourquoi cette page existe
 
@@ -45,7 +45,7 @@ Builder partagé ORCHIDEE
         |       (quatre fichiers canoniques)
         |
         v
-Projection fermée spares_current_v1
+Projection fermée spares_current
         |
         +--> bundle v2 opérationnel et validé
         |       (quatre fichiers canoniques dans un répertoire distinct)
@@ -119,17 +119,17 @@ denominator_profile_id + exposure_value + exposure_unit
 
 La table conserve toute contribution d'exposition positive issue d'une
 activité valide dont TA/DE sont mappés, même hors du périmètre actuel. Le
-runtime applique le contexte fermé `spares_current_v1`
-(TA 03/20, domaines DE ratifiés, `midnight_presence_v1`) et en dérive le total
+runtime applique le contexte fermé `spares_current`
+(TA 03/20, domaines DE ratifiés, `midnight_presence`) et en dérive le total
 annuel v2. Il vérifie aussi la concordance TA/DE avec la référence de périmètre
 des prélèvements.
 
 Cette promotion ne modifie pas v2 et v3 n'est pas encore la valeur
 opérationnelle par défaut. Elle prépare le contrat et le runtime ; les panels
 stratifiés, leurs numérateurs, leur dédoublonnage contextuel et leurs unités de
-publication restent une étape séparée. Les profils `noon_presence_v1`,
-`elapsed_minutes_v1` et `calendar_dates_touched_v1` sont réservés mais ne sont
-pas encore exécutables.
+publication restent une étape séparée. Les comptages à midi, par durée exacte
+ou par dates civiles touchées restent des options conceptuelles sans
+identificateur réservé ni implémentation exécutable.
 
 ## Place de la complétion
 

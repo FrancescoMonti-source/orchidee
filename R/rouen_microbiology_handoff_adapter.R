@@ -328,7 +328,7 @@ rouen_handoff_prepare_mapping_tables <- function(
   )
 }
 
-build_rouen_microbiology_handoff_v1 <- function(
+build_rouen_microbiology_handoff <- function(
     bacteriology_raw,
     screening_typeana_codes,
     target_start,

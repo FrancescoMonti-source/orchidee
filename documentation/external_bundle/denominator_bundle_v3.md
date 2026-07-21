@@ -14,8 +14,8 @@ External bundle v3 separates two decisions that v2 had already combined:
 2. how the corresponding hospital exposure is counted.
 
 It retains the v2 meaning of `sir_wide$SEJUF`: the hospitalization UF active
-at sampling. It does not change the accepted v1 or v2 bundle shapes, and it is
-not yet the default operational notebook input.
+at sampling. It does not change the accepted v2 bundle shape, and it is not
+yet the default operational notebook input.
 
 ## Preferred file and required table
 
@@ -64,7 +64,7 @@ retains only the required portable table above.
 Contract v3 currently accepts one profile/unit pair:
 
 ```text
-denominator_profile_id = midnight_presence_v1
+denominator_profile_id = midnight_presence
 exposure_unit           = patient_days
 ```
 
@@ -79,27 +79,23 @@ A same-date stay contributes zero; crossing one local calendar boundary
 contributes one. The explicit formula is authoritative where informal wording
 such as "presence at midnight" could leave an endpoint ambiguous.
 
-The following names describe possible later profiles only; v3 validation does
-not accept them yet:
-
-- `noon_presence_v1`: intended count of local-noon instants;
-- `elapsed_minutes_v1`: intended exact clipped duration in minutes;
-- `calendar_dates_touched_v1`: intended count of local dates with positive
-  overlap, including one for a positive same-date stay.
+Possible later profiles include counting local-noon instants, exact clipped
+duration or local dates with positive overlap. They do not yet have reserved
+identifiers and v3 validation does not accept them.
 
 A second profile must arrive with its exact formula, unit, adapter gate and
 publication rule. Arbitrary formulas or executable configuration are outside
 the contract. The aggregate v3 table does not preserve timestamps, so a future
 profile must be calculated upstream from precise stay intervals; it cannot be
-reconstructed from `midnight_presence_v1`.
+reconstructed from `midnight_presence`.
 
 ## Current analysis context
 
-The only executable context is `spares_current_v1`. It combines:
+The only executable context is `spares_current`. It combines:
 
 - TA codes `03` and `20`;
 - the currently ratified SPARES DE-domain list;
-- denominator profile `midnight_presence_v1`;
+- denominator profile `midnight_presence`;
 - publication per 1,000 patient-days.
 
 The runtime joins the exposure table to `sample_scope_reference` by `SEJUF`,
@@ -137,8 +133,7 @@ sample_de_domain_ref
 ```
 
 The columns must exist and be character; they may be missing for an unmapped UF
-that remains audit-only. v1 and v2 keep their existing four-column portable
-shape.
+that remains audit-only. v2 keeps its four-column portable shape.
 
 ## Site handoff input
 
@@ -149,28 +144,28 @@ Together with the other five blocks, this is the preferred unversioned handoff;
 `unit_mapping` carries `CODE_TA`, `CODE_DE` and `de_domain_ref` directly.
 
 Pass `--operational-v2-output=<directory>` to retain the validated v3 bundle
-and materialize its closed `spares_current_v1` projection as a separate strict
+and materialize its closed `spares_current` projection as a separate strict
 v2 bundle. This construction bridge does not adopt v3 in the notebook runtime.
 
-For `--contract=v1` or `--contract=v2`, the sixth input remains
-`denominator_by_year` with `calendar_year + hospital_nights` as a compatibility
-shape for older integrations.
+For the explicit direct `--contract=v2` path, the sixth input is
+`denominator_by_year` with `calendar_year + hospital_nights`.
 
 ## Rouen producer
 
 The Rouen PMSI adapter builds the v3 exposure after the `redsan` `C > DW`
 source policy and the maintained TA/DE joins. Its existing v2 path remains
-unchanged. Every build verifies that selecting `spares_current_v1` from the v3
+unchanged. Every build verifies that selecting `spares_current` from the v3
 table reproduces the v2 annual denominator.
 
-Build a separate v3 candidate with:
+Build and retain v3, then materialize the operational v2 view with:
 
 ```powershell
 Rscript scripts/build_rouen_external_bundle.R `
   <bacteriology_raw.rds> `
   <pmsi.rds> `
   <output_dir> `
-  --contract=v3
+  --contract=v3 `
+  --operational-v2-output=<output_dir>/bundle_v2_operational
 ```
 
 No stratified indicator panel is added merely by adopting this contract.

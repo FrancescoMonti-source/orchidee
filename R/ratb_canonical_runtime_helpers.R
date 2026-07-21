@@ -99,7 +99,7 @@ build_ratb_analytic_scope_dataset <- function(sir_wide_ratb_scope) {
 extract_incidence_denominator_by_year <- function(
     denominator_bundle,
     sample_scope_reference = NULL,
-    analysis_context_id = "spares_current_v1"
+    analysis_context_id = "spares_current"
   ) {
   stopifnot(is.list(denominator_bundle))
 
@@ -195,7 +195,7 @@ extract_incidence_denominator_by_year <- function(
 # handoff, while materializing the exact v2 shape accepted by today's runtime.
 project_external_bundle_v3_to_operational_v2 <- function(
     external_bundle_v3,
-    analysis_context_id = "spares_current_v1"
+    analysis_context_id = "spares_current"
   ) {
   required_bundle_objects <- c(
     "sir_wide",
@@ -287,7 +287,7 @@ build_ratb_downstream_scope_from_canonical_inputs <- function(
     sir_wide,
     sample_scope_reference,
     denominator_bundle,
-    analysis_context_id = "spares_current_v1"
+    analysis_context_id = "spares_current"
   ) {
   stopifnot(
     is.data.frame(sir_wide),

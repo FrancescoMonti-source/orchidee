@@ -129,22 +129,27 @@ invalid_mode_error <- tryCatch(
   error = function(condition) conditionMessage(condition)
 )
 
-v1_error <- tryCatch(
+missing_v2_metadata_error <- tryCatch(
   {
-    v1_config <- config
-    v1_bundle_dir <- tempfile("orchidee_external_bundle_v1_")
-    dir.create(v1_bundle_dir)
-    on.exit(unlink(v1_bundle_dir, recursive = TRUE), add = TRUE)
-    invisible(file.copy(list.files(bundle_dir, full.names = TRUE), v1_bundle_dir))
-    saveRDS(
-      orchidee_handoff_build_sir_wide_meta(
-        sir_wide,
-        contract = orchidee_external_contract_v1()
-      ),
-      file.path(v1_bundle_dir, "sir_wide_meta.rds")
+    incomplete_config <- config
+    incomplete_bundle_dir <- tempfile("orchidee_external_bundle_missing_meta_")
+    dir.create(incomplete_bundle_dir)
+    on.exit(unlink(incomplete_bundle_dir, recursive = TRUE), add = TRUE)
+    invisible(file.copy(
+      list.files(bundle_dir, full.names = TRUE),
+      incomplete_bundle_dir
+    ))
+    incomplete_meta <- readRDS(
+      file.path(incomplete_bundle_dir, "sir_wide_meta.rds")
     )
-    v1_config$runtime$external_bundle_v2_dir <- v1_bundle_dir
-    load_ratb_operational_runtime(v1_config)
+    incomplete_meta$contract_version <- NULL
+    incomplete_meta$sejuf_semantics <- NULL
+    saveRDS(
+      incomplete_meta,
+      file.path(incomplete_bundle_dir, "sir_wide_meta.rds")
+    )
+    incomplete_config$runtime$external_bundle_v2_dir <- incomplete_bundle_dir
+    load_ratb_operational_runtime(incomplete_config)
     NA_character_
   },
   error = function(condition) conditionMessage(condition)
@@ -225,7 +230,7 @@ stopifnot(
   ),
   nrow(runtime$runtime_inputs$sir_wide_ratb_analytic_scope) == 1L,
   grepl("must be exactly one of", invalid_mode_error),
-  grepl("missing required fields", v1_error),
+  grepl("missing required fields", missing_v2_metadata_error),
   grepl("Strict preferred mode requires", compatibility_error),
   grepl("must keep external cache and downloads separate", workspace_collision_error),
   grepl("Existing RATB scope cache is not usable", stale_cache_error)

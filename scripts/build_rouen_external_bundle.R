@@ -124,11 +124,11 @@ if (length(contract_args) > 1L) {
   stop("Pass at most one --contract option.", call. = FALSE)
 }
 contract_version <- if (length(contract_args) == 0L) {
-  "v2"
+  NA_character_
 } else {
   sub("^--contract=", "", contract_args[[1L]])
 }
-if (!contract_version %in% c("v2", "v3")) {
+if (!is.na(contract_version) && !contract_version %in% c("v2", "v3")) {
   stop("--contract must be v2 or v3 for the Rouen adapter.", call. = FALSE)
 }
 operational_v2_args <- grep(
@@ -159,7 +159,7 @@ if (help || length(args) != 3L) {
     "Usage:\n",
     "  Rscript scripts/build_rouen_external_bundle.R \\\n",
     "    <bacteriology_raw.rds> <pmsi.rds> <output_dir> \\\n",
-    "    [--contract=v2|v3] [--operational-v2-output=<dir>] [--force]\n\n",
+    "    --contract=v2|v3 [--operational-v2-output=<dir>] [--force]\n\n",
     "Inputs:\n",
     "  bacteriology_raw.rds: long Rouen bacteriology export.\n",
     "  pmsi.rds: redsan PMSI output containing pmsi$main.\n",
@@ -168,16 +168,19 @@ if (help || length(args) != 3L) {
     "  bundle/: a direct compatibility build without projection.\n",
     "  bundle_v3/: the durable v3 bundle when projection is requested.\n",
     "  --operational-v2-output: with v3, materialize the closed\n",
-    "    spares_current_v1 projection for today's runtime.\n",
+    "    spares_current projection for today's runtime.\n",
     "  adapter_audit.rds: local audit; it may contain patient identifiers.\n",
     "  build_manifest.txt: human-readable paths, hashes and validation status.\n",
     "References:\n",
     "  Set ORCHIDEE_CONSORES_STRUCTURE_PATH to override the private local workbook.\n",
-    "Default contract: v2 compatibility. Preferred Rouen onboarding uses\n",
-    "  --contract=v3 with --operational-v2-output.\n",
+    "--contract is required. Preferred Rouen onboarding uses v3 with\n",
+    "  --operational-v2-output.\n",
     sep = ""
   )
   quit(status = if (help) 0L else 1L)
+}
+if (is.na(contract_version)) {
+  stop("Pass --contract=v2 or --contract=v3.", call. = FALSE)
 }
 
 bacteriology_path <- args[[1L]]
@@ -380,9 +383,9 @@ orchidee_source_required_script("chu_sample_hospitalization_unit_attribution.R")
 orchidee_source_required_script("ratb_canonical_runtime_helpers.R")
 orchidee_source_required_script("rouen_microbiology_handoff_adapter.R")
 orchidee_source_required_script("rouen_pmsi_handoff_adapter.R")
-orchidee_source_required_config("rouen_raw_handoff_v1.R")
+orchidee_source_required_config("rouen_raw_handoff.R")
 
-config <- rouen_raw_handoff_v1_config
+config <- rouen_raw_handoff_config
 dictionary_paths <- unlist(config$dictionaries, use.names = TRUE)
 reference_paths <- c(
   consores_structure = config$references$consores_structure,
@@ -432,7 +435,7 @@ supported_pairs <- read_csv_quietly(
   config$dictionaries$supported_species_antibiotics
 )
 
-microbiology_handoff <- build_rouen_microbiology_handoff_v1(
+microbiology_handoff <- build_rouen_microbiology_handoff(
   bacteriology_raw = bacteriology_raw,
   screening_typeana_codes = config$screening_typeana_codes,
   target_start = config$target_start,
@@ -450,7 +453,7 @@ ta_de_ref <- load_ratb_consores_ta_de_reference(
   codes_ta_path = config$references$codes_ta,
   codes_de_path = config$references$codes_de
 )
-pmsi_handoff <- build_rouen_pmsi_handoff_v1(
+pmsi_handoff <- build_rouen_pmsi_handoff(
   sample_context = microbiology_handoff$sample_context,
   pmsi_main = pmsi$main,
   unit_refs = unit_refs,
@@ -469,7 +472,7 @@ result <- compose_rouen_external_bundle(
   contract = contract
 )
 
-analysis_context_id <- "spares_current_v1"
+analysis_context_id <- "spares_current"
 analysis_context <- ratb_analysis_context_profile(analysis_context_id)
 operational_v2_bundle <- if (is.na(operational_v2_output)) {
   NULL
@@ -572,7 +575,7 @@ if (!is.null(operational_v2_bundle)) {
 }
 audit <- result$audit
 audit$metadata <- list(
-  adapter_version = config$adapter_version,
+  adapter_id = config$adapter_id,
   contract_version = contract_version,
   redsan_version = as.character(utils::packageVersion("redsan")),
   repository_head = if (length(repository_state$head) == 1L) {
@@ -654,7 +657,7 @@ manifest_metadata <- c(
   created_at_utc = created_at_utc,
   repository_head = audit$metadata$repository_head,
   repository_working_tree_dirty = audit$metadata$repository_working_tree_dirty,
-  adapter_version = audit$metadata$adapter_version,
+  adapter_id = audit$metadata$adapter_id,
   redsan_version = audit$metadata$redsan_version,
   source_contract = contract_version,
   target_start = as.character(audit$metadata$target_start),
@@ -720,7 +723,7 @@ cat(
 )
 if (!is.null(operational_v2_bundle)) {
   cat(
-    "PASS: projected strict operational v2 bundle with spares_current_v1.\n",
+    "PASS: projected strict operational v2 bundle with spares_current.\n",
     "Operational v2: ",
     normalizePath(operational_v2_output, winslash = "/", mustWork = TRUE),
     "\n",

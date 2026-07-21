@@ -50,20 +50,20 @@ describe these materialized outputs, not the six site-owned blocks.
 
 The preferred command validates and retains a complete bundle v3, then derives
 a separate strict bundle v2 for today's operational notebooks. The projection
-uses the closed `spares_current_v1` context and does not discard detail from the
-v3 output.
+uses the closed `spares_current` context. It leaves the retained v3 bundle
+unchanged; the separate v2 bundle contains only the annual denominator needed
+by today's runtime.
 
 Both outputs declare the same semantic rule: `SEJUF` in microbiology is the
 hospitalization UF active at sampling. The site adapter must establish that
 attribution before handoff; v2 or v3 is a semantic claim, not only a metadata
-switch. See `sir_wide_v2.md`.
+switch. See `sir_wide.md`.
 
-The builder still accepts the older v1/v2 input shapes for compatibility when
-a legacy integration supplies `denominator_by_year`; omitting `--contract`
-still means v1. Those shapes are no longer the preferred onboarding target.
-Nothing here changes the runtime selector: v3 is retained for future use and
-does not by itself publish stratified indicators. Its exact schema is in
-`denominator_bundle_v3.md`.
+The builder also accepts an explicit direct v2 input with
+`denominator_by_year`, but no contract is inferred when `--contract` is
+omitted. Nothing here changes the runtime selector: v3 is retained for future
+use and does not by itself publish stratified indicators. Its exact schema is
+in `denominator_bundle_v3.md`.
 
 ## Block 1: microbiology_observations
 
@@ -236,7 +236,7 @@ Required columns:
 | `CODE_TA` | TA code joined to `SEJUF`. |
 | `CODE_DE` | DE code joined to `SEJUF`. |
 | `de_domain_ref` | National DE domain joined to `CODE_DE`. |
-| `denominator_profile_id` | Closed counting profile; currently `midnight_presence_v1`. |
+| `denominator_profile_id` | Closed counting profile; currently `midnight_presence`. |
 | `exposure_value` | Exposure at this exact grain. |
 | `exposure_unit` | Unit fixed by the profile; currently `patient_days`. |
 
@@ -246,7 +246,7 @@ denominator_profile_id`.
 
 All nine columns are required and non-missing. Include positive exposure from
 valid mapped activity even when its TA/DE is outside the current RATB
-perimeter. The projection selects `spares_current_v1` and derives the current
+perimeter. The projection selects `spares_current` and derives the current
 annual total; do not provide a second independently computed annual table.
 
 `unit_mapping` must cover every `SEJUF` in this block. Its TA, DE and DE-domain
@@ -274,15 +274,15 @@ Rscript `
 ```
 
 The builder validates bundle v3 first. It then applies the closed
-`spares_current_v1` context, materializes a separate strict bundle v2 and
+`spares_current` context, materializes a separate strict bundle v2 and
 validates that output. It never changes the notebook runtime selector.
 
-### Compatibility with older v1/v2 handoffs
+### Explicit direct v2 path
 
-The builder continues to accept `denominator_by_year` as block 6 under v1 or
-v2. For those legacy shapes only, `unit_mapping` may provide `de_domain_ref`
-directly or combine `CODE_DE` with an optional seventh `de_reference` table.
-The compatibility command remains:
+For maintenance and comparison, the builder accepts `denominator_by_year` as
+block 6 under v2. `unit_mapping` still provides `CODE_TA`, `CODE_DE` and
+`de_domain_ref` directly; there is no seventh reference block. The explicit
+command is:
 
 ```powershell
 Rscript `
@@ -293,14 +293,13 @@ Rscript `
   inputs/antibiotic_mapping.csv `
   inputs/unit_mapping.csv `
   inputs/denominator_by_year.csv `
-  outputs/legacy_site_bundle_v2 `
+  outputs/site_bundle_v2 `
   --contract=v2 `
   --force
 ```
 
-Omitting `--contract` still builds v1. These compatibility modes do not infer
-hospitalization-unit attribution and cannot recover v3 detail from an annual
-denominator.
+This path does not infer hospitalization-unit attribution and cannot recover
+v3 detail from an annual denominator. It is not the preferred onboarding path.
 
 ## If validation fails
 

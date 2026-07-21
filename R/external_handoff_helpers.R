@@ -323,7 +323,7 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     bacteria_mapping,
     sample_type_mapping,
     antibiotic_mapping,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v2()
   ) {
   orchidee_handoff_require_functions("phenotype_status_to_flag")
   if (!is.data.frame(microbiology_observations)) {
@@ -623,7 +623,7 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
 
 orchidee_handoff_build_sir_wide_meta <- function(
     sir_wide,
-    contract = orchidee_external_contract_v1(),
+    contract = orchidee_external_contract_v2(),
     artifact_version = 4L,
     created_at = format(Sys.time(), tz = "UTC", usetz = TRUE),
     source_label = "external_handoff"
@@ -663,51 +663,9 @@ orchidee_handoff_build_sir_wide_meta <- function(
   metadata
 }
 
-orchidee_handoff_prepare_de_reference <- function(de_reference) {
-  if (is.null(de_reference)) {
-    return(NULL)
-  }
-  if (!is.data.frame(de_reference)) {
-    stop("de_reference must be a data frame when provided.", call. = FALSE)
-  }
-  if (!"CODE_DE" %in% names(de_reference)) {
-    stop("de_reference must contain CODE_DE.", call. = FALSE)
-  }
-
-  domain_col <- NULL
-  if ("de_domain_ref" %in% names(de_reference)) {
-    domain_col <- "de_domain_ref"
-  } else if ("DOMAINE" %in% names(de_reference)) {
-    domain_col <- "DOMAINE"
-  }
-  if (is.null(domain_col)) {
-    stop(
-      "de_reference must contain de_domain_ref or DOMAINE.",
-      call. = FALSE
-    )
-  }
-
-  out <- data.frame(
-    CODE_DE_norm = ratb_normalize_code_de(de_reference$CODE_DE),
-    de_domain_ref = orchidee_handoff_trim_or_na(de_reference[[domain_col]]),
-    stringsAsFactors = FALSE
-  )
-  out <- out[!is.na(out$CODE_DE_norm), , drop = FALSE]
-  out <- stats::aggregate(
-    de_domain_ref ~ CODE_DE_norm,
-    data = out,
-    FUN = function(x) {
-      vals <- sort(unique(x[!is.na(x)]))
-      if (length(vals) == 0L) NA_character_ else paste(vals, collapse = "|")
-    }
-  )
-  out
-}
-
 orchidee_handoff_build_sample_scope_reference <- function(
     unit_mapping,
-    de_reference = NULL,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v2()
   ) {
   orchidee_handoff_require_functions(c(
     "ratb_normalize_code_ta",
@@ -718,10 +676,7 @@ orchidee_handoff_build_sample_scope_reference <- function(
     stop("unit_mapping must be a data frame.", call. = FALSE)
   }
 
-  required_unit_cols <- c("SEJUF", "CODE_TA")
-  if (identical(contract$version, "v3")) {
-    required_unit_cols <- c(required_unit_cols, "CODE_DE", "de_domain_ref")
-  }
+  required_unit_cols <- c("SEJUF", "CODE_TA", "CODE_DE", "de_domain_ref")
   missing_unit_cols <- setdiff(required_unit_cols, names(unit_mapping))
   if (length(missing_unit_cols) > 0L) {
     stop(
@@ -750,35 +705,17 @@ orchidee_handoff_build_sample_scope_reference <- function(
     )
   }
 
-  if ("CODE_DE" %in% names(unit_mapping)) {
-    unit$CODE_DE_norm <- ratb_normalize_code_de(unit_mapping$CODE_DE)
-  } else {
-    unit$CODE_DE_norm <- NA_character_
-  }
-
-  if ("de_domain_ref" %in% names(unit_mapping)) {
-    unit$de_domain_ref <- orchidee_handoff_trim_or_na(unit_mapping$de_domain_ref)
-  } else {
-    unit$de_domain_ref <- NA_character_
-  }
-
-  de_ref <- orchidee_handoff_prepare_de_reference(de_reference)
-  if (!is.null(de_ref)) {
-    de_ref_domain <- de_ref$de_domain_ref[match(unit$CODE_DE_norm, de_ref$CODE_DE_norm)]
-    unit$de_domain_ref <- ifelse(
-      is.na(unit$de_domain_ref),
-      de_ref_domain,
-      unit$de_domain_ref
-    )
-  }
+  unit$CODE_DE_norm <- ratb_normalize_code_de(unit_mapping$CODE_DE)
+  unit$de_domain_ref <- orchidee_handoff_trim_or_na(
+    unit_mapping$de_domain_ref
+  )
   unit$de_domain_ref <- orchidee_handoff_normalize_included_de_domain(
     unit$de_domain_ref
   )
 
   if (all(is.na(unit$de_domain_ref))) {
     stop(
-      "No de_domain_ref information available. Provide de_domain_ref in ",
-      "unit_mapping or pass a de_reference table.",
+      "No de_domain_ref information available in unit_mapping.",
       call. = FALSE
     )
   }
@@ -838,7 +775,7 @@ orchidee_handoff_build_sample_scope_reference <- function(
 orchidee_handoff_build_denominator_bundle <- function(
     denominator_by_year = NULL,
     incidence_exposure_by_year_um_uf_ta_de_profile = NULL,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v2()
   ) {
   if (identical(contract$version, "v3")) {
     orchidee_handoff_require_functions(c(
@@ -992,8 +929,7 @@ orchidee_handoff_build_external_bundle <- function(
     sir_wide,
     unit_mapping,
     denominator_by_year = NULL,
-    de_reference = NULL,
-    contract = orchidee_external_contract_v1(),
+    contract = orchidee_external_contract_v2(),
     incidence_exposure_by_year_um_uf_ta_de_profile = NULL
   ) {
   list(
@@ -1004,7 +940,6 @@ orchidee_handoff_build_external_bundle <- function(
     ),
     sample_scope_reference = orchidee_handoff_build_sample_scope_reference(
       unit_mapping = unit_mapping,
-      de_reference = de_reference,
       contract = contract
     ),
     denominator_bundle = orchidee_handoff_build_denominator_bundle(
@@ -1023,8 +958,7 @@ orchidee_handoff_build_external_bundle_from_site_inputs <- function(
     antibiotic_mapping,
     unit_mapping,
     denominator_by_year = NULL,
-    de_reference = NULL,
-    contract = orchidee_external_contract_v1(),
+    contract = orchidee_external_contract_v2(),
     incidence_exposure_by_year_um_uf_ta_de_profile = NULL
   ) {
   sir_wide <- orchidee_handoff_build_sir_wide_from_microbiology(
@@ -1039,7 +973,6 @@ orchidee_handoff_build_external_bundle_from_site_inputs <- function(
     sir_wide = sir_wide,
     unit_mapping = unit_mapping,
     denominator_by_year = denominator_by_year,
-    de_reference = de_reference,
     contract = contract,
     incidence_exposure_by_year_um_uf_ta_de_profile =
       incidence_exposure_by_year_um_uf_ta_de_profile

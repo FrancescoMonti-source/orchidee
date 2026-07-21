@@ -79,7 +79,7 @@ En résumé, le site prépare exactement six blocs de handoff non versionnés :
 
 Ces blocs conservent les informations nécessaires au bundle v3, même si le
 runtime opérationnel consomme encore v2. Le builder peut valider et conserver
-v3 puis en matérialiser la projection v2 `spares_current_v1` sans modifier le
+v3 puis en matérialiser la projection v2 `spares_current` sans modifier le
 sélecteur des notebooks.
 
 ORCHIDEE dérive ensuite :
@@ -110,7 +110,7 @@ microbiologique.
 
 Le contrat, les décisions locales et le contenu de l'audit sont décrits dans :
 
-`documentation/external_bundle/rouen_raw_handoff_v1.md`
+`documentation/external_bundle/rouen_raw_handoff.md`
 
 Le point d'entrée est :
 
@@ -122,7 +122,7 @@ Rscript scripts/build_rouen_external_bundle.R `
   --operational-v2-output="$output/bundle_v2_operational"
 ```
 
-Le profil v1 Rouen couvre par défaut les années 2022 à 2024 ; la même fenêtre
+Le profil Rouen couvre par défaut les années 2022 à 2024 ; la même fenêtre
 est appliquée à la microbiologie et au dénominateur PMSI.
 
 Les sorties restent locales et ignorées par Git. `site_inputs/` conserve les
@@ -134,7 +134,7 @@ Le contrat v3 conserve la sémantique d'UF d'hébergement de v2 et remplace le
 total annuel transporté
 par une table d'exposition profilée au grain année + UM + UF + TA + DE. Elle
 conserve aussi l'activité mappée hors du périmètre courant. Le runtime applique
-le contexte fermé `spares_current_v1` et redérive exactement le total annuel
+le contexte fermé `spares_current` et redérive exactement le total annuel
 v2. v3 n'est pas consommé directement par les notebooks et n'ajoute pas encore
 de panels stratifiés. Le build direct `--contract=v2` reste disponible comme
 chemin de compatibilité explicite, mais ce n'est plus la commande d'onboarding
@@ -142,25 +142,22 @@ Rouen recommandée.
 
 ## Carte des documents
 
--   `documentation/operational_flow_v2.md`
+-   `documentation/operational_flow.md`
     -   vue d'ensemble du chemin Rouen brut vers les indicateurs, responsabilités,
         place de la complétion et évolution attendue du dénominateur ;
 -   `documentation/external_bundle/site_handoff_inputs.md`
     -   source de vérité pour ce qu'un site externe doit fournir ;
--   `documentation/external_bundle/canonical_inputs_v1.md`
-    -   limite entre adaptation locale et coeur ORCHIDEE ;
--   `documentation/external_bundle/sir_wide_v1.md`
-    -   schéma de l'artefact microbiologique canonique ;
--   `documentation/external_bundle/sir_wide_v2.md`
-    -   profil successeur où `SEJUF` désigne l'UF d'hébergement au prélèvement ;
--   `documentation/external_bundle/rouen_raw_handoff_v1.md`
+-   `documentation/external_bundle/sir_wide.md`
+    -   schéma de l'artefact microbiologique canonique et sémantique où
+        `SEJUF` désigne l'UF d'hébergement au prélèvement ;
+-   `documentation/external_bundle/rouen_raw_handoff.md`
     -   chemin Rouen brut bactériologie + PMSI vers les six blocs et le bundle
         v2 ou v3 ;
 -   `documentation/external_bundle/operational_v2_adoption_2026-07-19.md`
     -   décision et éléments agrégés ayant conduit à adopter v2 par défaut ;
--   `documentation/external_bundle/sample_scope_reference_v1.md`
+-   `documentation/external_bundle/sample_scope_reference.md`
     -   schéma de la référence de périmètre au niveau prélèvement / `SEJUF` ;
--   `documentation/external_bundle/denominator_bundle_v1.md`
+-   `documentation/external_bundle/denominator_bundle_v2.md`
     -   schéma du dénominateur annuel d'incidence ;
 -   `documentation/external_bundle/denominator_bundle_v3.md`
     -   exposition profilée, contexte TA/DE courant et évolutions prévues ;
@@ -194,13 +191,12 @@ un diagnostic opt-in séparé ; le chemin canonique reste brut. Il n'existe aucu
 autodétecteur ni fallback entre les deux modes : un bundle v2 absent ou invalide
 fait échouer explicitement le chemin par défaut.
 
-Le builder générique reste v1 par défaut pour compatibilité. Le parcours
-d'onboarding préféré construit v3 à partir des six blocs complets et demande
-`--operational-v2-output` pour produire l'entrée du runtime actuel. Un site ne
-doit déclarer ni v2 ni v3 avant d'avoir attribué l'UF d'hébergement active au
-prélèvement comme décrit dans `documentation/external_bundle/sir_wide_v2.md`.
-Un bundle v1 reste un artefact de compatibilité et n'est pas accepté par le
-runtime v2 par défaut.
+Les CLI qui acceptent plusieurs contrats demandent explicitement
+`--contract=v2|v3`. Le parcours d'onboarding préféré construit v3 à partir des
+six blocs complets et demande `--operational-v2-output` pour produire l'entrée
+du runtime actuel. Un site ne doit déclarer ni v2 ni v3 avant d'avoir attribué
+l'UF d'hébergement active au prélèvement comme décrit dans
+`documentation/external_bundle/sir_wide.md`.
 
 Pour comprendre la frontière technique actuelle, lire
 `documentation/project_map.md`.

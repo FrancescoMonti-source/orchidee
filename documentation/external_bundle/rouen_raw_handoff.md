@@ -4,7 +4,7 @@ editor_options:
     wrap: 72
 ---
 
-# Rouen raw handoff v1
+# Rouen raw handoff
 
 ## Purpose
 
@@ -34,7 +34,7 @@ CONSORES structure workbook described below.
 The versioned default window is the half-open interval
 `[2022-01-01, 2025-01-01)`, covering sample years 2022 through 2024. Both
 microbiology and the hospital-night denominator use this same window. Change
-it only through `config/rouen_raw_handoff_v1.R` and record the resulting audit.
+it only through `config/rouen_raw_handoff.R` and record the resulting audit.
 
 ### Bacteriology
 
@@ -87,7 +87,7 @@ already supplies a complete `unit_mapping` block.
 
 Screening is decided for the complete document occurrence. If any raw row in
 `PATID + EVTID + ELTID` contains one configured screening `TYPEANA`, every
-SIR row from that occurrence is marked non-diagnostic. The v1 configuration
+SIR row from that occurrence is marked non-diagnostic. The maintained configuration
 contains:
 
 ```text
@@ -97,7 +97,7 @@ BGABMR_R.BGABMR_R2
 BGSAMR_R.BGSAMR_R2
 ```
 
-These codes are visible knobs in `config/rouen_raw_handoff_v1.R`; the shared
+These codes are visible knobs in `config/rouen_raw_handoff.R`; the shared
 builder, not the adapter, performs the final whole-document exclusion.
 
 ### SIR values
@@ -128,8 +128,8 @@ conflict:
 
 The rules and human decisions are separate:
 
-- `dictionaries/rouen_naturepvt_regex_v1.csv`;
-- `dictionaries/rouen_naturepvt_exact_decisions_v1.csv`.
+- `dictionaries/rouen_naturepvt_regex.csv`;
+- `dictionaries/rouen_naturepvt_exact_decisions.csv`.
 
 For example, explicit urine collected through a catheter remains `urines`,
 explicit catheter material can be `pvt_profond`, and the generic label
@@ -194,7 +194,7 @@ The v3 exposure table carries mapped valid activity even when TA/DE is outside
 the current perimeter. It adds `de_domain_ref`, `denominator_profile_id`,
 `exposure_value` and `exposure_unit` to the year + UM + UF + TA + DE
 dimensions. The adapter verifies that selecting the current
-`spares_current_v1` context reproduces the v2 annual denominator exactly.
+`spares_current` context reproduces the v2 annual denominator exactly.
 
 ## Run
 
@@ -246,7 +246,7 @@ build_manifest.txt
 ```
 
 The command performs strict validation and the canonical runtime smoke for both
-the retained v3 bundle and its closed `spares_current_v1` v2 projection before
+the retained v3 bundle and its closed `spares_current` v2 projection before
 reporting success. `build_manifest.txt` records input and output paths, hashes,
 repository HEAD, projection profile and validation status without requiring R.
 

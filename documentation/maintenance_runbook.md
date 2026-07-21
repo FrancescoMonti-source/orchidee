@@ -104,18 +104,20 @@ La commande écrit les six blocs sous `site_inputs/`, les quatre fichiers v3 sou
 `bundle_v3/`, la projection courante sous `bundle_v2_operational/` et l'audit
 local dans `adapter_audit.rds`. `build_manifest.txt` donne les chemins, les hash,
 le HEAD, le profil de projection et les résultats de validation. L'audit peut
-contenir des identifiants patients : conserver tout le répertoire sous
+contenir des identifiants patients. Le manifest est le marqueur de fin : son
+absence signifie que la construction est incomplète et ne doit pas être
+consommée. Conserver tout le répertoire sous
 `outputs/` ou dans un autre emplacement protégé et non versionné.
 
 La fenêtre versionnée par défaut est `[2022-01-01, 2025-01-01)` pour les deux
-sources. Toute modification se fait dans `config/rouen_raw_handoff_v1.R` et
+sources. Toute modification se fait dans `config/rouen_raw_handoff.R` et
 doit rester visible dans les métadonnées d'audit.
 
 Le script valide strictement v3 et v2 puis exécute le smoke du runtime sur les
-deux. La projection applique `spares_current_v1` et doit redériver exactement le
+deux. La projection applique `spares_current` et doit redériver exactement le
 total annuel v2. Le sélecteur opérationnel reste explicitement sur v2 : cette
 commande conserve v3 sans l'adopter comme entrée des notebooks. Le build direct
-`--contract=v2` reste disponible comme compatibilité explicite.
+`--contract=v2` reste disponible comme chemin direct explicite.
 
 ## Exécution opérationnelle sur un bundle v2
 
@@ -149,7 +151,7 @@ $env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = "C:\chemin\protege\runtime"
 ```
 
 Le loader exige les quatre fichiers préférés du contrat v2 et échoue sans
-fallback vers CHU ou v1. Cache brut, dédoublonnage et téléchargements sont
+fallback vers CHU. Cache brut, dédoublonnage et téléchargements sont
 écrits sous le workspace externe, pas dans `data/` ni `downloads/`.
 
 Le mode `chu_native` est conservé uniquement comme chemin legacy explicite de

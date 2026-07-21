@@ -38,11 +38,11 @@ supported_pairs <- readr::read_csv(
   show_col_types = FALSE
 )
 sample_type_rules <- readr::read_csv(
-  "dictionaries/rouen_naturepvt_regex_v1.csv",
+  "dictionaries/rouen_naturepvt_regex.csv",
   show_col_types = FALSE
 )
 sample_type_decisions <- readr::read_csv(
-  "dictionaries/rouen_naturepvt_exact_decisions_v1.csv",
+  "dictionaries/rouen_naturepvt_exact_decisions.csv",
   show_col_types = FALSE
 )
 
@@ -113,7 +113,7 @@ bacteriology_raw <- bind_rows(
 # occurrence through the four canonical microbiology handoff blocks. It fixes
 # screening scope, SIR vocabulary, unordered sample mapping, ATB precedence,
 # ambiguous-species exclusion and full-raw phenotype attribution.
-handoff <- build_rouen_microbiology_handoff_v1(
+handoff <- build_rouen_microbiology_handoff(
   bacteriology_raw = bacteriology_raw,
   screening_typeana_codes = c(
     "BGBLSE_R.BGBLSE_R2",
@@ -302,7 +302,7 @@ pmsi_main <- tibble::tibble(
 # Why: protects the Rouen adapter integration contract that redsan-normalized
 # PMSI produces the two remaining site inputs, clips the denominator window,
 # assigns the hospitalization UF without fallback, and composes a valid v2 bundle.
-pmsi_handoff <- build_rouen_pmsi_handoff_v1(
+pmsi_handoff <- build_rouen_pmsi_handoff(
   sample_context = handoff$sample_context,
   pmsi_main = pmsi_main,
   unit_refs = unit_refs,
@@ -365,7 +365,7 @@ incidence_exposure <- composed_v3$bundle$denominator_bundle$
   incidence_exposure_by_year_um_uf_ta_de_profile
 current_profile_annual <- incidence_exposure |>
   dplyr::filter(
-    .data$denominator_profile_id == "midnight_presence_v1",
+    .data$denominator_profile_id == "midnight_presence",
     .data$exposure_unit == "patient_days",
     .data$CODE_TA %in% c("03", "20"),
     .data$de_domain_ref %in% ratb_included_ta_de_domains()
@@ -508,6 +508,49 @@ if (!identical(cli_force_status, 0L)) {
     call. = FALSE
   )
 }
+cli_direct_v2_dir <- file.path(cli_root, "direct_v2")
+Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = structure_fixture_path)
+cli_direct_v2_output <- system2(
+  rscript,
+  c(
+    "--vanilla",
+    shQuote("scripts/build_rouen_external_bundle.R"),
+    shQuote(cli_bacteriology_path),
+    shQuote(cli_pmsi_path),
+    shQuote(cli_direct_v2_dir),
+    "--contract=v2"
+  ),
+  stdout = TRUE,
+  stderr = TRUE
+)
+if (is.na(previous_structure_path)) {
+  Sys.unsetenv("ORCHIDEE_CONSORES_STRUCTURE_PATH")
+} else {
+  Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = previous_structure_path)
+}
+cli_direct_v2_status <- attr(cli_direct_v2_output, "status")
+if (is.null(cli_direct_v2_status)) cli_direct_v2_status <- 0L
+if (!identical(cli_direct_v2_status, 0L)) {
+  stop(
+    "Synthetic Rouen direct-v2 CLI failed:\n",
+    paste(cli_direct_v2_output, collapse = "\n"),
+    call. = FALSE
+  )
+}
+cli_direct_v2_files_exist <- all(file.exists(c(
+  file.path(
+    cli_direct_v2_dir,
+    "site_inputs",
+    paste0(names(composed$site_inputs), ".rds")
+  ),
+  file.path(
+    cli_direct_v2_dir,
+    "bundle",
+    paste0(names(composed$bundle), ".rds")
+  ),
+  file.path(cli_direct_v2_dir, "adapter_audit.rds"),
+  file.path(cli_direct_v2_dir, "build_manifest.txt")
+)))
 cli_lock_path <- paste0(cli_output_dir, ".rouen-build.lock")
 dir.create(cli_lock_path)
 writeLines("pid: synthetic-test-owner", file.path(cli_lock_path, "owner.txt"))
@@ -563,8 +606,8 @@ cli_build_locks_absent <- !any(dir.exists(c(
 cli_manifest_expected <- c(
   "ORCHIDEE Rouen canonical build",
   "source_contract: v3",
-  "denominator_profile_id: midnight_presence_v1",
-  "operational_v2_analysis_context: spares_current_v1",
+  "denominator_profile_id: midnight_presence",
+  "operational_v2_analysis_context: spares_current",
   "Inputs",
   "Site inputs",
   "Source bundle",
@@ -578,11 +621,14 @@ cli_manifest_expected <- c(
 unlink(cli_root, recursive = TRUE)
 
 # Why: protects the Rouen onboarding CLI contract: one synthetic raw run must
-# materialize the named v3/v2 layout, finish both validation/smoke gates and
-# leave a provenance manifest; a concurrent writer must fail before touching it.
+# materialize the named v3/v2 layout, preserve the explicit direct-v2 path,
+# finish all requested gates and leave a provenance manifest; a concurrent
+# writer must fail before touching it.
 stopifnot(
   identical(cli_status, 0L),
   identical(cli_force_status, 0L),
+  identical(cli_direct_v2_status, 0L),
+  cli_direct_v2_files_exist,
   !identical(cli_locked_status, 0L),
   any(grepl("holds the output lock", cli_locked_output, fixed = TRUE)),
   cli_files_exist,
@@ -617,4 +663,4 @@ stopifnot(
   grepl("conflicting TA/DE mappings", conditionMessage(mapping_conflict))
 )
 
-cat("PASS: Rouen raw handoff v1\n")
+cat("PASS: Rouen raw handoff\n")

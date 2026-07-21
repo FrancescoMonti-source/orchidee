@@ -32,22 +32,20 @@ site prepare, with which columns?
 - `site_handoff_inputs.md`
   - What should an external hospital provide?
   - This is the human-facing onboarding contract.
-- `canonical_inputs_v1.md`
-  - Where is the boundary between local site adaptation and shared ORCHIDEE
-    logic?
-- `sir_wide_v1.md`
-  - What is the exact schema of the internal microbiology file?
-- `sir_wide_v2.md`
-  - How does the successor profile declare hospitalization-unit attribution?
-- `sample_scope_reference_v1.md`
+- `sir_wide.md`
+  - What is the exact schema and hospitalization-unit meaning of the internal
+    microbiology file?
+- `sample_scope_reference.md`
   - What is the exact schema of the sample-level TA/DE scope file?
-- `denominator_bundle_v1.md`
-  - What is the exact schema of the incidence denominator file?
+- `denominator_bundle_v2.md`
+  - What is the annual incidence denominator consumed by today's runtime?
 - `denominator_bundle_v3.md`
   - What is the exact profiled exposure and current TA/DE context schema?
+- `rouen_raw_handoff.md`
+  - How are Rouen raw exports transformed into the six handoff blocks?
 - `operational_v2_adoption_2026-07-19.md`
   - Why is strict v2 now the canonical operational notebook input?
-- `../operational_flow_v2.md`
+- `../operational_flow.md`
   - How do the Rouen adapter, bundle v2, raw RATB runtime, optional completion
     diagnostic and future unit-grain denominator fit together?
 
@@ -69,37 +67,28 @@ Rscript `
 ```
 
 The command examples and required columns are in `site_handoff_inputs.md`.
-The preferred handoff is always six unversioned, v3-ready blocks. Contract v3
+The preferred handoff is always six complete, unversioned blocks. Contract v3
 retains the v2 hospitalization-unit semantics and interprets the sixth block as
 profiled exposure at year + UM + UF + TA + DE grain. The command validates and
 retains that complete bundle, then materializes the closed
-`spares_current_v1` projection as a separate strict v2 bundle for the current
+`spares_current` projection as a separate strict v2 bundle for the current
 runtime. It does not switch the notebooks to v3 or publish stratified panels.
 
-Contract v1 remains the CLI default and the annual v1/v2 denominator shape
-remains accepted for older integrations. Those are compatibility paths, not
-the preferred onboarding target.
+CLIs that support both bundle contracts require an explicit
+`--contract=v2|v3`; there is no implicit third contract.
 
 ## Maintainer-only helpers
 
 These scripts are useful for ORCHIDEE maintainers, but they are not the first
 path for a new hospital team:
 
-- `scripts/audit_chu_site_handoff.R`
-  - diagnostic: exports CHU-derived handoff blocks and checks whether they
-    satisfy the same site-input builder requested from another hospital.
 - `scripts/validate_external_bundle.R`
   - validates an already built ORCHIDEE input bundle.
 - `scripts/smoke_external_runtime_inputs.R`
   - checks that a validated bundle can build the downstream RATB inputs.
-- `scripts/materialize_external_bundle.R`
-  - writes a four-file bundle from current compatible artifacts.
 - `scripts/build_external_bundle_from_handoff_inputs.R`
   - builder for the advanced case where a site already has a valid
     `sir_wide.rds`.
-
-For the CHU self-handoff diagnostic, see
-`chu_self_handoff_audit.md`.
 
 ## Ownership rule
 

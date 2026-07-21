@@ -25,7 +25,7 @@ Ce document s'adresse aux mainteneurs. Il répond à deux questions :
 La complétion reste implémentée dans un notebook diagnostique dédié, mais elle
 n'appartient pas à la méthode canonique. Le rendu `full` construit uniquement le
 cache brut ; le diagnostic doit être demandé explicitement. La vue d'ensemble
-est documentée dans `documentation/operational_flow_v2.md`.
+est documentée dans `documentation/operational_flow.md`.
 
 ## Frontière opérationnelle vers le coeur ORCHIDEE
 
@@ -89,7 +89,7 @@ actuel, mais elles ne font pas partie du contrat portable minimal.
 Le dénominateur du contrat opérationnel v2 reste annuel. Le contrat externe v3
 transporte une table d'exposition profilée à année + UM + UF + TA + DE, y
 compris l'activité mappée hors périmètre. Le runtime applique
-`spares_current_v1` et en dérive exactement le total annuel v2. v3 n'est pas
+`spares_current` et en dérive exactement le total annuel v2. v3 n'est pas
 encore la valeur opérationnelle par défaut et ne publie pas encore de panels
 stratifiés.
 
@@ -256,7 +256,7 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
         de `sir_wide`, construit `sir_wide` depuis des observations
         microbiologiques longues et des dictionnaires locaux, construit la
         `sample_scope_reference` depuis un mapping simple UF/TA-DE et
-        enveloppe le dénominateur annuel v1/v2 ou l'exposition profilée v3 en
+        enveloppe le dénominateur annuel v2 ou l'exposition profilée v3 en
         `denominator_bundle`
     -   ne constitue pas un connecteur universel d'entrepôt ; il attend
         des blocs locaux déjà compréhensibles et mappés par le site
@@ -303,9 +303,9 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   univers espèces/antibiotiques supporté
 -   `dictionaries/atb_regex_map.csv`
     -   table de normalisation regex des antibiotiques
--   `dictionaries/rouen_naturepvt_regex_v1.csv`
+-   `dictionaries/rouen_naturepvt_regex.csv`
     -   règles Rouen évaluées sans utiliser leur ordre pour départager les cibles
--   `dictionaries/rouen_naturepvt_exact_decisions_v1.csv`
+-   `dictionaries/rouen_naturepvt_exact_decisions.csv`
     -   décisions humaines exactes, motivées, pour les conflits ou reports connus
 -   `dictionaries/family.csv`
     -   labels de familles et métadonnées de regroupement
@@ -315,11 +315,11 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
 -   `R/external_bundle_validation_helpers.R`
     -   helpers de validation réutilisables pour le contrat d'entrée
         externe
-    -   porte les profils exécutables v1, v2 et v3 via
-        `orchidee_external_contract_v1()`, `orchidee_external_contract_v2()`
-        et `orchidee_external_contract_v3()`
-    -   ferme actuellement le contexte `spares_current_v1` et le seul profil
-        de dénominateur `midnight_presence_v1`
+    -   porte les contrats exécutables v2 et v3 via
+        `orchidee_external_contract_v2()` et
+        `orchidee_external_contract_v3()`
+    -   ferme actuellement le contexte `spares_current` et le seul profil
+        de dénominateur `midnight_presence`
     -   charge aussi un bundle validé via
         `load_validated_external_input_bundle()`
 -   `R/ratb_hospital_days_helpers.R`
@@ -337,9 +337,6 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
         objets runtime partagés aux notebooks
 -   `scripts/validate_external_bundle.R`
     -   validateur CLI autonome pour les bundles externes
--   `scripts/materialize_external_bundle.R`
-    -   écrit un bundle externe préféré à partir d'artefacts compatibles
-        puis revalide strictement le résultat
 -   `scripts/build_external_bundle_from_handoff_inputs.R`
     -   construit un bundle externe préféré depuis les blocs élémentaires
         de handoff d'un site externe qui fournit déjà un `sir_wide.rds`
@@ -348,23 +345,16 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
 -   `scripts/build_external_bundle_from_site_inputs.R`
     -   construit le bundle v3 préféré depuis les six blocs complets d'un site
         externe, puis peut matérialiser séparément sa projection v2
-        `spares_current_v1` avec `--operational-v2-output`
+        `spares_current` avec `--operational-v2-output`
     -   dérive `sir_wide.rds`, `sir_wide_meta.rds`,
         `sample_scope_reference.rds` et `denominator_bundle.rds`, puis
         lance la validation stricte
 -   `scripts/build_rouen_external_bundle.R`
     -   point d'entrée Rouen bactériologie brute + objet PMSI `redsan`
     -   le parcours recommandé écrit les six blocs, conserve le bundle v3,
-        projette `spares_current_v1` vers un bundle v2 opérationnel et produit
+        projette `spares_current` vers un bundle v2 opérationnel et produit
         un manifest lisible, puis valide et smoke les deux contrats
-    -   le build direct v2 reste une compatibilité explicite
--   `scripts/audit_chu_site_handoff.R`
-    -   diagnostic mainteneur : dérive des blocs élémentaires depuis les
-        artefacts CHU courants (observations et mappings depuis
-        `sir_wide.rds` ; `unit_mapping` et `denominator_by_year` depuis
-        `ratb_scope_cache`), tente de les reconstruire avec la logique de
-        handoff site externe et écrit un rapport local sans modifier le
-        workflow de production CHU
+    -   le build direct v2 reste un chemin explicite
 -   `scripts/smoke_external_runtime_inputs.R`
     -   smoke test CLI vérifiant qu'un bundle validé peut construire les
         entrées aval minimales du coeur RATB
@@ -373,9 +363,9 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
         entrées canoniques, de `sir_wide`, de la référence de périmètre au
         prélèvement et du bundle de dénominateur
     -   à maintenir en cohérence avec
-        `R/external_bundle_validation_helpers.R` quand le schéma v1
-        change
-    -   `rouen_raw_handoff_v1.md` documente le chemin local A vers B sans en
+        `R/external_bundle_validation_helpers.R` quand les schémas v2 ou v3
+        changent
+    -   `rouen_raw_handoff.md` documente le chemin local A vers B sans en
         faire le contrat d'onboarding d'un autre établissement
 -   `R/build_sir_wide_artifact.R`
     -   producteur interne de l'artefact CHU actuel
