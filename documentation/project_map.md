@@ -47,39 +47,42 @@ mais elles doivent converger vers les mêmes objets internes avant le coeur
 RATB partagé.
 
 ```text
-Export bactériologique CHU / objet PMSI redsan / référentiels TA-DE
-        |
-        v
-Adaptateur CHU
-R/chu_ratb_scope_adapter.R
-R/chu_ratb_scope_cache_helpers.R
-        |
-        | ou, pour le handoff Rouen brut vers les bundles v2 ou v3
-        v
-R/rouen_microbiology_handoff_adapter.R
-R/rouen_pmsi_handoff_adapter.R
-        |
-        | produit les objets canoniques et le contexte de QA local
-        v
-Objets canoniques de frontière
-- sir_wide (et ses métadonnées sir_wide_meta)
-- sample_scope_reference
-- denominator_bundle
-        |
-        v
-Sélecteur opérationnel fail-closed
-R/ratb_operational_input_helpers.R
-        |
-        v
-Coeur runtime indépendant de l'entrepôt
-R/ratb_canonical_runtime_helpers.R
-        |
-        v
-Objets consommés par les notebooks
-- sir_wide_ratb_scope
-- sir_wide_ratb_analytic_scope
-- incidence_denominator_by_year
+Exports bactériologie + PMSI Rouen       Six blocs d'un autre site
+                |                                  |
+                v                                  |
+       Adaptateur Rouen                            |
+                |                                  |
+                +----------> six blocs <-----------+
+                                  |
+                                  v
+                         Builder partagé
+                                  |
+                                  v
+                       bundle v3 conservé
+                                  |
+                    projection spares_current
+                                  |
+                                  v
+                      bundle v2 opérationnel -----------+
+                                                        |
+Artefacts privés CHU -> producteur chu_native legacy ---+
+                                                        |
+                                                        v
+                                           Sélecteur opérationnel explicite
+                                                        |
+                                                        v
+                                          Objets runtime partagés
+                                          - sir_wide_ratb_scope
+                                          - sir_wide_ratb_analytic_scope
+                                          - incidence_denominator_by_year
+                                                        |
+                                                        v
+                                            Coeur RATB et notebooks
 ```
+
+Le chemin Rouen et le handoff d'un autre site sont donc deux façons de produire
+les mêmes six blocs. `chu_native` ne se trouve pas entre ces deux chemins : il
+reste une entrée legacy parallèle au niveau du sélecteur opérationnel.
 
 Les tables comme `ratb_scope_join_audit`, `hospital_stays_validated`,
 `hospital_days_year_summary` ou `incidence_denominator_pmsi_ta_de_audit`
@@ -411,13 +414,6 @@ suivants.
         scripts actifs ; l'audit résume population, plausibilité et validation
     -   le diagnostic de complétion conserve ses propres résultats de
         dédoublonnage sous `completion_diagnostic/`
-
--   `ratb_incidence_cache`, `ratb_incidence_cache_meta`
-    -   cache auxiliaire encore présent pour certains scripts annexes et
-        vérifications manuelles liées à l'incidence
-    -   ce n'est plus l'artefact central le mieux documenté dans le
-        chemin principal, contrairement à `sir_wide`, au scope et au
-        dédoublonnage brut
 
 Les artefacts d'export destinés au lecteur et générés par le rapport
 vivent dans `downloads/`.

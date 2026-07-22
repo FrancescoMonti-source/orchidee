@@ -54,15 +54,6 @@ lookup_ratb_dataset_label <- function(x, label_map) {
   mapped
 }
 
-emit_html <- function(x) {
-  rendered <- htmltools::renderTags(x)
-  if (length(rendered$dependencies) > 0L) {
-    knitr::knit_meta_add(rendered$dependencies)
-  }
-  cat(rendered$html, "\n")
-  invisible(NULL)
-}
-
 show_download_button <- function(path, label) {
   stopifnot(length(path) == length(label))
 
@@ -124,25 +115,6 @@ save_plot_png <- function(
     units = "in"
   )
   path
-}
-
-render_plot_png_inline <- function(
-  plot_obj,
-  file_stem,
-  width = 14,
-  height = 8,
-  dpi = 192
-) {
-  path <- save_plot_png(
-    plot_obj = plot_obj,
-    file_stem = file_stem,
-    width = width,
-    height = height,
-    dpi = dpi
-  )
-
-  cat(sprintf("![](%s)\n\n", path))
-  invisible(path)
 }
 
 save_table_xlsx <- function(df, file_stem) {

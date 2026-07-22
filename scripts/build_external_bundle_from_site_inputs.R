@@ -227,16 +227,58 @@ if (!is.na(operational_v2_output)) {
   if (!isTRUE(operational_v2_report$ok)) {
     quit(status = 1L)
   }
-  cat(
-    "Built strict preferred ORCHIDEE v2 projection: ",
+}
+
+if (!is.na(operational_v2_output)) {
+  v2_runtime_path <- normalizePath(
     operational_v2_output,
+    winslash = "/",
+    mustWork = TRUE
+  )
+  rscript_path <- normalizePath(
+    file.path(
+      R.home("bin"),
+      if (.Platform$OS.type == "windows") "Rscript.exe" else "Rscript"
+    ),
+    winslash = "/",
+    mustWork = TRUE
+  )
+  cat(
+    "\nBuild complete.\n",
+    "Keep this complete v3 bundle: ",
+    normalizePath(output_bundle_dir, winslash = "/", mustWork = TRUE),
+    "\n",
+    "Use this v2 bundle with the current ORCHIDEE runtime: ",
+    v2_runtime_path,
+    "\n",
+    "Next steps (PowerShell):\n",
+    "  $env:ORCHIDEE_OPERATIONAL_INPUT_SOURCE = ",
+    "\"external_bundle_v2\"\n",
+    "  $env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR = \"",
+    v2_runtime_path,
+    "\"\n",
+    "  $env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = ",
+    "\"outputs/site_runtime\"\n",
+    "  & \"", rscript_path, "\" --vanilla ",
+    "scripts/smoke_external_runtime_inputs.R ",
+    "$env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR ",
+    "--contract=v2 --strict-preferred\n",
+    "  & .\\scripts\\render_orchidee.ps1 -Target full\n",
+    sep = ""
+  )
+} else {
+  cat(
+    "Built validated ORCHIDEE ", contract$version,
+    " external bundle: ",
+    normalizePath(output_bundle_dir, winslash = "/", mustWork = TRUE),
     "\n",
     sep = ""
   )
+  if (identical(contract$version, "v3")) {
+    cat(
+      "The current notebooks do not read v3 directly. Re-run with ",
+      "--operational-v2-output=<directory> to create their v2 input.\n",
+      sep = ""
+    )
+  }
 }
-
-cat(
-  "Built strict preferred ORCHIDEE ", contract$version,
-  " external bundle: ", output_bundle_dir, "\n",
-  sep = ""
-)

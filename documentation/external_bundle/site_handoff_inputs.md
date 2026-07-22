@@ -30,6 +30,19 @@ contains TA, DE and DE-domain information directly, and the sixth block keeps
 profiled exposure instead of an already filtered annual total. There is no
 seventh block in the preferred handoff.
 
+In plain language, the complete path is:
+
+```text
+six site-owned blocks
+    -> bundle v3: the complete validated copy to retain
+    -> bundle v2: the reduced operational view used by ORCHIDEE today
+    -> runtime: deduplication, indicators and report
+```
+
+Producing v2 from v3 does not overwrite or roll back v3. It creates a separate
+operational view that intentionally carries less denominator detail. Preserve
+the more detailed v3 bundle for future stratified analyses.
+
 Accepted formats are `.rds`, `.csv`, `.tsv`, `.tab`, or `.txt`. CSV files can
 use commas or semicolons. Text files must be UTF-8.
 
@@ -49,10 +62,12 @@ describe these materialized outputs, not the six site-owned blocks.
 ## Current operational boundary
 
 The preferred command validates and retains a complete bundle v3, then derives
-a separate strict bundle v2 for today's operational notebooks. The projection
-uses the closed `spares_current` context. It leaves the retained v3 bundle
-unchanged; the separate v2 bundle contains only the annual denominator needed
-by today's runtime.
+a separate strict bundle v2 for today's operational notebooks. It selects the
+closed `spares_current` context: the current RATB perimeter (TA 03/20 and the
+ratified DE domains) with the `midnight_presence` patient-day count. A site does
+not configure this selection during onboarding. The operation leaves the
+retained v3 bundle unchanged; the separate v2 bundle contains only the annual
+denominator needed by today's runtime.
 
 Both outputs declare the same semantic rule: `SEJUF` in microbiology is the
 hospitalization UF active at sampling. The site adapter must establish that
@@ -276,6 +291,31 @@ Rscript `
 The builder validates bundle v3 first. It then applies the closed
 `spares_current` context, materializes a separate strict bundle v2 and
 validates that output. It never changes the notebook runtime selector.
+
+## Use the resulting bundle
+
+The command above creates two directories. Preserve `outputs/site_bundle_v3`
+as the complete validated bundle. Point the current ORCHIDEE runtime to
+`outputs/site_bundle_v2`:
+
+```powershell
+$env:ORCHIDEE_OPERATIONAL_INPUT_SOURCE = "external_bundle_v2"
+$env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR = `
+  (Resolve-Path "outputs/site_bundle_v2").Path
+$env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = `
+  (Join-Path (Get-Location) "outputs/site_runtime")
+
+Rscript scripts/smoke_external_runtime_inputs.R `
+  $env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR `
+  --contract=v2 `
+  --strict-preferred
+
+& .\scripts\render_orchidee.ps1 -Target full
+```
+
+The smoke command checks that the four v2 files can build the shared RATB
+inputs. The `full` render then calculates the operational indicators and writes
+its caches and report exports under the selected private workspace.
 
 ### Explicit direct v2 path
 
