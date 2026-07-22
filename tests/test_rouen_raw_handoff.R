@@ -301,7 +301,8 @@ pmsi_main <- tibble::tibble(
 
 # Why: protects the Rouen adapter integration contract that redsan-normalized
 # PMSI produces the two remaining site inputs, clips the denominator window,
-# assigns the hospitalization UF without fallback, and composes a valid v2 bundle.
+# assigns the hospitalization UF without fallback, and the generic composer
+# builds both explicit bundle contracts.
 pmsi_handoff <- build_rouen_pmsi_handoff(
   sample_context = handoff$sample_context,
   pmsi_main = pmsi_main,
@@ -310,8 +311,16 @@ pmsi_handoff <- build_rouen_pmsi_handoff(
   target_start = as.Date("2024-01-01"),
   target_end_exclusive = as.Date("2025-01-01")
 )
-composed <- compose_rouen_external_bundle_v2(handoff, pmsi_handoff)
-composed_v3 <- compose_rouen_external_bundle_v3(handoff, pmsi_handoff)
+composed <- compose_rouen_external_bundle(
+  handoff,
+  pmsi_handoff,
+  contract = orchidee_external_contract_v2()
+)
+composed_v3 <- compose_rouen_external_bundle(
+  handoff,
+  pmsi_handoff,
+  contract = orchidee_external_contract_v3()
+)
 projected_v2 <- project_external_bundle_v3_to_operational_v2(
   composed_v3$bundle
 )
