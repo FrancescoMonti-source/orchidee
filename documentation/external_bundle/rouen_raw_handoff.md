@@ -23,7 +23,7 @@ redsan PMSI output ─────────> two PMSI blocks ─────�
 
 The shared builder still owns `sir_wide`, its metadata, the sample-scope
 reference and the denominator bundle. The Rouen adapter does not implement
-completion, deduplication, indicators or reporting.
+deduplication, indicators or reporting.
 
 ## Inputs
 
@@ -277,4 +277,5 @@ fail-closed; the CHU-native path is an opt-in legacy comparison/rollback mode,
 and its caches are not overwritten. A full render is required after an explicit
 future adoption so raw
 deduplication and indicators are derived from the same signed runtime input.
-Completion remains a separate opt-in diagnostic.
+The retired completion experiment remains recoverable from tag
+`archive/completion-chu-native-2026-07-22`.

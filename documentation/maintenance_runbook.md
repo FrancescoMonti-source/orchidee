@@ -21,7 +21,6 @@ Cibles disponibles :
 -   `memo`
 -   `docs`
 -   `indicators`
--   `completion`
 -   `full`
 
 ## Point d'entrée des réglages
@@ -133,14 +132,9 @@ rendu complet :
 `full` construit le cache RATB brut canonique puis rend le rapport
 d'indicateurs. La complétion ne fait pas partie de ce chemin.
 
-Pour exécuter explicitement le diagnostic de complétion :
-
-```powershell
-& .\scripts\render_orchidee.ps1 -Target completion
-```
-
-Ses caches et téléchargements sont isolés dans un sous-dossier
-`completion_diagnostic/` du workspace sélectionné.
+La complétion exploratoire n'est plus un target de rendu actif. Sa dernière
+implémentation cohérente est conservée au tag
+`archive/completion-chu-native-2026-07-22`.
 
 Pour utiliser un bundle ou un workspace protégé situé ailleurs :
 
@@ -251,16 +245,6 @@ Commande :
 1.  `scripts/build_ratb_raw_runtime.R`
 2.  `orchidee_ratb_indicators.qmd`
 
-### Si seule la complétion exploratoire a changé
-
-Commande :
-
-```powershell
-& .\scripts\render_orchidee.ps1 -Target completion
-```
-
-Ce rendu reste diagnostique et n'écrit pas dans le cache opérationnel brut.
-
 ## Règles courantes de maintenance
 
 -   Traiter le checkout Git sous `~/Documents/Git/orchidee` comme la
@@ -294,11 +278,6 @@ Vérifier si le problème se situe dans :
 
 Une valeur absente du HTML n'implique pas automatiquement qu'elle est
 absente du pipeline.
-
-### Complétion et dédoublonnage sont deux étapes différentes
-
-Une règle de complétion peut utiliser une fenêtre de 30 jours sans que
-le dédoublonnage lui-même devienne un dédoublonnage à 30 jours.
 
 ### Les dénominateurs de résistance et d'incidence sont des objets différents
 

@@ -59,9 +59,6 @@ orchidee_config <- list(
     # Force rebuild of RATB hospitalization scope and hospital-night caches.
     # Turn on after perimeter/ref changes, render once, then set back to FALSE.
     recompute_ratb_scope = FALSE,
-    # Force rebuild of optional completion-diagnostic datasets/logs.
-    # Used only by render_orchidee.ps1 -Target completion.
-    recompute_completion = FALSE,
     # Force rebuild of dedup outputs.
     # Turn on after dedup logic/scope changes, render once, then set back to FALSE.
     recompute_dedup = FALSE,

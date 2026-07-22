@@ -22,9 +22,9 @@ Ce document s'adresse aux mainteneurs. Il répond à deux questions :
 5.  Rendre le rapport produit et les documents méthodologiques de
     support.
 
-La complétion reste implémentée dans un notebook diagnostique dédié, mais elle
-n'appartient pas à la méthode canonique. Le rendu `full` construit uniquement le
-cache brut ; le diagnostic doit être demandé explicitement. La vue d'ensemble
+Le rendu `full` construit uniquement le cache brut. La complétion exploratoire
+a été retirée du chemin actif ; sa dernière implémentation cohérente reste
+disponible au tag `archive/completion-chu-native-2026-07-22`. La vue d'ensemble
 est documentée dans `documentation/operational_flow.md`.
 
 ## Frontière opérationnelle vers le coeur ORCHIDEE
@@ -101,22 +101,6 @@ contrat d'onboarding. La source de vérité est
 `documentation/external_bundle/site_handoff_inputs.md`.
 
 ## Notebooks principaux
-
-### `orchidee_dedup_workflow.qmd`
-
-Rôle :
-
--   diagnostic opt-in des stratégies de complétion
--   comparaison de leurs dédoublonnages au baseline brut
--   QA exploratoire du périmètre d'hospitalisation et du dénominateur
-
-À utiliser quand on veut comprendre :
-
--   comment les jeux de complétion sont produits et comparés
--   si la complétion modifie les partitions ou les représentants
-
-Le rendu ordinaire ne consomme pas ses caches. `scripts/build_ratb_raw_runtime.R`
-construit directement le cache brut utilisé par le rapport d'indicateurs.
 
 ### `orchidee_ratb_indicators.qmd`
 
@@ -216,13 +200,8 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   compose les six blocs avec le builder partagé sous contrat v2
         opérationnel ou v3 complet, sans fallback vers l'UF microbiologique
 
-### Complétion et dédoublonnage
+### Dédoublonnage
 
--   `R/completion_helpers.R`
-    -   logique de complétion et exécution des stratégies
--   `R/completion_workflow_helpers.R`
-    -   plumbing d'orchestration, de validation et de journalisation de
-        la complétion/dédoublonnage, sorti du notebook socle
 -   `R/spares_shared_primitives.R`
     -   primitives de conflit et d'ordonnancement
 -   `R/spares_dedup.R`
@@ -398,17 +377,10 @@ suivants.
     -   le fichier `meta` permet de savoir si ce cache peut être rechargé
         tel quel ou doit être recalculé
 
--   `completion_diagnostic/completion_datasets`, `completion_logs`,
-    `raw_row_log`, `completion_cache_meta`
-    -   sorties isolées du diagnostic opt-in de complétion
-    -   elles ne sont jamais consommées par le rapport opérationnel
-
 -   `dedup_results`, `dedup_cache_meta`, `ratb_raw_runtime_audit`
     -   cache opérationnel brut, structuré par scope (`global`, `by_type`)
     -   le fichier `meta` lie les résultats à l'entrée opérationnelle et aux
         scripts actifs ; l'audit résume population, plausibilité et validation
-    -   le diagnostic de complétion conserve ses propres résultats de
-        dédoublonnage sous `completion_diagnostic/`
 
 Les artefacts d'export destinés au lecteur et générés par le rapport
 vivent dans `downloads/`.
@@ -451,13 +423,6 @@ Commencer par :
 -   `R/spares_dedup.R`
 -   `R/spares_shared_primitives.R`
 -   puis rerendre `full`
-
-### Changer le comportement de complétion
-
-Commencer par :
-
--   `R/completion_helpers.R`
--   puis rerendre `completion`
 
 ### Changer la logique de périmètre d'hospitalisation ou de dénominateur d'incidence
 

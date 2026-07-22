@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [ValidateSet('memo','docs','indicators','completion','full')]
+  [ValidateSet('memo','docs','indicators','full')]
   [string]$Target = 'docs',
   [switch]$DryRun
 )
@@ -57,9 +57,6 @@ $targets = switch ($Target) {
   }
   'indicators' {
     @('orchidee_ratb_indicators.qmd')
-  }
-  'completion' {
-    @('orchidee_dedup_workflow.qmd')
   }
   'full' {
     @('orchidee_ratb_indicators.qmd')

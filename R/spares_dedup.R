@@ -15,7 +15,7 @@
 
 source("R/bootstrap.R")
 
-# Load shared primitives used by both SPARES and completion.
+# Load shared primitives used by SPARES class definition and deduplication.
 orchidee_source_script_if_missing(
   "spares_shared_primitives.R",
   c(
@@ -105,7 +105,7 @@ ensure_spares_phenotype_helpers_available()
   # Deterministic order for representative selection inside each class.
   #
   # Priority (within one class):
-  # 1) -completeness (dataset-specific: nb_resultats for raw, nb_resultats_post for completion outputs)
+  # 1) -completeness (the active raw runtime uses nb_resultats)
   # 2) evt_order (explicit or derived)
   # 3) elt_order (explicit or derived)
   # 4) ELTID
@@ -444,8 +444,8 @@ spares_select_representatives <- function(df,
 #' 1) `spares_define_classes()`
 #' 2) `spares_select_representatives()`
 #'
-#' Keeping the pipeline layered ensures completion and dedup rely on the same
-#' class-definition logic.
+#' Keeping the pipeline layered aligns class definition and representative
+#' selection.
 #'
 #' @return A list with:
 #' - `dedup` (unless `return_dedup = FALSE`)

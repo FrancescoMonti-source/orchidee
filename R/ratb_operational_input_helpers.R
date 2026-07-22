@@ -118,8 +118,8 @@ load_existing_chu_ratb_scope_cache <- function(
   cache_paths <- c(cache_payload_path, cache_meta_path)
   if (!all(file.exists(cache_paths))) {
     stop(
-      "Missing RATB scope cache artifacts. Render ",
-      "orchidee_dedup_workflow.qmd first.",
+      "Missing RATB scope cache artifacts. Run ",
+      "scripts/render_orchidee.ps1 -Target full first.",
       call. = FALSE
     )
   }
@@ -134,8 +134,8 @@ load_existing_chu_ratb_scope_cache <- function(
       ) ||
       !chu_ratb_cache_payload_is_usable(payload, sir_wide = sir_wide)) {
     stop(
-      "Existing RATB scope cache is not usable. Render ",
-      "orchidee_dedup_workflow.qmd first.",
+      "Existing RATB scope cache is not usable. Run ",
+      "scripts/render_orchidee.ps1 -Target full first.",
       call. = FALSE
     )
   }
