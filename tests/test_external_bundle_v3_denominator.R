@@ -341,6 +341,11 @@ cli_colliding_output <- suppressWarnings(
 )
 cli_colliding_status <- attr(cli_colliding_output, "status")
 if (is.null(cli_colliding_status)) cli_colliding_status <- 0L
+cli_v2_path_normalized <- normalizePath(
+  cli_v2_dir,
+  winslash = "/",
+  mustWork = TRUE
+)
 unlink(cli_root, recursive = TRUE)
 
 # Why: protects the v3 canonical input contract: the exposure table is long by
@@ -428,12 +433,30 @@ stopifnot(
 # Why: protects the preferred six-block onboarding contract: one CLI run must
 # validate and retain v3, then materialize an independently validated v2
 # projection without changing microbiology rows, accepting a seventh block or
-# allowing two aliases of the same output directory.
+# allowing two aliases of the same output directory. Its final message must
+# also point to the exact v2 directory, the R executable and the explicit
+# runtime selection.
 stopifnot(
   identical(cli_status, 0L),
   isTRUE(cli_v3_report$ok),
   isTRUE(cli_v2_report$ok),
   identical(cli_v3_sir_wide, cli_v2_sir_wide),
+  any(grepl(
+    cli_v2_path_normalized,
+    cli_output,
+    fixed = TRUE
+  )),
+  any(grepl(
+    'ORCHIDEE_OPERATIONAL_INPUT_SOURCE = "external_bundle_v2"',
+    cli_output,
+    fixed = TRUE
+  )),
+  any(grepl(
+    normalizePath(rscript, winslash = "/", mustWork = TRUE),
+    cli_output,
+    fixed = TRUE
+  )),
+  any(grepl("render_orchidee.ps1 -Target full", cli_output, fixed = TRUE)),
   !identical(cli_seventh_block_status, 0L),
   any(grepl(
     "do not pass a seventh de_reference block",
