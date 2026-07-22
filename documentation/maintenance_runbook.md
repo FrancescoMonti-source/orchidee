@@ -194,6 +194,31 @@ Cet ancien helper caractérise les artefacts locaux `chu_native`, y compris les
 jeux de complétion historiques. Il ne constitue pas le gate du runtime v2.
 Pour v2, comparer le cache brut isolé et les panels produits sur le même bundle.
 
+## Gate de non-régression du runtime v2
+
+Après un changement qui ne doit pas modifier les résultats opérationnels,
+exécuter d'abord un rendu `full`, puis comparer un rendu v2 accepté au rendu
+candidat avec le gate read-only :
+
+```powershell
+$baseline = "C:\chemin\protege\validation-v2"
+$candidate = "C:\chemin\protege\rouen-current"
+Rscript scripts/compare_operational_v2_gate.R `
+  "$baseline\bundle-v2-projected" `
+  "$baseline\runtime" `
+  "$candidate\bundle_v2_operational" `
+  "$candidate\runtime"
+```
+
+Le gate exige l'identité des trois objets canoniques, de `sir_wide_meta` en
+ignorant uniquement la valeur de `created_at`, du dédoublonnage brut, de son
+audit et des valeurs de toutes les feuilles XLSX publiées. Il ne compare pas
+`dedup_cache_meta`, qui
+porte des chemins et timestamps de run, ni les PDF/PNG, qui ne constituent pas
+le gate numérique. Baseline et candidat restent dans un emplacement privé hors
+Git ; le script ne les modifie pas et ne publie aucune valeur clinique.
+Une baseline acceptée doit être conservée comme un oracle immuable.
+
 ## Matrice de rendu
 
 ### Si seul le mémo a changé
