@@ -170,30 +170,6 @@ Remove-Item Env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR -ErrorAction SilentlyContinue
 Remove-Item Env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR -ErrorAction SilentlyContinue
 ```
 
-## Snapshot de caractérisation avant refactor
-
-Avant un nettoyage structurel censé ne pas changer les résultats, créer un
-snapshot local des artefacts et panels courants :
-
-```powershell
-Rscript scripts/characterize_current_outputs.R write
-```
-
-Le snapshot est écrit dans `data/characterization_baseline.rds`, donc il
-reste local et n'est pas versionné. Après le refactor et le rendu adapté,
-vérifier que les signatures n'ont pas changé :
-
-```powershell
-Rscript scripts/characterize_current_outputs.R check
-```
-
-Si `Rscript` n'est pas disponible dans le `PATH`, utiliser le chemin complet
-de l'installation R locale.
-
-Cet ancien helper caractérise les artefacts locaux `chu_native`, y compris les
-jeux de complétion historiques. Il ne constitue pas le gate du runtime v2.
-Pour v2, comparer le cache brut isolé et les panels produits sur le même bundle.
-
 ## Gate de non-régression du runtime v2
 
 Après un changement qui ne doit pas modifier les résultats opérationnels,

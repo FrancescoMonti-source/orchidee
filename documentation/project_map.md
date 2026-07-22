@@ -340,11 +340,6 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
         objets runtime partagés aux notebooks
 -   `scripts/validate_external_bundle.R`
     -   validateur CLI autonome pour les bundles externes
--   `scripts/build_external_bundle_from_handoff_inputs.R`
-    -   construit un bundle externe préféré depuis les blocs élémentaires
-        de handoff d'un site externe qui fournit déjà un `sir_wide.rds`
-    -   dérive `sir_wide_meta.rds`, `sample_scope_reference.rds` et
-        `denominator_bundle.rds`, puis lance la validation stricte
 -   `scripts/build_external_bundle_from_site_inputs.R`
     -   construit le bundle v3 préféré depuis les six blocs complets d'un site
         externe, puis peut matérialiser séparément sa projection v2
@@ -378,11 +373,11 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
 
 ### Scripts de contrôle local
 
--   `scripts/characterize_current_outputs.R`
-    -   helper legacy de caractérisation des artefacts locaux `chu_native`,
-        y compris les sorties historiques de complétion
-    -   le gate v2 compare plutôt le cache brut isolé et les panels produits
-        depuis le même bundle
+-   `scripts/compare_operational_v2_gate.R`
+    -   compare une baseline v2 immuable et un candidat sur les objets
+        canoniques, le dédoublonnage brut, son audit et les cellules XLSX
+        publiées
+    -   constitue le gate de non-régression du runtime opérationnel
 
 ## Artefacts générés
 
