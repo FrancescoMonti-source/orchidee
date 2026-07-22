@@ -33,18 +33,12 @@ required_scripts <- c(
   "ratb_plausibility_qc_helpers.R",
   "ratb_canonical_runtime_helpers.R",
   "external_bundle_validation_helpers.R",
-  "ratb_hospital_days_helpers.R",
-  "chu_ratb_scope_adapter.R",
-  "chu_ratb_scope_cache_helpers.R",
   "ratb_operational_input_helpers.R",
   "ratb_raw_runtime_helpers.R"
 )
 invisible(lapply(required_scripts, orchidee_source_required_script))
 
-operational_runtime <- load_ratb_operational_runtime(
-  config = orchidee_config,
-  chu_cache_policy = "load_or_build"
-)
+operational_runtime <- load_ratb_operational_runtime(config = orchidee_config)
 result <- build_ratb_raw_operational_cache(
   operational_runtime = operational_runtime,
   sir_wide_meta = operational_runtime$sir_wide_meta,

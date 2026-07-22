@@ -47,8 +47,8 @@ Si `Rscript` n'est pas disponible dans le `PATH`, utiliser le chemin complet de
 l'installation R locale. La version R attendue est celle indiquée dans
 `renv.lock`.
 
-Le recalcul natif CHU du dénominateur PMSI utilise `redsan` 0.2.0 ou plus
-récent. Sa politique PMSI par défaut applique explicitement `C > DW` à
+L'adaptateur PMSI Rouen utilise `redsan` 0.2.0 ou plus récent. Sa politique
+PMSI par défaut applique explicitement `C > DW` à
 l'intérieur d'une même unité sans fusionner les intervalles retenus. Cette
 dépendance est enregistrée dans `renv.lock` ; elle ne remplace pas le chemin de
 handoff d'un site externe.
@@ -79,8 +79,8 @@ En résumé, le site prépare exactement six blocs de handoff non versionnés :
 
 Ces blocs conservent les informations nécessaires au bundle v3, même si le
 runtime opérationnel consomme encore v2. Le builder peut valider et conserver
-v3 puis en matérialiser la projection v2 `spares_current` sans modifier le
-sélecteur des notebooks.
+v3 puis en matérialiser la projection v2 `spares_current` conforme au contrat
+d'entrée du runtime.
 
 ORCHIDEE dérive ensuite :
 
@@ -174,24 +174,19 @@ Rouen recommandée.
 
 ## Modèle opératoire actuel
 
-Les notebooks ont deux sources d'entrée explicites :
+Les notebooks chargent strictement les quatre fichiers canoniques d'un
+`external_bundle_v2`. Il s'agit de leur unique source opérationnelle.
 
--   `external_bundle_v2`, valeur par défaut, charge strictement les quatre
-    fichiers canoniques v2 et constitue le chemin opérationnel canonique ;
--   `chu_native`, mode legacy explicite de comparaison ou de rollback, utilise
-    les artefacts internes de `data/` et conserve les audits PMSI/CONSORES
-    locaux.
+Le chemin du bundle se configure avec `ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR`. Les
+caches et téléchargements sont isolés sous
+`outputs/external_bundle_v2_runtime/` par défaut, ou sous le workspace désigné
+par `ORCHIDEE_EXTERNAL_WORKSPACE_DIR`. Un bundle absent ou invalide fait échouer
+explicitement le runtime : il n'existe aucun autodétecteur ni fallback.
 
-La sélection se fait par `ORCHIDEE_OPERATIONAL_INPUT_SOURCE` et
-`ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR`. Les caches et téléchargements externes sont
-isolés sous `outputs/external_bundle_v2_runtime/` par défaut. Les tables de QA
-propres au producteur CHU ne sont pas simulées dans ce mode ; les QA biologiques,
-de dédoublonnage et d'indicateurs restent communes. Le chemin canonique reste
-brut et n'applique aucune complétion. La dernière implémentation exploratoire de
-la complétion est conservée au tag
-`archive/completion-chu-native-2026-07-22`. Il n'existe aucun autodétecteur ni
-fallback entre les deux modes : un bundle v2 absent ou invalide fait échouer
-explicitement le chemin par défaut.
+Le chemin canonique reste brut et n'applique aucune complétion. Les dernières
+implémentations cohérentes de la complétion exploratoire et du runtime
+`chu_native` sont conservées au tag
+`archive/completion-chu-native-2026-07-22`.
 
 Les CLI qui acceptent plusieurs contrats demandent explicitement
 `--contract=v2|v3`. Le parcours d'onboarding préféré construit v3 à partir des

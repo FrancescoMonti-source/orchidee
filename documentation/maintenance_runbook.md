@@ -114,13 +114,13 @@ doit rester visible dans les métadonnées d'audit.
 
 Le script valide strictement v3 et v2 puis exécute le smoke du runtime sur les
 deux. La projection applique `spares_current` et doit redériver exactement le
-total annuel v2. Le sélecteur opérationnel reste explicitement sur v2 : cette
-commande conserve v3 sans l'adopter comme entrée des notebooks. Le build direct
+total annuel v2. Le runtime reste strictement sur v2 : cette commande conserve
+v3 sans l'adopter comme entrée des notebooks. Le build direct
 `--contract=v2` reste disponible comme chemin direct explicite.
 
 ## Exécution opérationnelle sur un bundle v2
 
-Le bundle v2 strict est le chemin opérationnel par défaut. Sans surcharge,
+Le bundle v2 strict est l'unique chemin opérationnel. Sans surcharge,
 `config/pipeline.R` cherche le bundle sous
 `outputs/rouen_current/bundle_v2_operational`. Après sa construction, lancer un
 rendu complet :
@@ -145,21 +145,12 @@ $env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = "C:\chemin\protege\runtime"
 ```
 
 Le loader exige les quatre fichiers préférés du contrat v2 et échoue sans
-fallback vers CHU. Cache brut, dédoublonnage et téléchargements sont
+fallback. Cache brut, dédoublonnage et téléchargements sont
 écrits sous le workspace externe, pas dans `data/` ni `downloads/`.
 
-Le mode `chu_native` est conservé uniquement comme chemin legacy explicite de
-comparaison ou de rollback :
+Pour revenir aux chemins configurés par défaut dans la même session PowerShell :
 
 ```powershell
-$env:ORCHIDEE_OPERATIONAL_INPUT_SOURCE = "chu_native"
-& .\scripts\render_orchidee.ps1 -Target full
-```
-
-Pour revenir au bundle v2 par défaut dans la même session PowerShell :
-
-```powershell
-Remove-Item Env:ORCHIDEE_OPERATIONAL_INPUT_SOURCE
 Remove-Item Env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR -ErrorAction SilentlyContinue
 Remove-Item Env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR -ErrorAction SilentlyContinue
 ```

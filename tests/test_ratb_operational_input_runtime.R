@@ -8,22 +8,8 @@ source("R/external_handoff_helpers.R")
 source("R/ratb_canonical_runtime_helpers.R")
 source("R/ratb_operational_input_helpers.R")
 
-operational_input_source_override <- Sys.getenv(
-  "ORCHIDEE_OPERATIONAL_INPUT_SOURCE",
-  unset = NA_character_
-)
-Sys.unsetenv("ORCHIDEE_OPERATIONAL_INPUT_SOURCE")
 pipeline_config_env <- new.env(parent = globalenv())
 sys.source("config/pipeline.R", envir = pipeline_config_env)
-default_operational_input_source <-
-  pipeline_config_env$orchidee_config$runtime$input_source
-if (is.na(operational_input_source_override)) {
-  Sys.unsetenv("ORCHIDEE_OPERATIONAL_INPUT_SOURCE")
-} else {
-  Sys.setenv(
-    ORCHIDEE_OPERATIONAL_INPUT_SOURCE = operational_input_source_override
-  )
-}
 
 contract <- orchidee_external_contract_v2()
 sir_wide <- data.frame(
@@ -98,35 +84,18 @@ saveRDS(
 
 config <- list(
   runtime = list(
-    input_source = "external_bundle_v2",
     external_bundle_v2_dir = bundle_dir,
     external_workspace_dir = tempfile("orchidee_external_workspace_")
   ),
-  paths = list(data_dir = tempfile("missing_chu_data_"), downloads_dir = "unused")
+  paths = list(data_dir = tempfile("protected_data_"), downloads_dir = "unused")
 )
 
-legacy_config <- config
-legacy_config$runtime$input_source <- "chu_native"
-legacy_context <- resolve_ratb_operational_context(legacy_config)
-
-runtime <- load_ratb_operational_runtime(
-  config = config,
-  chu_cache_policy = "load_existing"
-)
+context <- resolve_ratb_operational_context(config)
+runtime <- load_ratb_operational_runtime(config = config)
 bundle_validation <- validate_external_input_bundle(
   bundle_dir = bundle_dir,
   contract = contract,
   strict_preferred = TRUE
-)
-
-invalid_mode_error <- tryCatch(
-  {
-    invalid_config <- config
-    invalid_config$runtime$input_source <- "external"
-    load_ratb_operational_runtime(invalid_config)
-    NA_character_
-  },
-  error = function(condition) conditionMessage(condition)
 )
 
 missing_v2_metadata_error <- tryCatch(
@@ -176,40 +145,17 @@ workspace_collision_error <- tryCatch(
   error = function(condition) conditionMessage(condition)
 )
 
-stale_cache_dir <- tempfile("orchidee_stale_chu_scope_cache_")
-dir.create(stale_cache_dir)
-on.exit(unlink(stale_cache_dir, recursive = TRUE), add = TRUE)
-saveRDS(list(), file.path(stale_cache_dir, "ratb_scope_cache"))
-saveRDS(
-  list(
-    fingerprint = "old_scope",
-    sir_wide_artifact_signature = list(artifact = "old")
-  ),
-  file.path(stale_cache_dir, "ratb_scope_cache_meta")
-)
-stale_cache_error <- tryCatch(
-  {
-    load_existing_chu_ratb_scope_cache(
-      sir_wide = sir_wide,
-      sir_wide_artifact_signature = list(artifact = "current"),
-      data_dir = stale_cache_dir
-    )
-    NA_character_
-  },
-  error = function(condition) conditionMessage(condition)
-)
-
-# Why: protects the ratified operational policy: v2 is the default while CHU
-# native remains an explicit legacy comparison/rollback selection.
+# Why: protects the canonical operational policy: strict external bundle v2 is
+# the only runtime input, with no selector or CHU-native fallback surface.
 stopifnot(
-  identical(default_operational_input_source, "external_bundle_v2"),
-  identical(legacy_context$input_source, "chu_native"),
-  isTRUE(legacy_context$is_chu_native)
+  !"input_source" %in% names(pipeline_config_env$orchidee_config$runtime),
+  identical(context$input_source, "external_bundle_v2"),
+  !"is_chu_native" %in% names(context),
+  !"chu_native_qa" %in% names(runtime)
 )
 
-# Why: protects the operational input/cache boundary: external_bundle_v2 uses
-# only strict v2 inputs, external paths cannot overlap CHU paths, and a
-# read-only CHU cache must match the current sir_wide artifact.
+# Why: protects the external-v2 input/cache contract: four strict artifacts
+# feed the canonical objects and runtime outputs stay outside protected paths.
 stopifnot(
   identical(runtime$input_source, "external_bundle_v2"),
   identical(
@@ -220,7 +166,6 @@ stopifnot(
       "incidence_denominator_by_year"
     )
   ),
-  is.null(runtime$chu_native_qa),
   isTRUE(bundle_validation$ok),
   any(grepl("contains extra columns outside the v2 contract", bundle_validation$warnings)),
   identical(runtime$provenance$contract_version, "v2"),
@@ -229,11 +174,9 @@ stopifnot(
     "hospitalization_unit_at_sampling"
   ),
   nrow(runtime$runtime_inputs$sir_wide_ratb_analytic_scope) == 1L,
-  grepl("must be exactly one of", invalid_mode_error),
   grepl("missing required fields", missing_v2_metadata_error),
   grepl("Strict preferred mode requires", compatibility_error),
-  grepl("must keep external cache and downloads separate", workspace_collision_error),
-  grepl("Existing RATB scope cache is not usable", stale_cache_error)
+  grepl("must keep external cache and downloads separate", workspace_collision_error)
 )
 
-cat("PASS: RATB operational input selector\n")
+cat("PASS: RATB operational external-v2 runtime\n")

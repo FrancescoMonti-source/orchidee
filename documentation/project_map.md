@@ -29,22 +29,16 @@ est documentée dans `documentation/operational_flow.md`.
 
 ## Frontière opérationnelle vers le coeur ORCHIDEE
 
-Les notebooks sélectionnent explicitement soit le producteur natif CHU, soit
-un bundle externe v2 strict. Les deux chemins convergent vers les mêmes trois
-objets runtime avant le contrôle de plausibilité, le dédoublonnage et les
-indicateurs. Il n'y
-a aucun autodétecteur ni fallback entre les deux sources.
-
-`external_bundle_v2` est le chemin opérationnel canonique et la valeur par
-défaut. `chu_native` reste disponible comme mode legacy explicite de comparaison
-ou de rollback ; il ne constitue plus la cible des évolutions du workflow.
-La décision et ses éléments agrégés sont consignés dans
+Les notebooks chargent un bundle externe v2 strict et le projettent vers les
+trois objets runtime avant le contrôle de plausibilité, le dédoublonnage et les
+indicateurs. `external_bundle_v2` est l'unique entrée opérationnelle ; il n'y a
+aucun autodétecteur ni fallback. La décision d'adoption et ses éléments agrégés
+sont consignés dans
 `documentation/external_bundle/operational_v2_adoption_2026-07-19.md`.
 
-La règle d'architecture est donc : plusieurs entrées locales peuvent exister
-(adaptateur natif CHU/Rouen, blocs de handoff pour Rennes ou un autre site),
-mais elles doivent converger vers les mêmes objets internes avant le coeur
-RATB partagé.
+La règle d'architecture est donc : plusieurs adaptateurs locaux peuvent
+produire les six blocs de handoff, mais tous passent par le builder partagé et
+le même bundle v2 avant le coeur RATB.
 
 ```text
 Exports bactériologie + PMSI Rouen       Six blocs d'un autre site
@@ -63,15 +57,10 @@ Exports bactériologie + PMSI Rouen       Six blocs d'un autre site
                     projection spares_current
                                   |
                                   v
-                      bundle v2 opérationnel -----------+
-                                                        |
-Artefacts privés CHU -> producteur chu_native legacy ---+
+                      bundle v2 opérationnel
                                                         |
                                                         v
-                                           Sélecteur opérationnel explicite
-                                                        |
-                                                        v
-                                          Objets runtime partagés
+                                           Objets runtime partagés
                                           - sir_wide_ratb_scope
                                           - sir_wide_ratb_analytic_scope
                                           - incidence_denominator_by_year
@@ -81,13 +70,7 @@ Artefacts privés CHU -> producteur chu_native legacy ---+
 ```
 
 Le chemin Rouen et le handoff d'un autre site sont donc deux façons de produire
-les mêmes six blocs. `chu_native` ne se trouve pas entre ces deux chemins : il
-reste une entrée legacy parallèle au niveau du sélecteur opérationnel.
-
-Les tables comme `ratb_scope_join_audit`, `hospital_stays_validated`,
-`hospital_days_year_summary` ou `incidence_denominator_pmsi_ta_de_audit`
-restent du contexte de QA natif CHU. Elles aident à comprendre le workflow
-actuel, mais elles ne font pas partie du contrat portable minimal.
+les mêmes six blocs. Le runtime ne connaît pas leur origine locale.
 
 Le dénominateur du contrat opérationnel v2 reste annuel. Le contrat externe v3
 transporte une table d'exposition profilée à année + UM + UF + TA + DE, y
@@ -150,29 +133,11 @@ chargés hors notebook.
 -   `R/zzz.R`
     -   déclarations `globalVariables`
 
-### Adaptateur CHU / extraction amont
+### Adaptateur Rouen / extraction amont
 
 L'acquisition EDSaN et la normalisation PMSI/BIOL appartiennent à `redsan`.
 ORCHIDEE ne conserve pas de copie de ces helpers : son chemin Rouen commence à
 l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
-
--   `R/chu_ratb_scope_adapter.R`
-    -   chemin natif actuel de recompute du cache RATB à partir de
-        l'artefact local `data/pmsi`
-    -   normalise aussi les anciens artefacts locaux avec
-        `redsan::prefer_pmsi_src_c_over_dw()`, conformément à la politique PMSI
-        par défaut de `redsan` 0.2.0, sans fusionner les intervalles retenus
-    -   produit les objets canoniques `sample_scope_reference` et
-        `denominator_bundle`, ainsi que le contexte de QA natif CHU
-    -   laisse le notebook appliquer ces objets via le helper aval partagé
-    -   conserve les tables natives de QA nécessaires au notebook socle
--   `R/chu_ratb_scope_cache_helpers.R`
-    -   chargement, fraîcheur, rafraîchissement et recompute du cache de
-        périmètre RATB natif CHU
-    -   garde la mécanique de cache hors du notebook socle tout en
-        séparant cette mécanique du producteur CHU lui-même
-    -   reconstruit le payload runtime enrichi du notebook à partir des
-        objets canoniques et du contexte de QA natif CHU
 
 ### Normalisation et artefact amont
 
@@ -180,11 +145,6 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   normalisation des antibiotiques
 -   `R/normalisation_bact.R`
     -   normalisation des bactéries
--   `R/build_sir_wide_artifact.R`
-    -   artefact microbiologique large (construit un artefact
-        microbiologique au format large à partir des données brutes de
-        l'entrepôt)
-    -   porte les flags phénotypiques en amont
 -   `R/phenotype_flag_helpers.R`
     -   parsing et propagation des phénotypes BLSE / carbapénèmase
     -   statuts internes à quatre états, flags publics binaires (positif
@@ -305,8 +265,8 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   charge aussi un bundle validé via
         `load_validated_external_input_bundle()`
 -   `R/ratb_hospital_days_helpers.R`
-    -   contient les helpers natifs PMSI / CHU qui produisent la
-        référence de périmètre et les tables de dénominateur locales
+    -   contient les primitives temporelles et d'exposition partagées par le
+        builder v3 et l'adaptateur PMSI Rouen
 -   `R/ratb_canonical_runtime_helpers.R`
     -   contient le helper de frontière
         `build_ratb_downstream_scope_from_canonical_inputs()` qui applique
@@ -314,9 +274,9 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   projette aussi un bundle v3 validé vers la forme v2 opérationnelle
         fermée avec `project_external_bundle_v3_to_operational_v2()`
 -   `R/ratb_operational_input_helpers.R`
-    -   sélectionne exactement `chu_native` ou `external_bundle_v2`
-    -   garde les caches externes séparés et expose seulement les trois
-        objets runtime partagés aux notebooks
+    -   charge strictement `external_bundle_v2`
+    -   garde cache et téléchargements séparés des chemins locaux protégés et
+        expose seulement les trois objets runtime partagés aux notebooks
 -   `scripts/validate_external_bundle.R`
     -   validateur CLI autonome pour les bundles externes
 -   `scripts/build_external_bundle_from_site_inputs.R`
@@ -344,12 +304,6 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
         changent
     -   `rouen_raw_handoff.md` documente le chemin local A vers B sans en
         faire le contrat d'onboarding d'un autre établissement
--   `R/build_sir_wide_artifact.R`
-    -   producteur interne de l'artefact CHU actuel
-    -   sert d'exemple de construction de l'artefact canonique, mais ne
-        constitue pas le contrat d'adaptation externe pour un autre
-        établissement
-
 ### Scripts de contrôle local
 
 -   `scripts/compare_operational_v2_gate.R`

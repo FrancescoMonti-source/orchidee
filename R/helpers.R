@@ -4,8 +4,8 @@
 # dependency, so the project no longer needs that non-CRAN package. Uses
 # `chartr` character maps, which are platform-independent (unlike a
 # locale-sensitive `iconv(..., "ASCII//TRANSLIT")`). Call sites in
-# build_sir_wide_artifact.R, normalisation_atb.R and phenotype_flag_helpers.R
-# resolve to this through an `exists("rm_accent")` guard.
+# normalisation_atb.R and phenotype_flag_helpers.R resolve to this through an
+# `exists("rm_accent")` guard.
 rm_accent <- function(str, pattern = "all") {
   if (!is.character(str)) {
     str <- as.character(str)

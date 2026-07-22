@@ -252,8 +252,6 @@ if (!is.na(operational_v2_output)) {
     v2_runtime_path,
     "\n",
     "Next steps (PowerShell):\n",
-    "  $env:ORCHIDEE_OPERATIONAL_INPUT_SOURCE = ",
-    "\"external_bundle_v2\"\n",
     "  $env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR = \"",
     v2_runtime_path,
     "\"\n",

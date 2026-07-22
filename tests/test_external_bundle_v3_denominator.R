@@ -434,8 +434,7 @@ stopifnot(
 # validate and retain v3, then materialize an independently validated v2
 # projection without changing microbiology rows, accepting a seventh block or
 # allowing two aliases of the same output directory. Its final message must
-# also point to the exact v2 directory, the R executable and the explicit
-# runtime selection.
+# also point to the exact v2 directory and the R executable.
 stopifnot(
   identical(cli_status, 0L),
   isTRUE(cli_v3_report$ok),
@@ -443,11 +442,6 @@ stopifnot(
   identical(cli_v3_sir_wide, cli_v2_sir_wide),
   any(grepl(
     cli_v2_path_normalized,
-    cli_output,
-    fixed = TRUE
-  )),
-  any(grepl(
-    'ORCHIDEE_OPERATIONAL_INPUT_SOURCE = "external_bundle_v2"',
     cli_output,
     fixed = TRUE
   )),

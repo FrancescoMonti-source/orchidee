@@ -94,9 +94,10 @@ du prélèvement. Cette UF reçoit ensuite ses codes TA et DE via la référence
 d'unité. Les unités non attribuées ou ambiguës restent auditables mais sont hors
 du périmètre analytique fondé sur l'hébergement.
 
-Cette décision explique les différences ratifiées entre `external_bundle_v2` et
-le chemin historique `chu_native`. Elle ne modifie pas le catalogue biologique
-ni les règles de dédoublonnage.
+Cette décision explique les différences ratifiées avec l'ancien chemin
+`chu_native`. Elle ne modifie pas le catalogue biologique ni les règles de
+dédoublonnage. Le chemin historique reste consultable au tag
+`archive/completion-chu-native-2026-07-22`.
 
 ## Dénominateur : contrat opérationnel et extension v3
 
@@ -148,14 +149,15 @@ exactement les objets ratifiés : `dedup`, `class_map`, `episode_summary` et
 étaient également identiques cellule par cellule aux lignes `brut` du runtime
 précédent.
 
-## Trois comparaisons à ne pas confondre
+## Comparaisons à ne pas confondre
 
 1. Un nouveau rendu v2 comparé au gate v2 précédent doit être identique.
 2. ORCHIDEE et `orchideecore`, exécutés sur le même bundle v2 brut, doivent être
    identiques à tolérance zéro.
-3. `external_bundle_v2` et `chu_native` ne sont pas attendus identiques : v2
-   applique l'UF d'hébergement sans fallback et modifie donc intentionnellement
-   une partie du périmètre et des numérateurs.
 
-Les écarts agrégés ayant justifié cette adoption sont consignés dans
-`documentation/external_bundle/operational_v2_adoption_2026-07-19.md`.
+La comparaison historique entre `external_bundle_v2` et `chu_native` n'était
+pas attendue identique : v2 applique l'UF d'hébergement sans fallback et
+modifie donc intentionnellement une partie du périmètre et des numérateurs. Les
+écarts agrégés ayant justifié cette adoption sont consignés dans
+`documentation/external_bundle/operational_v2_adoption_2026-07-19.md` ; ce
+troisième chemin n'est plus un mode exécutable de `main`.

@@ -76,10 +76,9 @@ data/consores_structure_intranet_maj_2025.xlsx
 ```
 
 Set `ORCHIDEE_CONSORES_STRUCTURE_PATH` when it is stored elsewhere. The
-workbook is a prerequisite of the local Rouen producer and of the legacy
-`chu_native` recompute only. It is not required by the operational
-`external_bundle_v2` runtime, nor by another site's builder when that site
-already supplies a complete `unit_mapping` block.
+workbook is a prerequisite of the local Rouen producer. It is not required by
+the operational `external_bundle_v2` runtime, nor by another site's builder
+when that site already supplies a complete `unit_mapping` block.
 
 ## Microbiology decisions
 
@@ -271,11 +270,9 @@ them to Git or publish them with the source repository.
 ## Current adoption boundary
 
 The preferred command retains v3 and explicitly projects the strict bundle
-accepted by the operational `external_bundle_v2` notebook mode. The operational
-selector does not adopt v3 implicitly. Selection remains explicit and
-fail-closed; the CHU-native path is an opt-in legacy comparison/rollback mode,
-and its caches are not overwritten. A full render is required after an explicit
-future adoption so raw
-deduplication and indicators are derived from the same signed runtime input.
-The retired completion experiment remains recoverable from tag
+accepted by the operational `external_bundle_v2` runtime. v3 is not adopted
+implicitly: the runtime remains strict and fail-closed on v2. A full render is
+required after an explicit future adoption so raw deduplication and indicators
+are derived from the same signed runtime input. The retired completion and
+CHU-native implementations remain recoverable from tag
 `archive/completion-chu-native-2026-07-22`.
