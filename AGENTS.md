@@ -48,8 +48,11 @@ For analytical or methodological changes, also consult
 - Bundle v3 is the complete durable construction contract. The notebook
   runtime remains on strict `external_bundle_v2`, produced through the closed
   `spares_current` projection when starting from v3.
-- Completion remains an opt-in diagnostic. `chu_native` remains an explicit
-  legacy comparison and rollback path.
+- `external_bundle_v2` is the only operational notebook input. Completion and
+  `chu_native` are retired from the active tree; their last coherent
+  implementation is frozen at tag
+  `archive/completion-chu-native-2026-07-22`. Restoring either path requires an
+  explicit project decision.
 
 ## Multi-Agent Collaboration
 
@@ -77,12 +80,12 @@ Notes:
 ## Rendering And Verification
 
 - Use `scripts/render_orchidee.ps1` for routine renders.
-- Available targets are `memo`, `docs`, `indicators`, `completion`, and `full`.
+- Available targets are `memo`, `docs`, `indicators`, and `full`.
 - Use `full` after changes to upstream pipeline, raw deduplication, perimeter,
   denominator, or indicator logic; it builds the canonical raw cache and then
   renders the indicator report.
-- Use `completion` only for explicit changes to the optional completion
-  diagnostic.
+- Do not reintroduce completion or `chu_native` as a fallback or implicit
+  operational path.
 - Before changing code because a report looks wrong, determine whether the
   issue belongs to the source pipeline, indicator specification, or report
   display layer.
