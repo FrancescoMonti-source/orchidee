@@ -85,9 +85,6 @@ path for a new hospital team:
   - validates an already built ORCHIDEE input bundle.
 - `scripts/smoke_external_runtime_inputs.R`
   - checks that a validated bundle can build the downstream RATB inputs.
-- `scripts/build_external_bundle_from_handoff_inputs.R`
-  - builder for the advanced case where a site already has a valid
-    `sir_wide.rds`.
 
 ## Ownership rule
 

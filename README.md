@@ -234,8 +234,8 @@ Pour brancher un autre entrepôt, commencer par
 -   Ne pas traiter les HTML rendus comme source de vérité.
 -   Utiliser `scripts/render_orchidee.ps1` plutôt que lancer `quarto render` à
     la main.
--   Pour un refactor sans changement attendu de résultats, utiliser
-    `scripts/characterize_current_outputs.R` avant/après.
+-   Pour un refactor sans changement attendu de résultats, utiliser le gate v2
+    documenté dans `documentation/maintenance_runbook.md`.
 -   Pour savoir quel fichier modifier, commencer par
     `documentation/project_map.md`.
 -   Pour savoir quoi rerendre, commencer par
