@@ -6,6 +6,11 @@ editor_options:
 
 # Décision d'adoption opérationnelle du bundle v2 — 2026-07-19
 
+> **Statut au 2026-07-22.** Ce document conserve la décision et la comparaison
+> historiques. `chu_native` a depuis été retiré du chemin actif ; sa dernière
+> implémentation cohérente reste disponible au tag
+> `archive/completion-chu-native-2026-07-22`.
+
 ## Décision
 
 `external_bundle_v2` devient l'entrée opérationnelle canonique et la valeur

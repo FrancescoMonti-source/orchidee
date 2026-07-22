@@ -76,7 +76,7 @@ switch. See `sir_wide.md`.
 
 The builder also accepts an explicit direct v2 input with
 `denominator_by_year`, but no contract is inferred when `--contract` is
-omitted. Nothing here changes the runtime selector: v3 is retained for future
+omitted. Nothing here changes the runtime contract: v3 is retained for future
 use and does not by itself publish stratified indicators. Its exact schema is
 in `denominator_bundle_v3.md`.
 
@@ -290,7 +290,7 @@ Rscript `
 
 The builder validates bundle v3 first. It then applies the closed
 `spares_current` context, materializes a separate strict bundle v2 and
-validates that output. It never changes the notebook runtime selector.
+validates that output. It does not adopt v3 as a notebook runtime input.
 
 ## Use the resulting bundle
 
@@ -299,7 +299,6 @@ as the complete validated bundle. Point the current ORCHIDEE runtime to
 `outputs/site_bundle_v2`:
 
 ```powershell
-$env:ORCHIDEE_OPERATIONAL_INPUT_SOURCE = "external_bundle_v2"
 $env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR = `
   (Resolve-Path "outputs/site_bundle_v2").Path
 $env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = `

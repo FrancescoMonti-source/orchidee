@@ -302,7 +302,7 @@ Sortie
 
 Référence code
   R/phenotype_flag_helpers.R
-  R/build_sir_wide_artifact.R
+  R/rouen_microbiology_handoff_adapter.R
   R/ratb_indicator_helpers.R
 ```
 
