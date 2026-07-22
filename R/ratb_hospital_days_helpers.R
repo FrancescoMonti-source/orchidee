@@ -586,42 +586,6 @@ build_chu_microbiology_pmsi_join_audit <- function(sir_wide, pmsi_main) {
   )
 }
 
-ratb_split_one_stay_by_year <- function(patid, evtid, datent_min, datsort_max, cross_year = FALSE) {
-  if (is.na(datent_min) || is.na(datsort_max) || datsort_max < datent_min) {
-    return(tibble())
-  }
-
-  tz <- ratb_resolve_posix_tz(datent_min)
-  years <- seq.int(lubridate::year(datent_min), lubridate::year(datsort_max))
-
-  purrr::map_dfr(years, function(year_val) {
-    year_start <- as.POSIXct(
-      sprintf("%04d-01-01 00:00:00", year_val),
-      tz = tz
-    )
-    next_year_start <- as.POSIXct(
-      sprintf("%04d-01-01 00:00:00", year_val + 1L),
-      tz = tz
-    )
-    overlap_start <- max(datent_min, year_start)
-    overlap_end <- min(datsort_max, next_year_start)
-    overlap_days_exact <- as.numeric(difftime(overlap_end, overlap_start, units = "days"))
-
-    tibble(
-      PATID = patid,
-      EVTID = evtid,
-      calendar_year = year_val,
-      overlap_start = overlap_start,
-      overlap_end = overlap_end,
-      overlap_days_exact = overlap_days_exact,
-      overlap_days_floor = floor(overlap_days_exact),
-      overlap_days_ceiling = ceiling(overlap_days_exact),
-      overlap_days_round = round(overlap_days_exact),
-      cross_year = cross_year
-    )
-  })
-}
-
 ratb_split_stays_days_by_year <- function(stays) {
   stopifnot(all(c("PATID", "EVTID", "datent_min", "datsort_max", "cross_year") %in% names(stays)))
 
