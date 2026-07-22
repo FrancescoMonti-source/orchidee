@@ -453,25 +453,3 @@ compose_rouen_external_bundle <- function(
     )
   )
 }
-
-compose_rouen_external_bundle_v2 <- function(
-    microbiology_handoff,
-    pmsi_handoff
-  ) {
-  compose_rouen_external_bundle(
-    microbiology_handoff = microbiology_handoff,
-    pmsi_handoff = pmsi_handoff,
-    contract = orchidee_external_contract_v2()
-  )
-}
-
-compose_rouen_external_bundle_v3 <- function(
-    microbiology_handoff,
-    pmsi_handoff
-  ) {
-  compose_rouen_external_bundle(
-    microbiology_handoff = microbiology_handoff,
-    pmsi_handoff = pmsi_handoff,
-    contract = orchidee_external_contract_v3()
-  )
-}
