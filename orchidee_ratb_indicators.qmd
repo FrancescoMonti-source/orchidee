@@ -261,7 +261,7 @@ de qualité, de périmètre ou de validation, qui restent dans les artefacts du
 runtime et les documents méthodologiques.
 La méthode détaillée, les conventions ORCHIDEE et les choix d'implémentation
 sont décrits dans
-[`documentation/ratb_implementation_decisions.html`](documentation/ratb_implementation_decisions.html).
+[`documentation/ratb_implementation_decisions.qmd`](documentation/ratb_implementation_decisions.qmd).
 
 **Source opérationnelle :** `r operational_runtime$input_source`.
 
@@ -274,7 +274,7 @@ sont décrits dans
 5. Terminer par les sorties par type, limitées ici à `hemoculture` et `urines`.
 6. Les indicateurs phénotypiques publiés couvrent désormais la grille canonique `2 taxons × 2 phénotypes × 2 métriques` pour `K. pneumoniae` et `Enterobacterales` ; une sortie additionnelle de compatibilité reste publiée pour respecter la demande actuelle : `K. pneumoniae` carbapénémase en proportion sur `hemoculture`.
 7. Ce rapport correspond à la livraison annuelle actuelle ; il ne couvre pas encore la déclinaison trimestrielle ni les autres stratifications demandées dans l'expression de besoins.
-8. Pour la méthode détaillée et les validations, se reporter au mémo d'implémentation et à `documentation/operational_flow_v2.md`.
+8. Pour la méthode détaillée et les validations, se reporter au mémo d'implémentation et à `documentation/operational_flow.md`.
 9. Les cartes thermiques utilisent une transformation de couleur réglée par `ratb_fill_transform` ; avec `"sqrt"`, les faibles écarts deviennent plus visibles (et le gros écarts moins visibles).
 10. Les cartes thermiques de densité d'incidence partagent une borne supérieure commune, réglée par `ratb_incidence_fill_limit_mode`, afin de rendre les taxons comparables entre eux. La borne supérieure actuelle est provisoire.
 

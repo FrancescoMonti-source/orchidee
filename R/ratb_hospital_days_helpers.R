@@ -1179,7 +1179,7 @@ build_ratb_pmsi_ta_de_denominator <- function(
         .groups = "drop"
       ) %>%
       mutate(
-        denominator_profile_id = "midnight_presence_v1",
+        denominator_profile_id = "midnight_presence",
         exposure_unit = "patient_days"
       ) %>%
       select(

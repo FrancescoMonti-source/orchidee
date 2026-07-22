@@ -9,7 +9,7 @@ rouen_pmsi_calendar_night_bound <- function(x, source_tz) {
   as.POSIXct(as.character(local_date), tz = "UTC")
 }
 
-build_rouen_pmsi_handoff_v1 <- function(
+build_rouen_pmsi_handoff <- function(
     sample_context,
     pmsi_main,
     unit_refs,

@@ -1,10 +1,10 @@
-# Site-owned knobs for the first versioned Rouen raw-data adapter.
+# Site-owned knobs for the Rouen raw-data adapter.
 #
 # Keep raw input paths out of this file. The CLI receives them explicitly so
 # this configuration remains public, portable and free of patient data.
 
-rouen_raw_handoff_v1_config <- list(
-  adapter_version = "rouen_raw_handoff_v1",
+rouen_raw_handoff_config <- list(
+  adapter_id = "rouen_raw_handoff",
   target_start = as.Date("2022-01-01"),
   target_end_exclusive = as.Date("2025-01-01"),
   screening_typeana_codes = c(
@@ -26,11 +26,11 @@ rouen_raw_handoff_v1_config <- list(
     species = file.path("dictionaries", "species_regex_map.csv"),
     sample_type_rules = file.path(
       "dictionaries",
-      "rouen_naturepvt_regex_v1.csv"
+      "rouen_naturepvt_regex.csv"
     ),
     sample_type_decisions = file.path(
       "dictionaries",
-      "rouen_naturepvt_exact_decisions_v1.csv"
+      "rouen_naturepvt_exact_decisions.csv"
     ),
     antibiotic = file.path("dictionaries", "atb_regex_map.csv"),
     antibiotic_expansion = file.path("dictionaries", "atb_expand_map.csv"),

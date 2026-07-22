@@ -25,7 +25,7 @@ exposure <- data.frame(
   CODE_TA = c("03", "10", "03"),
   CODE_DE = c("D03", "D07", "D03"),
   de_domain_ref = c("MÉDECINE", "URGENCES", "MÉDECINE"),
-  denominator_profile_id = rep("midnight_presence_v1", 3L),
+  denominator_profile_id = rep("midnight_presence", 3L),
   exposure_value = c(100L, 20L, 75L),
   exposure_unit = rep("patient_days", 3L),
   stringsAsFactors = FALSE
@@ -205,11 +205,6 @@ missing_v3_direct_domain_error <- capture_error(
       SEJUF = "UF1",
       CODE_TA = "03",
       CODE_DE = "D03",
-      stringsAsFactors = FALSE
-    ),
-    de_reference = data.frame(
-      CODE_DE = "D03",
-      de_domain_ref = "MÉDECINE",
       stringsAsFactors = FALSE
     ),
     contract = contract_v3

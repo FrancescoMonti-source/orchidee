@@ -1,10 +1,10 @@
 # External bundle validation helpers for Orchidee.
 #
 # This layer documents and validates the canonical external input contract.
-# Strict bundle v2 is the canonical operational notebook input; v1 remains the
-# compatibility default and v3 is the explicit fine-denominator successor.
+# Strict bundle v2 is the canonical operational notebook input and v3 is the
+# complete fine-denominator construction contract.
 
-orchidee_external_contract_v1 <- function() {
+orchidee_external_contract_v2 <- function() {
   atb_cols <- c(
     "levofloxacine",
     "rifampicine",
@@ -44,7 +44,7 @@ orchidee_external_contract_v1 <- function() {
   )
 
   list(
-    version = "v1",
+    version = "v2",
     bundle = list(
       required_files = c(
         sir_wide = "sir_wide.rds",
@@ -93,14 +93,20 @@ orchidee_external_contract_v1 <- function() {
         "supported_atb_cols",
         "phenotype_status_cols",
         "phenotype_flag_cols",
-        "filtre_atb"
+        "filtre_atb",
+        "contract_version",
+        "sejuf_semantics"
       ),
       phenotype_status_allowed = list(
         blse_status_row = c("negative", "no_signal", "positive"),
         carbapenemase_status_row = c("negative", "no_signal", "positive", "unknown")
       ),
       phenotype_flag_cols = c("blse_flag", "carbapenemase_flag"),
-      phenotype_status_cols = c("blse_status_row", "carbapenemase_status_row")
+      phenotype_status_cols = c("blse_status_row", "carbapenemase_status_row"),
+      required_meta_values = list(
+        contract_version = "v2",
+        sejuf_semantics = "hospitalization_unit_at_sampling"
+      )
     ),
     sample_scope_reference = list(
       required_columns = c(
@@ -160,20 +166,6 @@ orchidee_external_contract_v1 <- function() {
   )
 }
 
-orchidee_external_contract_v2 <- function() {
-  contract <- orchidee_external_contract_v1()
-  contract$version <- "v2"
-  contract$sir_wide$required_meta_values <- list(
-    contract_version = "v2",
-    sejuf_semantics = "hospitalization_unit_at_sampling"
-  )
-  contract$sir_wide$required_meta_fields <- unique(c(
-    contract$sir_wide$required_meta_fields,
-    names(contract$sir_wide$required_meta_values)
-  ))
-  contract
-}
-
 ratb_spares_current_de_domains <- function() {
   c(
     "MÉDECINE",
@@ -191,7 +183,7 @@ ratb_spares_current_de_domains <- function() {
 
 ratb_denominator_profile_registry <- function() {
   data.frame(
-    denominator_profile_id = "midnight_presence_v1",
+    denominator_profile_id = "midnight_presence",
     exposure_unit = "patient_days",
     profile_definition = paste(
       "Local calendar-night count computed as",
@@ -202,9 +194,9 @@ ratb_denominator_profile_registry <- function() {
 }
 
 ratb_analysis_context_profile <- function(
-    analysis_context_id = "spares_current_v1"
+    analysis_context_id = "spares_current"
   ) {
-  if (!identical(analysis_context_id, "spares_current_v1")) {
+  if (!identical(analysis_context_id, "spares_current")) {
     stop(
       "Unsupported RATB analysis context: ", analysis_context_id,
       call. = FALSE
@@ -214,7 +206,7 @@ ratb_analysis_context_profile <- function(
     analysis_context_id = analysis_context_id,
     eligible_ta_codes = c("03", "20"),
     eligible_de_domains = ratb_spares_current_de_domains(),
-    denominator_profile_id = "midnight_presence_v1",
+    denominator_profile_id = "midnight_presence",
     exposure_unit = "patient_days",
     incidence_multiplier = 1000,
     incidence_unit = "per_1000_patient_days"
@@ -317,7 +309,7 @@ external_bundle_add_issue <- function(issues, text) {
   c(issues, text)
 }
 
-external_bundle_validate_paths <- function(bundle_dir, contract = orchidee_external_contract_v1()) {
+external_bundle_validate_paths <- function(bundle_dir, contract = orchidee_external_contract_v2()) {
   errors <- character(0)
   warnings <- character(0)
 
@@ -421,13 +413,13 @@ external_bundle_load_bundle <- function(paths) {
   )
 }
 
-external_bundle_sir_wide_contract_columns <- function(contract = orchidee_external_contract_v1()) {
+external_bundle_sir_wide_contract_columns <- function(contract = orchidee_external_contract_v2()) {
   unique(c(contract$sir_wide$required_columns, contract$sir_wide$derived_columns))
 }
 
 external_bundle_add_derived_sir_wide_columns <- function(
     sir_wide,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v2()
   ) {
   if (!is.data.frame(sir_wide)) {
     return(sir_wide)
@@ -447,7 +439,7 @@ external_bundle_add_derived_sir_wide_columns <- function(
 
 external_bundle_subset_sir_wide <- function(
     sir_wide,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v2()
   ) {
   contract_columns <- external_bundle_sir_wide_contract_columns(contract)
   sir_wide <- external_bundle_add_derived_sir_wide_columns(
@@ -461,7 +453,7 @@ external_bundle_subset_sir_wide <- function(
   sir_wide[contract_columns]
 }
 
-external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract = orchidee_external_contract_v1()) {
+external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract = orchidee_external_contract_v2()) {
   errors <- character(0)
   warnings <- character(0)
   spec <- contract$sir_wide
@@ -717,7 +709,7 @@ external_bundle_coerce_sample_scope_reference <- function(sample_scope_reference
 
 external_bundle_validate_sample_scope_reference <- function(
     sample_scope_reference,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v2()
   ) {
   errors <- character(0)
   warnings <- character(0)
@@ -810,7 +802,7 @@ external_bundle_validate_sample_scope_reference <- function(
 
 external_bundle_subset_sample_scope_reference <- function(
     sample_scope_reference,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v2()
   ) {
   sample_scope_reference <- external_bundle_coerce_sample_scope_reference(sample_scope_reference)
   required_columns <- contract$sample_scope_reference$required_columns
@@ -958,7 +950,7 @@ external_bundle_validate_denominator_table <- function(
 
 external_bundle_coerce_denominator_bundle <- function(
     denominator_bundle,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v2()
   ) {
   if (!is.list(denominator_bundle)) {
     return(denominator_bundle)
@@ -989,7 +981,7 @@ external_bundle_coerce_denominator_bundle <- function(
   )
 }
 
-external_bundle_validate_denominator_bundle <- function(denominator_bundle, contract = orchidee_external_contract_v1()) {
+external_bundle_validate_denominator_bundle <- function(denominator_bundle, contract = orchidee_external_contract_v2()) {
   errors <- character(0)
   warnings <- character(0)
   spec <- contract$denominator_bundle
@@ -1029,7 +1021,7 @@ external_bundle_validate_denominator_bundle <- function(denominator_bundle, cont
 
 external_bundle_subset_denominator_bundle <- function(
     denominator_bundle,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v2()
   ) {
   denominator_bundle <- external_bundle_coerce_denominator_bundle(
     denominator_bundle,
@@ -1053,7 +1045,7 @@ external_bundle_subset_denominator_bundle <- function(
 external_bundle_validate_cross_artifacts <- function(
     sample_scope_reference,
     denominator_bundle,
-    contract = orchidee_external_contract_v1()
+    contract = orchidee_external_contract_v2()
   ) {
   errors <- character(0)
   warnings <- character(0)
@@ -1120,7 +1112,7 @@ external_bundle_validate_cross_artifacts <- function(
       )
     }
 
-    context <- ratb_analysis_context_profile("spares_current_v1")
+    context <- ratb_analysis_context_profile("spares_current")
     expected_scope <-
       scope_matched$sample_CODE_TA %in% context$eligible_ta_codes &
       scope_matched$sample_de_domain_ref %in% context$eligible_de_domains
@@ -1133,7 +1125,7 @@ external_bundle_validate_cross_artifacts <- function(
         errors,
         paste0(
           "v3 sample scope eligibility disagrees with analysis context ",
-          "spares_current_v1 for incidence exposure SEJUF."
+          "spares_current for incidence exposure SEJUF."
         )
       )
     }
@@ -1148,7 +1140,7 @@ external_bundle_validate_cross_artifacts <- function(
 
 validate_external_input_bundle <- function(
     bundle_dir = file.path("data"),
-    contract = orchidee_external_contract_v1(),
+    contract = orchidee_external_contract_v2(),
     strict_preferred = FALSE
   ) {
   path_validation <- external_bundle_validate_paths(bundle_dir, contract = contract)
@@ -1257,7 +1249,7 @@ external_bundle_enforce_preferred_sources <- function(report) {
 
 load_validated_external_input_bundle <- function(
     bundle_dir = file.path("data"),
-    contract = orchidee_external_contract_v1(),
+    contract = orchidee_external_contract_v2(),
     strict_preferred = FALSE,
     validation_report = NULL
   ) {
@@ -1317,7 +1309,7 @@ print_external_input_bundle_validation <- function(report) {
     cat("sample-scope reference: ", report$paths$sample_scope_reference, "\n", sep = "")
     cat("denominator bundle: ", report$paths$denominator_bundle, "\n", sep = "")
   }
-  cat("Contract version: ", report$contract_version %||% "v1", "\n", sep = "")
+  cat("Contract version: ", report$contract_version %||% "<missing>", "\n", sep = "")
 
   if (length(report$warnings) > 0L) {
     cat("Warnings:\n")

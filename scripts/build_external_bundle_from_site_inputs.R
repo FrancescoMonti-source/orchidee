@@ -26,12 +26,12 @@ if (length(contract_args) > 1L) {
   stop("Pass at most one --contract option.", call. = FALSE)
 }
 contract_version <- if (length(contract_args) == 0L) {
-  "v1"
+  NA_character_
 } else {
   sub("^--contract=", "", contract_args[[1L]])
 }
-if (!contract_version %in% c("v1", "v2", "v3")) {
-  stop("--contract must be v1, v2 or v3.", call. = FALSE)
+if (!is.na(contract_version) && !contract_version %in% c("v2", "v3")) {
+  stop("--contract must be v2 or v3.", call. = FALSE)
 }
 operational_v2_args <- grep(
   "^--operational-v2-output=",
@@ -54,7 +54,14 @@ if (!is.na(operational_v2_output) && !identical(contract_version, "v3")) {
 }
 args <- setdiff(args, c("--force", contract_args, operational_v2_args))
 
-if (length(args) < 7L || length(args) > 8L || "--help" %in% args || "-h" %in% args) {
+if (length(args) == 8L) {
+  stop(
+    "The handoff contains exactly six site-owned blocks; do not pass a ",
+    "seventh de_reference block.",
+    call. = FALSE
+  )
+}
+if (length(args) != 7L || "--help" %in% args || "-h" %in% args) {
   cat(
     "Usage:\n",
     "  Rscript scripts/build_external_bundle_from_site_inputs.R \\\n",
@@ -65,27 +72,28 @@ if (length(args) < 7L || length(args) > 8L || "--help" %in% args || "-h" %in% ar
     "    <unit_mapping.{rds,csv,tsv,tab,txt}> \\\n",
     "    <denominator.{rds,csv,tsv,tab,txt}> \\\n",
     "    <output_bundle_dir> \\\n",
-    "    [de_reference.{rds,csv,tsv,tab,txt}] \\\n",
-    "    [--contract=v1|v2|v3] [--operational-v2-output=<dir>] [--force]\n\n",
+    "    --contract=v2|v3 [--operational-v2-output=<dir>] [--force]\n\n",
     "Inputs:\n",
     "  microbiology_observations: long local S/I/R observations with the\n",
     "    columns documented in site_handoff_inputs.md.\n",
     "  bacteria_mapping: bacteria_local + bact_norm.\n",
     "  sample_type_mapping: sample_type_local + naturepvt_norm.\n",
     "  antibiotic_mapping: antibiotic_local + atb_norm.\n",
-    "  unit_mapping: one row per SEJUF. Preferred v3 handoffs provide\n",
-    "    CODE_TA, CODE_DE and de_domain_ref directly in this block.\n",
-    "  denominator: v1/v2 use calendar_year + hospital_nights; v3 uses\n",
+    "  unit_mapping: one row per SEJUF with CODE_TA, CODE_DE and\n",
+    "    de_domain_ref directly in this block.\n",
+    "  denominator: v2 uses calendar_year + hospital_nights; v3 uses\n",
     "    year + UM + UF + TA + DE + domain + profile + exposure + unit.\n",
-    "  de_reference: optional v1/v2 compatibility dictionary only.\n",
     "  --contract=v2: declare SEJUF as the hospitalization unit at sampling.\n",
     "  --contract=v3: keep v2 SEJUF semantics and require profiled exposure;\n",
     "    unit_mapping must contain CODE_TA, CODE_DE and de_domain_ref.\n",
     "  --operational-v2-output: validate v3, then materialize its closed\n",
-    "    spares_current_v1 projection as a separate operational v2 bundle.\n",
+    "    spares_current projection as a separate operational v2 bundle.\n",
     sep = ""
   )
   quit(status = if (length(args) == 0L || "--help" %in% args || "-h" %in% args) 0L else 1L)
+}
+if (is.na(contract_version)) {
+  stop("Pass --contract=v2 or --contract=v3.", call. = FALSE)
 }
 
 microbiology_path <- args[[1L]]
@@ -95,15 +103,6 @@ antibiotic_mapping_path <- args[[4L]]
 unit_mapping_path <- args[[5L]]
 denominator_path <- args[[6L]]
 output_bundle_dir <- args[[7L]]
-de_reference_path <- if (length(args) >= 8L) args[[8L]] else NA_character_
-
-if (identical(contract_version, "v3") && !is.na(de_reference_path)) {
-  stop(
-    "Contract v3 requires de_domain_ref directly in unit_mapping; ",
-    "do not pass a seventh de_reference block.",
-    call. = FALSE
-  )
-}
 
 suppressPackageStartupMessages(library(dplyr))
 source("R/bootstrap.R")
@@ -116,7 +115,6 @@ orchidee_source_required_script("ratb_canonical_runtime_helpers.R")
 
 contract <- switch(
   contract_version,
-  v1 = orchidee_external_contract_v1(),
   v2 = orchidee_external_contract_v2(),
   v3 = orchidee_external_contract_v3()
 )
@@ -127,10 +125,6 @@ sample_type_mapping <- orchidee_handoff_read_table(sample_type_mapping_path)
 antibiotic_mapping <- orchidee_handoff_read_table(antibiotic_mapping_path)
 unit_mapping <- orchidee_handoff_read_table(unit_mapping_path)
 denominator_input <- orchidee_handoff_read_table(denominator_path)
-de_reference <- NULL
-if (!is.na(de_reference_path) && nzchar(de_reference_path)) {
-  de_reference <- orchidee_handoff_read_table(de_reference_path)
-}
 
 bundle <- orchidee_handoff_build_external_bundle_from_site_inputs(
   microbiology_observations = microbiology_observations,
@@ -143,7 +137,6 @@ bundle <- orchidee_handoff_build_external_bundle_from_site_inputs(
   } else {
     denominator_input
   },
-  de_reference = de_reference,
   contract = contract,
   incidence_exposure_by_year_um_uf_ta_de_profile = if (
     identical(contract_version, "v3")

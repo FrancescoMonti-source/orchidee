@@ -4,7 +4,7 @@ editor_options:
     wrap: 72
 ---
 
-# Rouen raw handoff v1
+# Rouen raw handoff
 
 ## Purpose
 
@@ -34,7 +34,7 @@ CONSORES structure workbook described below.
 The versioned default window is the half-open interval
 `[2022-01-01, 2025-01-01)`, covering sample years 2022 through 2024. Both
 microbiology and the hospital-night denominator use this same window. Change
-it only through `config/rouen_raw_handoff_v1.R` and record the resulting audit.
+it only through `config/rouen_raw_handoff.R` and record the resulting audit.
 
 ### Bacteriology
 
@@ -87,7 +87,7 @@ already supplies a complete `unit_mapping` block.
 
 Screening is decided for the complete document occurrence. If any raw row in
 `PATID + EVTID + ELTID` contains one configured screening `TYPEANA`, every
-SIR row from that occurrence is marked non-diagnostic. The v1 configuration
+SIR row from that occurrence is marked non-diagnostic. The maintained configuration
 contains:
 
 ```text
@@ -97,7 +97,7 @@ BGABMR_R.BGABMR_R2
 BGSAMR_R.BGSAMR_R2
 ```
 
-These codes are visible knobs in `config/rouen_raw_handoff_v1.R`; the shared
+These codes are visible knobs in `config/rouen_raw_handoff.R`; the shared
 builder, not the adapter, performs the final whole-document exclusion.
 
 ### SIR values
@@ -128,8 +128,8 @@ conflict:
 
 The rules and human decisions are separate:
 
-- `dictionaries/rouen_naturepvt_regex_v1.csv`;
-- `dictionaries/rouen_naturepvt_exact_decisions_v1.csv`.
+- `dictionaries/rouen_naturepvt_regex.csv`;
+- `dictionaries/rouen_naturepvt_exact_decisions.csv`.
 
 For example, explicit urine collected through a catheter remains `urines`,
 explicit catheter material can be `pvt_profond`, and the generic label
@@ -194,25 +194,29 @@ The v3 exposure table carries mapped valid activity even when TA/DE is outside
 the current perimeter. It adds `de_domain_ref`, `denominator_profile_id`,
 `exposure_value` and `exposure_unit` to the year + UM + UF + TA + DE
 dimensions. The adapter verifies that selecting the current
-`spares_current_v1` context reproduces the v2 annual denominator exactly.
+`spares_current` context reproduces the v2 annual denominator exactly.
 
 ## Run
 
 From the repository root:
 
 ```powershell
+$output = "outputs/rouen_current"
 Rscript scripts/build_rouen_external_bundle.R `
   <bacteriology_raw.rds> `
   <pmsi.rds> `
-  outputs/rouen_bundle_v2 `
-  --contract=v2
+  $output `
+  --contract=v3 `
+  --operational-v2-output="$output/bundle_v2_operational"
 ```
 
 Add `--force` only to replace existing outputs.
 
-Use `--contract=v3` and a separate output directory to build the profiled
-exposure candidate. v2 remains the default of this command and the current
-operational notebook contract.
+This is the preferred Rouen path. It retains the complete v3 construction and
+materializes the separate v2 input accepted by the current notebooks. A direct
+`--contract=v2` build remains available as an explicit compatibility path; it
+replaces the sixth block with `denominator_by_year.rds` and writes its bundle
+under `bundle/`.
 
 The output contains:
 
@@ -223,20 +227,28 @@ site_inputs/
   sample_type_mapping.rds
   antibiotic_mapping.rds
   unit_mapping.rds
-  denominator_by_year.rds                  # v2
-  incidence_exposure_by_year_um_uf_ta_de_profile.rds # v3 instead
+  incidence_exposure_by_year_um_uf_ta_de_profile.rds
 
-bundle/
+bundle_v3/
+  sir_wide.rds
+  sir_wide_meta.rds
+  sample_scope_reference.rds
+  denominator_bundle.rds
+
+bundle_v2_operational/
   sir_wide.rds
   sir_wide_meta.rds
   sample_scope_reference.rds
   denominator_bundle.rds
 
 adapter_audit.rds
+build_manifest.txt
 ```
 
-The command performs strict v2 bundle validation and the canonical runtime
-smoke before reporting success.
+The command performs strict validation and the canonical runtime smoke for both
+the retained v3 bundle and its closed `spares_current` v2 projection before
+reporting success. `build_manifest.txt` records input and output paths, hashes,
+repository HEAD, projection profile and validation status without requiring R.
 
 ## Audit and privacy
 
@@ -258,12 +270,11 @@ them to Git or publish them with the source repository.
 
 ## Current adoption boundary
 
-With `--contract=v2`, this command produces the strict preferred bundle
-accepted by the operational `external_bundle_v2` notebook mode, which remains
-the canonical default. With `--contract=v3`, it produces a validated candidate
-for the profiled exposure contract; the operational selector does not adopt it
-implicitly. Selection remains explicit and fail-closed; the CHU-native path is
-an opt-in legacy comparison/rollback mode, and its caches are not overwritten.
-A full render is required after an explicit future adoption so raw
+The preferred command retains v3 and explicitly projects the strict bundle
+accepted by the operational `external_bundle_v2` notebook mode. The operational
+selector does not adopt v3 implicitly. Selection remains explicit and
+fail-closed; the CHU-native path is an opt-in legacy comparison/rollback mode,
+and its caches are not overwritten. A full render is required after an explicit
+future adoption so raw
 deduplication and indicators are derived from the same signed runtime input.
 Completion remains a separate opt-in diagnostic.

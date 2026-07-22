@@ -15,7 +15,7 @@ orchidee_config <- list(
     # overridden without editing this shared configuration.
     external_bundle_v2_dir = Sys.getenv(
       "ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR",
-      unset = file.path("outputs", "rouen_bundle_v2", "bundle")
+      unset = file.path("outputs", "rouen_current", "bundle_v2_operational")
     ),
     external_workspace_dir = Sys.getenv(
       "ORCHIDEE_EXTERNAL_WORKSPACE_DIR",

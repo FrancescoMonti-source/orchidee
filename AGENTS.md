@@ -47,7 +47,7 @@ For analytical or methodological changes, also consult
   to materialized bundles, not to those site-owned blocks.
 - Bundle v3 is the complete durable construction contract. The notebook
   runtime remains on strict `external_bundle_v2`, produced through the closed
-  `spares_current_v1` projection when starting from v3.
+  `spares_current` projection when starting from v3.
 - Completion remains an opt-in diagnostic. `chu_native` remains an explicit
   legacy comparison and rollback path.
 

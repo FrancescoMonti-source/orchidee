@@ -1,7 +1,7 @@
 # CHU sample-to-hospitalization-unit attribution.
 #
 # This helper implements the upstream attribution contract without wiring it
-# into the current v1 cache, canonical bundle, or indicator runtime. Source
+# into the current CHU cache, canonical bundle, or indicator runtime. Source
 # R/ratb_hospital_days_helpers.R first for the shared local time and trimming
 # primitives used below. Pass the uncollapsed `pmsi$main` returned by `redsan`
 # with `source_policy = "c_over_dw"`.

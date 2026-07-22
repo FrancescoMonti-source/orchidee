@@ -5,6 +5,7 @@ suppressPackageStartupMessages(library(dplyr))
 source("R/phenotype_flag_helpers.R")
 source("R/external_bundle_validation_helpers.R")
 source("R/external_handoff_helpers.R")
+contract <- orchidee_external_contract_v2()
 
 microbiology_observations <- data.frame(
   PATID = c("P1", "P2", "P3", "P3", "P4", "P4", "P5", "P5", "P6", "P7"),
@@ -74,7 +75,8 @@ build_fixture <- function(observations) {
     microbiology_observations = observations,
     bacteria_mapping = bacteria_mapping,
     sample_type_mapping = sample_type_mapping,
-    antibiotic_mapping = antibiotic_mapping
+    antibiotic_mapping = antibiotic_mapping,
+    contract = contract
   )
 }
 
@@ -106,11 +108,13 @@ multi_row_isolate <- sir_wide[sir_wide$PATID == "P8", , drop = FALSE]
 
 validation <- external_bundle_validate_sir_wide(
   sir_wide,
-  orchidee_handoff_build_sir_wide_meta(sir_wide)
+  orchidee_handoff_build_sir_wide_meta(sir_wide, contract = contract),
+  contract = contract
 )
 legacy_validation <- external_bundle_validate_sir_wide(
   legacy_sir_wide,
-  orchidee_handoff_build_sir_wide_meta(legacy_sir_wide)
+  orchidee_handoff_build_sir_wide_meta(legacy_sir_wide, contract = contract),
+  contract = contract
 )
 
 stopifnot(

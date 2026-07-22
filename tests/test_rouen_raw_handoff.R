@@ -16,6 +16,7 @@ source("R/external_bundle_validation_helpers.R")
 source("R/external_handoff_helpers.R")
 source("R/ratb_hospital_days_helpers.R")
 source("R/chu_sample_hospitalization_unit_attribution.R")
+source("R/ratb_canonical_runtime_helpers.R")
 source("R/rouen_microbiology_handoff_adapter.R")
 source("R/rouen_pmsi_handoff_adapter.R")
 
@@ -37,11 +38,11 @@ supported_pairs <- readr::read_csv(
   show_col_types = FALSE
 )
 sample_type_rules <- readr::read_csv(
-  "dictionaries/rouen_naturepvt_regex_v1.csv",
+  "dictionaries/rouen_naturepvt_regex.csv",
   show_col_types = FALSE
 )
 sample_type_decisions <- readr::read_csv(
-  "dictionaries/rouen_naturepvt_exact_decisions_v1.csv",
+  "dictionaries/rouen_naturepvt_exact_decisions.csv",
   show_col_types = FALSE
 )
 
@@ -112,7 +113,7 @@ bacteriology_raw <- bind_rows(
 # occurrence through the four canonical microbiology handoff blocks. It fixes
 # screening scope, SIR vocabulary, unordered sample mapping, ATB precedence,
 # ambiguous-species exclusion and full-raw phenotype attribution.
-handoff <- build_rouen_microbiology_handoff_v1(
+handoff <- build_rouen_microbiology_handoff(
   bacteriology_raw = bacteriology_raw,
   screening_typeana_codes = c(
     "BGBLSE_R.BGBLSE_R2",
@@ -221,7 +222,7 @@ openxlsx::write.xlsx(
       "HOSPITALISATION COMPLETE",
       "URGENCES"
     ),
-    CODE_DE = c("D03", "D03", "D07"),
+    CODE_DE = c("102", "102", "211"),
     `Nom discipline - Ds` = c("MEDECINE", "MEDECINE", "URGENCES"),
     `Type prise en charge` = c("HOSPITALISATION", "HOSPITALISATION", "URGENCES")
   ),
@@ -240,8 +241,8 @@ writeLines(
 writeLines(
   c(
     "DOMAINE;CODE_DE;LIBELLE_DE",
-    "MÉDECINE;D03;MEDECINE",
-    "URGENCES;D07;URGENCES"
+    "MÉDECINE;102;MEDECINE",
+    "URGENCES;211;URGENCES"
   ),
   file.path(synthetic_reference_fixture_dir, "consores_codes_de.csv"),
   useBytes = TRUE
@@ -301,7 +302,7 @@ pmsi_main <- tibble::tibble(
 # Why: protects the Rouen adapter integration contract that redsan-normalized
 # PMSI produces the two remaining site inputs, clips the denominator window,
 # assigns the hospitalization UF without fallback, and composes a valid v2 bundle.
-pmsi_handoff <- build_rouen_pmsi_handoff_v1(
+pmsi_handoff <- build_rouen_pmsi_handoff(
   sample_context = handoff$sample_context,
   pmsi_main = pmsi_main,
   unit_refs = unit_refs,
@@ -311,6 +312,9 @@ pmsi_handoff <- build_rouen_pmsi_handoff_v1(
 )
 composed <- compose_rouen_external_bundle_v2(handoff, pmsi_handoff)
 composed_v3 <- compose_rouen_external_bundle_v3(handoff, pmsi_handoff)
+projected_v2 <- project_external_bundle_v3_to_operational_v2(
+  composed_v3$bundle
+)
 
 bundle_p1 <- composed$bundle$sir_wide[
   composed$bundle$sir_wide$PATID == "P1",
@@ -361,7 +365,7 @@ incidence_exposure <- composed_v3$bundle$denominator_bundle$
   incidence_exposure_by_year_um_uf_ta_de_profile
 current_profile_annual <- incidence_exposure |>
   dplyr::filter(
-    .data$denominator_profile_id == "midnight_presence_v1",
+    .data$denominator_profile_id == "midnight_presence",
     .data$exposure_unit == "patient_days",
     .data$CODE_TA %in% c("03", "20"),
     .data$de_domain_ref %in% ratb_included_ta_de_domains()
@@ -419,6 +423,227 @@ stopifnot(
   all(vapply(composed_v3$validation, function(x) isTRUE(x$ok), logical(1)))
 )
 
+# Why: protects the Rouen end-to-end construction contract: the durable v3
+# output must project to the already-ratified operational v2 microbiology,
+# scope and annual denominator without introducing a second adapter path.
+stopifnot(
+  identical(projected_v2$sir_wide, composed_v3$bundle$sir_wide),
+  identical(projected_v2$sir_wide, composed$bundle$sir_wide),
+  identical(projected_v2$sir_wide_meta$contract_version, "v2"),
+  identical(
+    projected_v2$sample_scope_reference,
+    composed$bundle$sample_scope_reference
+  ),
+  identical(
+    tibble::as_tibble(
+      projected_v2$denominator_bundle$incidence_denominator_by_year
+    ),
+    tibble::as_tibble(
+      composed$bundle$denominator_bundle$incidence_denominator_by_year
+    )
+  )
+)
+
+cli_root <- tempfile("orchidee-rouen-golden-cli-")
+cli_output_dir <- file.path(cli_root, "output")
+cli_v2_dir <- file.path(cli_output_dir, "bundle_v2_operational")
+dir.create(cli_root, recursive = TRUE)
+cli_bacteriology_path <- file.path(cli_root, "bacteriology_raw.rds")
+cli_pmsi_path <- file.path(cli_root, "pmsi.rds")
+saveRDS(bacteriology_raw, cli_bacteriology_path)
+saveRDS(list(main = pmsi_main), cli_pmsi_path)
+rscript <- file.path(
+  R.home("bin"),
+  if (.Platform$OS.type == "windows") "Rscript.exe" else "Rscript"
+)
+previous_structure_path <- Sys.getenv(
+  "ORCHIDEE_CONSORES_STRUCTURE_PATH",
+  unset = NA_character_
+)
+Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = structure_fixture_path)
+run_golden_cli <- function(
+    force = FALSE,
+    output_dir = cli_output_dir,
+    operational_v2_dir = cli_v2_dir) {
+  cli_args <- c(
+    "--vanilla",
+    shQuote("scripts/build_rouen_external_bundle.R"),
+    shQuote(cli_bacteriology_path),
+    shQuote(cli_pmsi_path),
+    shQuote(output_dir),
+    "--contract=v3",
+    shQuote(paste0("--operational-v2-output=", operational_v2_dir))
+  )
+  if (isTRUE(force)) cli_args <- c(cli_args, "--force")
+  system2(rscript, cli_args, stdout = TRUE, stderr = TRUE)
+}
+cli_output <- run_golden_cli()
+if (is.na(previous_structure_path)) {
+  Sys.unsetenv("ORCHIDEE_CONSORES_STRUCTURE_PATH")
+} else {
+  Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = previous_structure_path)
+}
+cli_status <- attr(cli_output, "status")
+if (is.null(cli_status)) cli_status <- 0L
+if (!identical(cli_status, 0L)) {
+  stop(
+    "Synthetic Rouen golden-path CLI failed:\n",
+    paste(cli_output, collapse = "\n"),
+    call. = FALSE
+  )
+}
+Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = structure_fixture_path)
+cli_force_output <- run_golden_cli(force = TRUE)
+if (is.na(previous_structure_path)) {
+  Sys.unsetenv("ORCHIDEE_CONSORES_STRUCTURE_PATH")
+} else {
+  Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = previous_structure_path)
+}
+cli_force_status <- attr(cli_force_output, "status")
+if (is.null(cli_force_status)) cli_force_status <- 0L
+if (!identical(cli_force_status, 0L)) {
+  stop(
+    "Synthetic Rouen golden-path --force rerun failed:\n",
+    paste(cli_force_output, collapse = "\n"),
+    call. = FALSE
+  )
+}
+cli_direct_v2_dir <- file.path(cli_root, "direct_v2")
+Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = structure_fixture_path)
+cli_direct_v2_output <- system2(
+  rscript,
+  c(
+    "--vanilla",
+    shQuote("scripts/build_rouen_external_bundle.R"),
+    shQuote(cli_bacteriology_path),
+    shQuote(cli_pmsi_path),
+    shQuote(cli_direct_v2_dir),
+    "--contract=v2"
+  ),
+  stdout = TRUE,
+  stderr = TRUE
+)
+if (is.na(previous_structure_path)) {
+  Sys.unsetenv("ORCHIDEE_CONSORES_STRUCTURE_PATH")
+} else {
+  Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = previous_structure_path)
+}
+cli_direct_v2_status <- attr(cli_direct_v2_output, "status")
+if (is.null(cli_direct_v2_status)) cli_direct_v2_status <- 0L
+if (!identical(cli_direct_v2_status, 0L)) {
+  stop(
+    "Synthetic Rouen direct-v2 CLI failed:\n",
+    paste(cli_direct_v2_output, collapse = "\n"),
+    call. = FALSE
+  )
+}
+cli_direct_v2_files_exist <- all(file.exists(c(
+  file.path(
+    cli_direct_v2_dir,
+    "site_inputs",
+    paste0(names(composed$site_inputs), ".rds")
+  ),
+  file.path(
+    cli_direct_v2_dir,
+    "bundle",
+    paste0(names(composed$bundle), ".rds")
+  ),
+  file.path(cli_direct_v2_dir, "adapter_audit.rds"),
+  file.path(cli_direct_v2_dir, "build_manifest.txt")
+)))
+cli_lock_path <- paste0(cli_output_dir, ".rouen-build.lock")
+dir.create(cli_lock_path)
+writeLines("pid: synthetic-test-owner", file.path(cli_lock_path, "owner.txt"))
+Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = structure_fixture_path)
+cli_locked_output <- suppressWarnings(run_golden_cli(
+  force = TRUE,
+  output_dir = paste0(cli_output_dir, "/"),
+  operational_v2_dir = paste0(cli_v2_dir, "/")
+))
+if (is.na(previous_structure_path)) {
+  Sys.unsetenv("ORCHIDEE_CONSORES_STRUCTURE_PATH")
+} else {
+  Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = previous_structure_path)
+}
+cli_locked_status <- attr(cli_locked_output, "status")
+if (is.null(cli_locked_status)) cli_locked_status <- 0L
+unlink(cli_lock_path, recursive = TRUE)
+cli_expected_files <- c(
+  file.path(
+    cli_output_dir,
+    "site_inputs",
+    paste0(names(composed_v3$site_inputs), ".rds")
+  ),
+  file.path(
+    cli_output_dir,
+    "bundle_v3",
+    paste0(names(composed_v3$bundle), ".rds")
+  ),
+  file.path(
+    cli_v2_dir,
+    paste0(names(projected_v2), ".rds")
+  ),
+  file.path(cli_output_dir, "adapter_audit.rds"),
+  file.path(cli_output_dir, "build_manifest.txt")
+)
+cli_files_exist <- all(file.exists(cli_expected_files))
+cli_manifest <- if (file.exists(file.path(cli_output_dir, "build_manifest.txt"))) {
+  readLines(file.path(cli_output_dir, "build_manifest.txt"), warn = FALSE)
+} else {
+  character()
+}
+cli_sir_wide_identical <- cli_files_exist && identical(
+  readRDS(file.path(cli_output_dir, "bundle_v3", "sir_wide.rds")),
+  readRDS(file.path(cli_v2_dir, "sir_wide.rds"))
+)
+cli_manifest_tmp_absent <- !file.exists(
+  file.path(cli_output_dir, "build_manifest.txt.tmp")
+)
+cli_build_locks_absent <- !any(dir.exists(c(
+  paste0(cli_output_dir, ".rouen-build.lock"),
+  paste0(cli_v2_dir, ".rouen-build.lock")
+)))
+cli_manifest_expected <- c(
+  "ORCHIDEE Rouen canonical build",
+  "source_contract: v3",
+  "denominator_profile_id: midnight_presence",
+  "operational_v2_analysis_context: spares_current",
+  "Inputs",
+  "Site inputs",
+  "Source bundle",
+  "Operational v2",
+  paste0(
+    "bacteriology_raw: ",
+    normalizePath(cli_bacteriology_path, winslash = "/", mustWork = TRUE),
+    " | md5=", unname(tools::md5sum(cli_bacteriology_path))
+  )
+)
+unlink(cli_root, recursive = TRUE)
+
+# Why: protects the Rouen onboarding CLI contract: one synthetic raw run must
+# materialize the named v3/v2 layout, preserve the explicit direct-v2 path,
+# finish all requested gates and leave a provenance manifest; a concurrent
+# writer must fail before touching it.
+stopifnot(
+  identical(cli_status, 0L),
+  identical(cli_force_status, 0L),
+  identical(cli_direct_v2_status, 0L),
+  cli_direct_v2_files_exist,
+  !identical(cli_locked_status, 0L),
+  any(grepl("holds the output lock", cli_locked_output, fixed = TRUE)),
+  cli_files_exist,
+  cli_sir_wide_identical,
+  cli_manifest_tmp_absent,
+  cli_build_locks_absent,
+  all(cli_manifest_expected %in% cli_manifest),
+  all(c(
+    "source_bundle_validation: PASS",
+    "source_runtime_smoke: PASS",
+    "operational_v2_validation: PASS",
+    "operational_v2_runtime_smoke: PASS"
+  ) %in% cli_manifest)
+)
+
 # Why: protects the canonical unit-mapping contract before the historical
 # CONSORES loader can collapse repeated UF rows with conflicting TA/DE codes.
 conflicting_structure <- tibble::tibble(
@@ -438,4 +663,4 @@ stopifnot(
   grepl("conflicting TA/DE mappings", conditionMessage(mapping_conflict))
 )
 
-cat("PASS: Rouen raw handoff v1\n")
+cat("PASS: Rouen raw handoff\n")
