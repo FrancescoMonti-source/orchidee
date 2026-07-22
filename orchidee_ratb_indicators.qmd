@@ -296,9 +296,7 @@ Le rapport opérationnel utilise uniquement :
 
 - `brut` : données sans complétion additionnelle.
 
-Les quatre stratégies exploratoires de complétion ont été déplacées dans le
-diagnostic opt-in `orchidee_dedup_workflow.qmd`. Elles ne définissent pas les
-sorties opérationnelles.
+Aucune complétion n'est appliquée dans la méthode active.
 ```{r}
 #| label: ratb_indicator_controls_to_tweak
 #| #| echo: false

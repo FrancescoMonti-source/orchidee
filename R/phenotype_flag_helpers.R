@@ -3,7 +3,7 @@
 # Public-facing design:
 # - internal statuses keep four states: positive / negative / unknown / no_signal
 # - public flags are binary and TRUE only for positive
-# - completion / dedup treat absent phenotype signal as phenotype-negative
+# - dedup treats absent phenotype signal as phenotype-negative
 
 normalize_phenotype_text <- function(x) {
   x_chr <- as.character(x)
@@ -198,17 +198,6 @@ phenotype_status_to_sr_proxy <- function(x) {
   )
 }
 
-phenotype_sr_proxy_to_status <- function(sr, fallback_status = NULL) {
-  sr_chr <- as.character(sr)
-  fallback_norm <- normalize_phenotype_status(fallback_status)
-  dplyr::case_when(
-    sr_chr == "R" ~ "positive",
-    sr_chr == "S" ~ "negative",
-    fallback_norm == "positive" ~ "positive",
-    TRUE ~ "negative"
-  )
-}
-
 resolve_phenotype_status_sources <- function(df, prefer_final = TRUE) {
   blse_candidates <- if (isTRUE(prefer_final)) {
     c("blse_status_final", "blse_status_row")
@@ -271,39 +260,6 @@ prepare_phenotype_sr_columns <- function(
     status_sources = status_sources,
     sr_col_names = sr_col_names
   )
-}
-
-finalize_phenotype_completion <- function(df, status_sources, sr_col_names) {
-  stopifnot(is.data.frame(df))
-  out <- df
-
-  if (
-    !is.null(status_sources$blse) &&
-      !is.na(status_sources$blse) &&
-      sr_col_names[["blse"]] %in% names(out)
-  ) {
-    out$blse_status_final <- phenotype_sr_proxy_to_status(
-      out[[sr_col_names[["blse"]]]],
-      fallback_status = out[[status_sources$blse]]
-    )
-    out$blse_flag <- phenotype_status_to_flag(out$blse_status_final)
-  }
-
-  if (
-    !is.null(status_sources$carbapenemase) &&
-      !is.na(status_sources$carbapenemase) &&
-      sr_col_names[["carbapenemase"]] %in% names(out)
-  ) {
-    out$carbapenemase_status_final <- phenotype_sr_proxy_to_status(
-      out[[sr_col_names[["carbapenemase"]]]],
-      fallback_status = out[[status_sources$carbapenemase]]
-    )
-    out$carbapenemase_flag <- phenotype_status_to_flag(
-      out$carbapenemase_status_final
-    )
-  }
-
-  out %>% dplyr::select(-dplyr::any_of(unname(sr_col_names)))
 }
 
 build_phenotype_status_lookup <- function(df, key_cols) {

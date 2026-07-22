@@ -1,7 +1,6 @@
-# Shared SPARES/completion helper primitives.
-# These functions are intentionally internal (prefixed) and reused by:
-# - spares_dedup.R
-# - completion_helpers.R
+# Shared SPARES helper primitives.
+# These functions are intentionally internal (prefixed) and reused by
+# spares_dedup.R.
 
 #' Normalize non-informative codes to NA
 #'

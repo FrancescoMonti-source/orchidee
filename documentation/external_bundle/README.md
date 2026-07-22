@@ -45,8 +45,8 @@ site prepare, with which columns?
 - `operational_v2_adoption_2026-07-19.md`
   - Why is strict v2 now the canonical operational notebook input?
 - `../operational_flow.md`
-  - How do the Rouen adapter, bundle v2, raw RATB runtime, optional completion
-    diagnostic and future unit-grain denominator fit together?
+  - How do the Rouen adapter, bundle v2, raw RATB runtime and future unit-grain
+    denominator fit together?
 
 ## Main external-site command
 

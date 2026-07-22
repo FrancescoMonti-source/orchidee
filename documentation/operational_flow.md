@@ -131,23 +131,16 @@ publication restent une étape séparée. Les comptages à midi, par durée exac
 ou par dates civiles touchées restent des options conceptuelles sans
 identificateur réservé ni implémentation exécutable.
 
-## Place de la complétion
+## Chemin analytique brut
 
 La complétion a servi à comparer quatre stratégies exploratoires aux données
-brutes. Le notebook historique calcule encore ces stratégies avec leur
-dédoublonnage et les affiche dans son propre rapport diagnostique.
-
-La séparation opérationnelle est désormais :
-
-- le rendu opérationnel ordinaire exécute et publie le chemin brut uniquement ;
-- la complétion devient un diagnostic opt-in séparé ;
-- ce diagnostic compare ses résultats au même baseline brut, sans modifier les
-  artefacts canoniques ni les sorties opérationnelles.
+brutes, mais elle n'a pas été retenue dans la méthode active. Le runtime exécute
+et publie uniquement le chemin brut. Sa dernière implémentation cohérente,
+notebook et helpers compris, est conservée au tag
+`archive/completion-chu-native-2026-07-22`.
 
 `scripts/render_orchidee.ps1 -Target full` construit le cache brut puis rend le
-rapport d'indicateurs. `-Target completion` exécute explicitement le notebook
-historique dans des sous-dossiers `completion_diagnostic/` isolés. Les caches du
-diagnostic ne peuvent donc pas alimenter le rapport opérationnel.
+rapport d'indicateurs.
 
 Le gate Rouen réel du 2026-07-20 a confirmé que le nouveau chemin brut reproduit
 exactement les objets ratifiés : `dedup`, `class_map`, `episode_summary` et

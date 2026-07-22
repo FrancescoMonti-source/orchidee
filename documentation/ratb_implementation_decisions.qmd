@@ -58,8 +58,8 @@ le noyau gelé de l'étape 1 et distingue les sorties publiées des limites ou
 extensions qui relèvent d'une phase ultérieure.
 
 Le catalogue des indicateurs biologiques de référence est maintenu dans
-`documentation/ratb_indicator_spec.csv`. Les audits détaillés de qualité, de périmètre et
-de validation restent documentés dans `orchidee_dedup_workflow.qmd`.
+`documentation/ratb_indicator_spec.csv`. Les objets d'audit détaillés de qualité, de
+périmètre et de validation sont décrits dans `documentation/project_map.md`.
 
 # Ce qui est livré à ce stade
 
@@ -92,18 +92,11 @@ La chaîne RATB suit aujourd'hui la séquence générale suivante :
    hospitalisation appliqué d'emblée.
 2. Le référentiel TA/DE est ensuite mobilisé pour dériver le périmètre microbiologique
    au niveau du prélèvement et le périmètre des nuits d'hospitalisation au niveau PMSI.
-3. À partir de cette base analytique, plusieurs jeux d'analyse sont produits : `raw`,
-   `completion_date`, `completion_evtid`, `completion_patid_30d` et
-   `completion_patid_year`.
-4. Chacun de ces jeux est soumis à la même logique de déduplication.
-5. Les proportions annuelles de résistance et la densité d'incidence globale sont ensuite
+3. Cette base analytique brute est soumise à la déduplication SPARES, globalement et par
+   type de prélèvement.
+4. Les proportions annuelles de résistance et la densité d'incidence globale sont ensuite
    calculées à partir de ces sorties dédupliquées ; la densité d'incidence utilise en plus
    un dénominateur en nuits d'hospitalisation éligibles dérivé indépendamment du PMSI.
-
-Dans le rapport indicateurs, ces jeux sont affichés sous des libellés courts : `brut`,
-`compl. date`, `compl. séjour`, `compl. patient 30 j` et `compl. patient année`. Ces
-libellés servent uniquement à rendre la lecture des tableaux et des cartes thermiques plus
-directe ; ils renvoient aux mêmes stratégies que les noms internes.
 
 Les recalculs automatiques dépendent non seulement des données, mais aussi des scripts de
 calcul retenus dans les fingerprints de cache. Une modification de logique peut donc
@@ -116,7 +109,7 @@ L'expression de besoins précise les sorties attendues, mais pas toujours toutes
 opérationnelles nécessaires pour les calculer. Plusieurs conventions d'implémentation ont
 donc été introduites pour rendre le calcul possible avec les données disponibles.
 
-## Complétion exploratoire
+## Complétion exploratoire retirée
 
 La complétion a été introduite pour répondre à un problème précis : les antibiogrammes
 présents dans l'entrepôt peuvent être incomplets au regard des analyses réellement
@@ -127,17 +120,12 @@ résultat peut déclencher des analyses supplémentaires, ensuite rendues sur un
 document. L'état final de test / résistance observable dans l'entrepôt peut donc dépendre
 du moment et du document consultés.
 
-L'hypothèse de travail est que cette incomplétude peut modifier matériellement les sorties
-dédupliquées. Pour tester cette hypothèse, cinq jeux d'analyse sont comparés : `raw`,
-`completion_date`, `completion_evtid`, `completion_patid_30d` et `completion_patid_year`.
-Chacun de ces jeux est ensuite soumis à la même logique de déduplication.
-
-La stratégie `completion_patid_30d` ignore explicitement `EVTID` : elle raisonne au niveau `PATID, naturepvt_norm, bact_norm`, avec un garde-fou temporel de `30` jours sur `DATEPRELEV`, sans reconstituer pour autant un séjour PMSI autonome.
-
-La complétion doit être lue comme une convention ORCHIDEE exploratoire. Elle ne constitue
-ni une exigence explicite de l'expression de besoins, ni une règle SPARES stricte. Sa fonction n'est pas de
-produire cinq livrables concurrents, mais de déterminer si son impact sur les sorties
- dédupliquées est suffisamment important pour justifier son maintien.
+Cette hypothèse a été explorée avec quatre stratégies supplémentaires soumises à la même
+logique de déduplication que les données brutes. La complétion ne constitue toutefois ni
+une exigence explicite de l'expression de besoins, ni une règle SPARES stricte, et elle n'a
+pas été retenue dans la méthode active. Sa dernière implémentation cohérente est conservée
+au tag `archive/completion-chu-native-2026-07-22` pour permettre une éventuelle reprise
+explicite du travail.
 
 ## Périmètre TA/DE appliqué à deux niveaux
 
@@ -148,8 +136,8 @@ ou `20` et que son domaine `CODE_DE` appartient aux secteurs SPARES inclus.
 
 Pour les données microbiologiques, la règle est appliquée au niveau du prélèvement :
 une ligne de `sir_wide` est retenue lorsque le `SEJUF` associé au prélèvement est
-éligible par TA/DE. Cette base alimente la complétion, la déduplication, les proportions
-et les numérateurs d'incidence.
+éligible par TA/DE. Cette base alimente la déduplication, les proportions et les
+numérateurs d'incidence.
 
 Pour les densités d'incidence, les nuits d'hospitalisation sont calculées séparément à
 partir de l'activité PMSI. Les limites globales de l'épisode sont calculées sur le
@@ -257,24 +245,20 @@ La logique appliquée est la suivante :
 Dans `sir_wide`, cette étape produit d'abord `blse_status_row` et
 `carbapenemase_status_row`, puis les flags binaires `blse_flag` et `carbapenemase_flag`.
 
-La complétion et la déduplication utilisent ensuite les statuts internes, pas seulement le
-flag public. En pratique, les statuts sont projetés temporairement dans des colonnes de
+La déduplication utilise ensuite les statuts internes, pas seulement le flag public. En
+pratique, les statuts sont projetés temporairement dans des colonnes de
 travail de type S/R : `positive -> R`, `negative`, `unknown` et `no_signal -> S`.
 Cette règle suit la logique SPARES appliquée aux phénotypes : une absence de résultat
 phénotypique est interprétée comme une absence de ce phénotype chez la bactérie étudiée.
 
-Cette projection a deux effets :
+Une opposition entre `positive` et tout statut non positif crée ainsi une incompatibilité
+de classe, au même titre qu'un conflit `S/R` sur un antibiotique. Ces lignes ne peuvent pas
+appartenir à la même classe dédupliquée.
 
-- une information phénotypique positive peut être propagée par complétion uniquement à
-  l'intérieur d'une classe compatible ;
-- une opposition entre `positive` et tout statut non positif crée une incompatibilité de
-  classe, au même titre qu'un conflit `S/R` sur un antibiotique, et interdit donc la
-  propagation entre ces lignes.
-
-Après complétion puis déduplication, les sorties finales recalculent un statut au niveau de
-la classe retenue (`blse_status_final`, `carbapenemase_status_final`) avant de dériver les
-flags publics. Cette étape est nécessaire, car la ligne représentative conservée n'est pas
-toujours celle qui portait explicitement la mention phénotypique dans les données brutes.
+Après déduplication, les sorties finales résument un statut au niveau de la classe retenue
+(`blse_status_final`, `carbapenemase_status_final`) avant de dériver les flags publics.
+Cette étape est nécessaire, car la ligne représentative conservée n'est pas toujours celle
+qui portait explicitement la mention phénotypique dans les données brutes.
 
 Dans les indicateurs publiés, une souche n'est donc comptée productrice que si son statut
 final est `positive`. Les statuts non positifs alimentent tous le flag public `FALSE`.
@@ -285,16 +269,16 @@ catalogue peut publier une proportion, une densité d'incidence, ou les deux sel
 été demandé. Cette explicitation est surtout utile pour la matrice phénotypique canonique
 complète, tout en conservant l'exception `hemoculture` demandée pour `K. pneumoniae` carbapénémase en proportion.
 
-Ce découplage permet de garder de l'information pour la complétion et la déduplication,
-sans exposer dans les indicateurs une stratification phénotypique générale qui n'est pas
-demandée par l'expression de besoins.
+Ce découplage permet de garder de l'information pour la déduplication, sans exposer dans
+les indicateurs une stratification phénotypique générale qui n'est pas demandée par
+l'expression de besoins.
 
 Le suivi de cette implémentation repose sur trois niveaux de contrôle :
 
 - à l'extraction, les comptes par statut (`positive`, `negative`, `unknown`, `no_signal`)
   et la queue résiduelle par `(LBLANA, LBLRES, STRRES)` doivent rester auditables ;
-- en complétion / déduplication, un conflit `positive` / `negative` ne doit jamais rester
-  dans la même classe retenue ;
+- en déduplication, un conflit `positive` / `negative` ne doit jamais rester dans la même
+  classe retenue ;
 - côté indicateurs, les lignes phénotypiques du catalogue ne doivent plus être renvoyées
   comme `pending_phenotype_flag` et doivent produire des sorties publiables.
 
@@ -308,13 +292,13 @@ Règles
   1. Interpréter le signal phénotypique à partir du triplet (LBLANA, LBLRES, STRRES), et non de STRRES seul.
   2. Résoudre d'abord BLSE et carbapénémase au niveau souche sur la clé documentée.
   3. Produire un statut interne parmi positive, negative, unknown et no_signal.
-  4. Projeter temporairement ces statuts en R, S ou NA pour la complétion et la déduplication.
-  5. Autoriser la propagation à l'intérieur des classes compatibles, mais interdire toute fusion entre un signal positive et negative.
-  6. Recalculer après déduplication un statut final de classe, puis en dériver le flag public.
+  4. Projeter temporairement ces statuts en R ou S pour la déduplication.
+  5. Interdire toute classe contenant à la fois un signal positive et un statut non positif.
+  6. Résumer après déduplication un statut final de classe, puis en dériver le flag public.
   7. Publier huit sorties phénotypiques canoniques, et maintenir en plus la sortie de compatibilité `K. pneumoniae` carbapénémase en proportion sur `hemoculture`.
 
 Sortie
-  Des statuts internes utiles pour la complétion et la déduplication, puis des flags publics finalisés pour neuf sorties phénotypiques publiées : huit canoniques et une de compatibilité.
+  Des statuts internes utiles pour la déduplication, puis des flags publics finalisés pour neuf sorties phénotypiques publiées : huit canoniques et une de compatibilité.
 
 Référence code
   R/phenotype_flag_helpers.R
@@ -347,8 +331,6 @@ malgré sa prise en charge.
   `cote blse` ou `cote carba` ;
 - la déclinaison trimestrielle et les autres stratifications demandées dans l'expression de
   besoins ne sont pas encore publiées dans le produit actuel ;
-- la complétion reste documentée comme une convention exploratoire hors noyau
-  gelé de l'étape 1, et non comme une règle métier définitivement stabilisée.
 
 # Conclusion opérationnelle
 
@@ -357,9 +339,8 @@ globale constituent les sorties opérationnelles annuelles du noyau gelé de
 l'étape 1 ORCHIDEE.
 
 En revanche, certaines conventions doivent encore être lues comme des choix
- d'implémentation documentés : en particulier la formalisation du périmètre analytique
-hospitalisation, la traduction opérationnelle des journées d'hospitalisation en nuits
-éligibles et le statut exploratoire de la complétion. Ces choix sont désormais explicites,
-ce qui rend leur statut méthodologique explicite plutôt que de laisser une
-interprétation implicite des résultats.
+d'implémentation documentés : en particulier la formalisation du périmètre analytique
+hospitalisation et la traduction opérationnelle des journées d'hospitalisation en nuits
+éligibles. Ces choix sont désormais explicites plutôt que laissés à une interprétation
+implicite des résultats.
 
