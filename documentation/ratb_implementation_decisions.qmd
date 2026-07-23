@@ -130,9 +130,10 @@ explicite du travail.
 ## Périmètre TA/DE appliqué à deux niveaux
 
 Le périmètre RATB repose désormais sur une règle positive d'éligibilité des unités
-fonctionnelles. Chaque `SEJUF` est rapprochée du référentiel CONSORES de structure
-portant `CODE_TA` et `CODE_DE`. Une UF est éligible lorsque `CODE_TA` vaut `03`
-ou `20` et que son domaine `CODE_DE` appartient aux secteurs SPARES inclus.
+fonctionnelles. Chaque `SEJUF` est rapprochée de la structure interne de
+l'établissement Rouen portant les codes CONSORES `CODE_TA` et `CODE_DE`. Une UF
+est éligible lorsque `CODE_TA` vaut `03` ou `20` et que son domaine `CODE_DE`
+appartient aux secteurs SPARES inclus.
 
 Pour les données microbiologiques, la règle est appliquée au niveau du prélèvement :
 une ligne de `sir_wide` est retenue lorsque le `SEJUF` associé au prélèvement est

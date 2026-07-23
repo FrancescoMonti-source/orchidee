@@ -8,6 +8,7 @@ windows, common paths, or report display defaults.
 Do not put normalization dictionaries or imported institutional references here:
 
 - use `dictionaries/` for curated microbiology and antibiotic mappings
-- use `ref/` for imported UF/UM/CIM10/CCAM-style reference tables,
-  including active CONSORES TA/DE perimeter references
+- use `ref/consores/` for the shared TA/DE code catalogues
+- use `ref/rouen/` for the versioned unit and establishment references used
+  only by the Rouen adapter
 - use `R/` for implementation logic

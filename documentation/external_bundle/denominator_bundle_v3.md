@@ -160,12 +160,15 @@ table reproduces the v2 annual denominator.
 Build and retain v3, then materialize the operational v2 view with:
 
 ```powershell
+$bact = "data/bact22_24"
+$pmsi = "data/pmsi"
+$output = "outputs/rouen_current"
 Rscript scripts/build_rouen_external_bundle.R `
-  <bacteriology_raw.rds> `
-  <pmsi.rds> `
-  <output_dir> `
+  $bact `
+  $pmsi `
+  $output `
   --contract=v3 `
-  --operational-v2-output=<output_dir>/bundle_v2_operational
+  --operational-v2-output="$output/bundle_v2_operational"
 ```
 
 No stratified indicator panel is added merely by adopting this contract.

@@ -4,12 +4,12 @@ editor_options:
     wrap: 72
 ---
 
-# Sources méthodologiques et documents privés
+# Sources méthodologiques et références
 
 Ce dépôt conserve les contrats exécutables et les décisions nécessaires pour
 comprendre et reproduire la chaîne RATB. Il ne sert pas d'archive de documents
-binaires institutionnels, de comptes rendus de réunion ou d'extractions
-locales.
+institutionnels sans consumer, de comptes rendus de réunion ou d'extractions
+cliniques locales.
 
 ## Autorité versionnée dans le dépôt
 
@@ -19,6 +19,9 @@ locales.
   méthodologiques effectivement implémentées.
 - `documentation/external_bundle/` définit la frontière entre les adaptations
   locales et les bundles canoniques.
+- `ref/consores/` contient les catalogues TA/DE partagés.
+- `ref/rouen/` contient les références non sensibles propres à l'adaptateur
+  Rouen : unités UF/UM et structure interne de l'établissement.
 
 Ces fichiers sont les références à utiliser pour relire le code. Une source
 externe ou un document de travail ne modifie pas à lui seul le comportement du
@@ -46,21 +49,23 @@ un document versionné.
 Les liens pointent vers les pages éditoriales officielles afin que la version
 courante puisse être identifiée sans conserver une copie PDF dans Git.
 
-## Sources privées ou locales
+La structure Rouen versionnée peut être remplacée explicitement pour tester une
+mise à jour sans modifier le code :
+
+```powershell
+$env:ORCHIDEE_ROUEN_STRUCTURE_PATH = "C:\chemin\structure.xlsx"
+```
+
+L'ancien nom `ORCHIDEE_CONSORES_STRUCTURE_PATH` reste accepté avec un
+avertissement de migration afin de ne pas modifier silencieusement un run
+existant. Si les deux variables sont définies, le nouveau nom est prioritaire.
+
+## Sources privées ou locales non versionnées
 
 Le document de travail `Expression_besoins_RATB_2-10-25.docx` est conservé
 hors Git. Les décisions qui en découlent et qui sont actuellement exécutées
 sont représentées par le catalogue et le mémo méthodologique versionnés
 ci-dessus.
-
-Le classeur de structure CONSORES est également un input opérationnel privé.
-Le chemin par défaut est
-`data/consores_structure_intranet_maj_2025.xlsx`; il peut être remplacé sans
-modifier le code :
-
-```powershell
-$env:ORCHIDEE_CONSORES_STRUCTURE_PATH = "C:\chemin\protege\structure.xlsx"
-```
 
 Les présentations, comptes rendus, extractions locales, exports de pharmacie
 et autres documents historiques ont été retirés de l'arbre public. Le corpus

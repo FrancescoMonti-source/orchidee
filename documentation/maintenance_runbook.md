@@ -31,17 +31,20 @@ d'affichage.
 
 Les tables de règles analytiques maintenues par le projet doivent rester
 dans `rules/` lorsqu'elles existent.
-Les dictionnaires biologiques restent dans `dictionaries/`. Les tables de
-codes publiables restent dans `ref/`. Les inputs institutionnels privés ne
-doivent pas y être ajoutés : le classeur de structure CONSORES reste sous
-`data/` ou dans un emplacement protégé désigné par
-`ORCHIDEE_CONSORES_STRUCTURE_PATH`.
+Les mappings de normalisation restent dans `dictionaries/`. Les faits de
+référence importés restent dans `ref/` : catalogues TA/DE partagés sous
+`ref/consores/`, références d'unités et structure interne de l'établissement
+sous `ref/rouen/`. Ces références Rouen sont versionnées, non sensibles et
+chargées automatiquement par l'adaptateur Rouen.
 Un référentiel ou snapshot sans consumer actif doit être archivé hors du dépôt,
 pas conservé dans `ref/` par précaution.
 Les fichiers de présentation Quarto restent dans `assets/`.
 
+Une structure Rouen explicitement sélectionnée peut remplacer la référence
+versionnée sans modifier le code :
+
 ```powershell
-$env:ORCHIDEE_CONSORES_STRUCTURE_PATH = "C:\chemin\protege\structure.xlsx"
+$env:ORCHIDEE_ROUEN_STRUCTURE_PATH = "C:\chemin\structure.xlsx"
 ```
 
 ## Dépendances R
@@ -89,11 +92,18 @@ Chaque fichier `tests/test_*.R` est exécuté dans un processus R distinct.
 Le parcours normal transforme les exports Rouen en six blocs complets, conserve
 le bundle v3 durable puis matérialise sa projection v2 opérationnelle :
 
+L'opérateur renseigne seulement les deux chemins d'entrée vers l'export BACT
+et l'objet PMSI `redsan` ; `$output` désigne la destination des résultats. Les
+dictionnaires, catalogues TA/DE et références Rouen sont déjà présents dans le
+checkout.
+
 ```powershell
+$bact = "data/bact22_24"
+$pmsi = "data/pmsi"
 $output = "outputs/rouen_current"
 Rscript scripts/build_rouen_external_bundle.R `
-  <bacteriology_raw.rds> `
-  <pmsi.rds> `
+  $bact `
+  $pmsi `
   $output `
   --contract=v3 `
   --operational-v2-output="$output/bundle_v2_operational"
@@ -245,12 +255,12 @@ Commande :
     garder `main` propre.
 -   Traiter les sorties HTML comme des artefacts dérivés, pas comme la
     source.
--   Garder `data/` pour les artefacts internes générés et les inputs privés
-    nécessaires au runtime local.
+-   Garder `data/` comme zone locale facultative pour les inputs d'une
+    exécution. Les scripts acceptent aussi des chemins protégés externes.
 -   Garder `downloads/` pour les artefacts d'export produits par les
     rapports.
--   Garder `outputs/` comme espace local ignoré par Git pour brouillons,
-    inspections et artefacts temporaires.
+-   Garder les bundles, caches, audits, brouillons et inspections générés sous
+    `outputs/` ou dans le workspace externe configuré.
 -   Modifier `config/pipeline.R` pour les réglages de run avant de
     modifier un notebook.
 -   Préférer de petits diffs.
@@ -294,5 +304,6 @@ dénominateurs, des filtres ou des prétraitements différents.
 3.  Confirmer si le changement porte sur la logique, la spec ou
     l'affichage seulement.
 4.  Utiliser le wrapper avec la plus petite cible valide.
-5.  Si la sortie reste incorrecte, inspecter les artefacts dans `data/`
-    avant de modifier davantage de code.
+5.  Si la sortie reste incorrecte, inspecter le manifest, l'audit et les caches
+    sous `outputs/` ou dans le workspace externe avant de modifier davantage de
+    code.

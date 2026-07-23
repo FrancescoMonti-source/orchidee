@@ -17,6 +17,24 @@
 ## cache and external-contract compatibility while the night-count convention
 ## remains reviewable.
 
+ratb_default_rouen_structure_path <- function() {
+  current <- Sys.getenv("ORCHIDEE_ROUEN_STRUCTURE_PATH", unset = "")
+  legacy <- Sys.getenv("ORCHIDEE_CONSORES_STRUCTURE_PATH", unset = "")
+
+  if (nzchar(current)) {
+    return(current)
+  }
+  if (nzchar(legacy)) {
+    warning(
+      "ORCHIDEE_CONSORES_STRUCTURE_PATH is deprecated; ",
+      "use ORCHIDEE_ROUEN_STRUCTURE_PATH.",
+      call. = FALSE
+    )
+    return(legacy)
+  }
+  file.path("ref", "rouen", "establishment_structure_2025.xlsx")
+}
+
 ratb_normalize_pmsi_status <- function(x) {
   x <- toupper(trimws(as.character(x)))
   x[!nzchar(x)] <- NA_character_
@@ -95,7 +113,7 @@ ratb_read_semicolon_reference <- function(path, col_names) {
     mutate(across(everything(), ratb_trim_or_na_local))
 }
 
-load_ratb_unit_references <- function(ref_dir = "ref") {
+load_ratb_unit_references <- function(ref_dir = file.path("ref", "rouen")) {
   uf_path <- file.path(ref_dir, "ref_uf.txt")
   um_path <- file.path(ref_dir, "ref_um.txt")
   uf2um_path <- file.path(ref_dir, "ref_uf2um.txt")
@@ -147,7 +165,7 @@ ratb_assert_unique_consores_unit_mapping <- function(structure) {
 
   if (nrow(conflicting_units) > 0L) {
     stop(
-      "CONSORES structure contains conflicting TA/DE mappings for SEJUF: ",
+      "Rouen establishment structure contains conflicting TA/DE mappings for SEJUF: ",
       paste(utils::head(conflicting_units$SEJUF, 10L), collapse = ", "),
       call. = FALSE
     )
@@ -276,13 +294,16 @@ load_ratb_consores_ta_de_reference <- function(
   if (!all(file.exists(required))) {
     missing <- required[!file.exists(required)]
     stop(
-      "Missing CONSORES TA/DE reference files: ",
+      "Missing Rouen establishment or CONSORES TA/DE reference files: ",
       paste(missing, collapse = ", "),
       call. = FALSE
     )
   }
   if (!requireNamespace("readxl", quietly = TRUE)) {
-    stop("Package 'readxl' is required to read the CONSORES structure workbook.", call. = FALSE)
+    stop(
+      "Package 'readxl' is required to read the Rouen establishment structure.",
+      call. = FALSE
+    )
   }
 
   structure <- readxl::read_excel(
@@ -306,7 +327,7 @@ load_ratb_consores_ta_de_reference <- function(
   missing_structure_cols <- setdiff(required_structure_cols, names(structure))
   if (length(missing_structure_cols) > 0L) {
     stop(
-      "CONSORES structure workbook is missing required columns: ",
+      "Rouen establishment structure is missing required columns: ",
       paste(missing_structure_cols, collapse = ", "),
       call. = FALSE
     )
@@ -1190,13 +1211,10 @@ build_ratb_provisional_perimeter_audit <- function(
     pmsi_main,
     pmsi_event_bounds,
     status_lookup = NULL,
-    structure_path = Sys.getenv(
-      "ORCHIDEE_CONSORES_STRUCTURE_PATH",
-      unset = file.path("data", "consores_structure_intranet_maj_2025.xlsx")
-    ),
-    codes_ta_path = file.path("ref", "consores_codes_ta.csv"),
-    codes_de_path = file.path("ref", "consores_codes_de.csv"),
-    ref_dir = "ref"
+    structure_path = ratb_default_rouen_structure_path(),
+    codes_ta_path = file.path("ref", "consores", "codes_ta.csv"),
+    codes_de_path = file.path("ref", "consores", "codes_de.csv"),
+    ref_dir = file.path("ref", "rouen")
   ) {
   stopifnot(
     is.data.frame(sir_wide_ratb_scope),

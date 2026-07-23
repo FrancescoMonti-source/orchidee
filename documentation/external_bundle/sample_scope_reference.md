@@ -49,6 +49,8 @@ Optional audit columns, such as `sample_CODE_TA`, `sample_CODE_DE`,
 `sample_de_domain_ref` or `sample_consores_uf_label`, may be present. The
 validator warns about extra columns but does not reject them. The v2 loader
 retains only the required columns at the portable ORCHIDEE boundary.
+`sample_consores_uf_label` is a legacy identifier retained for compatibility;
+its value is the UF label from the Rouen establishment structure.
 
 Contract v2 retains the same four-column shape. Contract v3 instead requires
 and retains `sample_CODE_TA`, `sample_CODE_DE` and `sample_de_domain_ref` in

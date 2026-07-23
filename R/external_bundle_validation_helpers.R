@@ -1139,7 +1139,7 @@ external_bundle_validate_cross_artifacts <- function(
 }
 
 validate_external_input_bundle <- function(
-    bundle_dir = file.path("data"),
+    bundle_dir,
     contract = orchidee_external_contract_v2(),
     strict_preferred = FALSE
   ) {
@@ -1248,7 +1248,7 @@ external_bundle_enforce_preferred_sources <- function(report) {
 }
 
 load_validated_external_input_bundle <- function(
-    bundle_dir = file.path("data"),
+    bundle_dir,
     contract = orchidee_external_contract_v2(),
     strict_preferred = FALSE,
     validation_report = NULL
