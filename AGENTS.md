@@ -25,15 +25,16 @@ For analytical or methodological changes, also consult
 - Keep reusable implementation logic in `R/` rather than expanding notebook
   chunks unnecessarily.
 - Keep operational settings in `config/pipeline.R`.
-- Keep internal generated artifacts, caches, and private operational inputs in
-  `data/`; never add them to Git.
+- Keep optional local run inputs in `data/`; never add patient-derived data to
+  Git. Scripts must still accept explicit protected paths outside the checkout.
 - Keep reader-facing report exports in `downloads/`.
-- Keep local drafts, inspections, and temporary artifacts in `outputs/`;
-  do not treat `outputs/` as a canonical source.
-- Keep biological mappings in `dictionaries/`, consumed publishable reference
-  tables in `ref/`, and maintained analytical rule tables in `rules/` when
-  they exist. Private institutional references belong in `data/` or another
-  protected path selected through configuration or an environment variable.
+- Keep generated bundles, caches, audits, local drafts and inspections in
+  `outputs/` or the configured external workspace; do not treat them as
+  repository source.
+- Keep curated source-to-canonical mappings in `dictionaries/`, imported
+  reference facts in `ref/`, and project-authored analytical decisions in
+  `rules/`. Rouen-only references belong under `ref/rouen/` and must be
+  identified as adapter-specific rather than portable handoff requirements.
 - Archive snapshots with no active consumer outside the repository.
 - Update the corresponding methodological documentation when analytical
   behavior changes.
@@ -70,10 +71,10 @@ deliberately lightweight and Git-native:
 
 Notes:
 
-- Worktrees: a fresh worktree does not contain `data/` (gitignored but
-  required for renders). Use worktrees only for genuinely parallel tasks
-  that do not need `sir_wide.rds`, PMSI inputs, or caches; otherwise use a
-  normal `task/<slug>` branch and work sequentially.
+- Worktrees: a fresh worktree does not contain ignored local inputs under
+  `data/` or generated outputs. Use worktrees only for genuinely parallel tasks
+  that do not need BACT/PMSI inputs, bundles or caches; otherwise use a normal
+  `task/<slug>` branch and work sequentially.
 - Changes to `AGENTS.md` itself go on their own branch and merge before
   other branches rebase, so the shared contract does not fork.
 
