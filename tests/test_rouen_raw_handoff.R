@@ -34,7 +34,7 @@ antibiotic_expansion <- readr::read_csv(
   show_col_types = FALSE
 )
 supported_pairs <- readr::read_csv(
-  "dictionaries/couples_species_atb.csv",
+  "rules/couples_species_atb.csv",
   show_col_types = FALSE
 )
 sample_type_rules <- readr::read_csv(

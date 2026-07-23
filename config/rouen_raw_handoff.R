@@ -48,9 +48,11 @@ rouen_raw_handoff_config <- list(
       "rouen_naturepvt_exact_decisions.csv"
     ),
     antibiotic = file.path("dictionaries", "atb_regex_map.csv"),
-    antibiotic_expansion = file.path("dictionaries", "atb_expand_map.csv"),
+    antibiotic_expansion = file.path("dictionaries", "atb_expand_map.csv")
+  ),
+  rules = list(
     supported_species_antibiotics = file.path(
-      "dictionaries",
+      "rules",
       "couples_species_atb.csv"
     )
   )

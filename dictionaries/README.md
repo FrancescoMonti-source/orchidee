@@ -8,8 +8,6 @@ an exact reviewed decision or a source-to-target expansion. Imported facts
 about hospital structures, units or external code systems belong in `ref/`.
 Project-authored analytical inclusion rules belong in `rules/`.
 
-`couples_species_atb.csv` is an active analytical universe consumed by the
-Rouen adapter. Its current location predates this directory contract; moving it
-to `rules/` is a separate, consumer-aware change. `family.csv` and
-`naturepvt_regex_map.csv` currently have no active consumer; treat all three as
-implementation details, never as onboarding inputs.
+Only actively consumed mappings belong here. Superseded snapshots without a
+consumer are removed from the active tree and remain recoverable from Git
+history. These mappings are adapter resources, never onboarding inputs.
