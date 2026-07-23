@@ -37,20 +37,22 @@ rouen_raw_handoff_config <- list(
     codes_ta = file.path("ref", "consores", "codes_ta.csv"),
     codes_de = file.path("ref", "consores", "codes_de.csv")
   ),
-  dictionaries = list(
-    species = file.path("dictionaries", "species_regex_map.csv"),
+  mappings = list(
+    species = file.path("mappings", "species_regex_map.csv"),
     sample_type_rules = file.path(
-      "dictionaries",
+      "mappings",
       "rouen_naturepvt_regex.csv"
     ),
     sample_type_decisions = file.path(
-      "dictionaries",
+      "mappings",
       "rouen_naturepvt_exact_decisions.csv"
     ),
-    antibiotic = file.path("dictionaries", "atb_regex_map.csv"),
-    antibiotic_expansion = file.path("dictionaries", "atb_expand_map.csv"),
+    antibiotic = file.path("mappings", "atb_regex_map.csv"),
+    antibiotic_expansion = file.path("mappings", "atb_expand_map.csv")
+  ),
+  rules = list(
     supported_species_antibiotics = file.path(
-      "dictionaries",
+      "rules",
       "couples_species_atb.csv"
     )
   )

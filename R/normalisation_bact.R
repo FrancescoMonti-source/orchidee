@@ -5,14 +5,14 @@
 # This script standardizes microbiology identification fields
 # into structured taxonomic variables using a rule-based approach.
 
-# All microbiological decisions are centralized in a single dictionary file
+# All microbiological decisions are centralized in a single mapping file
 # (species_regex_map.csv). Each row contains a regular expression and the
 # corresponding taxonomic interpretation.
 
 # Rules are evaluated sequentially. The first matching rule is applied and
 # no further rules are evaluated. For this reason, rule order is critical.
 
-# The dictionary includes:
+# The mapping includes:
 # - Explicit species or group definitions (e.g. Escherichia coli,
 #   Enterobacter cloacae complex)
 # - Higher-level group definitions required for surveillance (e.g.
@@ -27,12 +27,12 @@
 # from species inference.
 
 # Taxonomic ranks (order and family) are only populated when explicitly
-# defined in the dictionary. This ensures consistency with SPARES definitions
+# defined in the mapping. This ensures consistency with SPARES definitions
 # and avoids implicit or unstable taxonomic assumptions.
 
 # As a result, the system is:
 # - Transparent: all rules are readable in a single file
-# - Auditable: changes in classification only occur through dictionary edits
+# - Auditable: changes in classification only occur through mapping edits
 # - Robust to laboratory free-text variability
 
 

@@ -387,7 +387,8 @@ orchidee_source_required_script("rouen_pmsi_handoff_adapter.R")
 orchidee_source_required_config("rouen_raw_handoff.R")
 
 config <- rouen_raw_handoff_config
-dictionary_paths <- unlist(config$dictionaries, use.names = TRUE)
+mapping_paths <- unlist(config$mappings, use.names = TRUE)
+rule_paths <- unlist(config$rules, use.names = TRUE)
 reference_paths <- c(
   establishment_structure = config$references$establishment_structure,
   codes_ta = config$references$codes_ta,
@@ -396,7 +397,7 @@ reference_paths <- c(
   unit_um = file.path(config$references$unit_ref_dir, "ref_um.txt"),
   unit_uf_to_um = file.path(config$references$unit_ref_dir, "ref_uf2um.txt")
 )
-provenance_paths <- c(input_paths, dictionary_paths, reference_paths)
+provenance_paths <- c(input_paths, mapping_paths, rule_paths, reference_paths)
 missing_provenance <- provenance_paths[!file.exists(provenance_paths)]
 if (length(missing_provenance) > 0L) {
   stop(
@@ -406,7 +407,8 @@ if (length(missing_provenance) > 0L) {
   )
 }
 input_signatures <- capture_file_signatures(input_paths)
-dictionary_signatures <- capture_file_signatures(dictionary_paths)
+mapping_signatures <- capture_file_signatures(mapping_paths)
+rule_signatures <- capture_file_signatures(rule_paths)
 reference_signatures <- capture_file_signatures(reference_paths)
 
 read_csv_quietly <- function(path) {
@@ -420,20 +422,20 @@ if (!is.list(pmsi) || !is.data.frame(pmsi$main)) {
 }
 
 species_rules <- readr::read_delim(
-  config$dictionaries$species,
+  config$mappings$species,
   delim = ";",
   show_col_types = FALSE
 )
-sample_type_rules <- read_csv_quietly(config$dictionaries$sample_type_rules)
+sample_type_rules <- read_csv_quietly(config$mappings$sample_type_rules)
 sample_type_decisions <- read_csv_quietly(
-  config$dictionaries$sample_type_decisions
+  config$mappings$sample_type_decisions
 )
-antibiotic_rules <- read_csv_quietly(config$dictionaries$antibiotic)
+antibiotic_rules <- read_csv_quietly(config$mappings$antibiotic)
 antibiotic_expansion <- read_csv_quietly(
-  config$dictionaries$antibiotic_expansion
+  config$mappings$antibiotic_expansion
 )
 supported_pairs <- read_csv_quietly(
-  config$dictionaries$supported_species_antibiotics
+  config$rules$supported_species_antibiotics
 )
 
 microbiology_handoff <- build_rouen_microbiology_handoff(
@@ -536,8 +538,11 @@ provenance_unchanged <- identical(
   input_signatures,
   capture_file_signatures(input_paths)
 ) && identical(
-  dictionary_signatures,
-  capture_file_signatures(dictionary_paths)
+  mapping_signatures,
+  capture_file_signatures(mapping_paths)
+) && identical(
+  rule_signatures,
+  capture_file_signatures(rule_paths)
 ) && identical(
   reference_signatures,
   capture_file_signatures(reference_paths)
@@ -594,9 +599,13 @@ audit$metadata <- list(
     bytes = input_signatures$bytes,
     md5 = input_signatures$md5
   ),
-  dictionary_signatures = tibble::tibble(
-    dictionary = names(dictionary_paths),
-    md5 = dictionary_signatures$md5
+  mapping_signatures = tibble::tibble(
+    mapping = names(mapping_paths),
+    md5 = mapping_signatures$md5
+  ),
+  rule_signatures = tibble::tibble(
+    rule = names(rule_paths),
+    md5 = rule_signatures$md5
   ),
   reference_signatures = tibble::tibble(
     reference = names(reference_paths),
@@ -701,10 +710,11 @@ manifest_lines <- c(
   paste0(names(manifest_metadata), ": ", unname(manifest_metadata)),
   manifest_file_section("Inputs", input_paths, input_signatures$md5),
   manifest_file_section(
-    "Dictionaries",
-    dictionary_paths,
-    dictionary_signatures$md5
+    "Mappings",
+    mapping_paths,
+    mapping_signatures$md5
   ),
+  manifest_file_section("Rules", rule_paths, rule_signatures$md5),
   manifest_file_section("References", reference_paths, reference_signatures$md5),
   manifest_file_section("Site inputs", site_input_paths),
   manifest_file_section("Source bundle", bundle_paths),

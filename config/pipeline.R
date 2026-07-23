@@ -1,7 +1,8 @@
 # Operational knobs for routine Orchidee runs.
 #
-# Edit this file when changing how the pipeline runs. Keep normalization maps in
-# dictionaries/, external reference extracts in ref/, and implementation logic in R/.
+# Edit this file when changing how the pipeline runs. Keep normalization
+# transformations in mappings/, external reference extracts in ref/, and
+# implementation logic in R/.
 
 orchidee_config <- list(
   runtime = list(
@@ -19,7 +20,7 @@ orchidee_config <- list(
   paths = list(
     data_dir = "data",
     downloads_dir = "downloads",
-    dictionaries_dir = "dictionaries",
+    mappings_dir = "mappings",
     ref_dir = "ref",
     documentation_dir = "documentation",
     ratb_indicator_spec_path = file.path(
