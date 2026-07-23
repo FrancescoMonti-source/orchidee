@@ -31,7 +31,7 @@ For analytical or methodological changes, also consult
 - Keep generated bundles, caches, audits, local drafts and inspections in
   `outputs/` or the configured external workspace; do not treat them as
   repository source.
-- Keep curated source-to-canonical mappings in `dictionaries/`, imported
+- Keep curated source-to-canonical transformations in `mappings/`, imported
   reference facts in `ref/`, and project-authored analytical decisions in
   `rules/`. Rouen-only references belong under `ref/rouen/` and must be
   identified as adapter-specific rather than portable handoff requirements.
