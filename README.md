@@ -23,9 +23,9 @@ Le noyau actuel de l'étape 1 est gelé. Les changements courants doivent donc
 préserver les sorties validées, sauf décision explicite de modifier la méthode
 ou le périmètre publié.
 
-Les données d'exécution locales et les artefacts générés (`data/`,
-`downloads/`, `outputs/`, `archive/`) ne sont pas versionnés. Un clone frais ne
-contient donc ni données patient, ni caches, ni exports, ni rendus locaux.
+Les données locales d'exécution (`data/`) et les artefacts générés
+(`downloads/`, `outputs/`, `archive/`) ne sont pas versionnés. Un clone frais
+ne contient donc ni données patient, ni caches, ni exports, ni rendus locaux.
 
 Les références non sensibles propres à l'adaptateur Rouen sont en revanche
 versionnées sous `ref/rouen/`, y compris la structure interne de

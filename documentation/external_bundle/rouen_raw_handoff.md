@@ -93,8 +93,8 @@ values is rejected rather than guessed.
 ### PMSI
 
 The PMSI RDS is the list returned by `redsan` and must contain `pmsi$main`.
-The denominator path additionally needs the current PMSI fields used by the
-CHU audit, including `PMSISTATUT`, `SEJDUR` and `GHM`.
+The denominator path additionally needs the PMSI fields used by the Rouen
+audit, including `PMSISTATUT`, `SEJDUR` and `GHM`.
 
 The adapter reapplies `redsan::prefer_pmsi_src_c_over_dw()` to `pmsi$main`.
 This is idempotent for a current `redsan` 0.2.0 output and safely normalizes
@@ -222,7 +222,8 @@ kept in the local audit and is never used as a hidden fallback.
 ## TA/DE and denominator
 
 The same C-over-DW PMSI table feeds the unit-stay denominator. The adapter
-joins the current institutional unit and CONSORES references and produces:
+joins the versioned Rouen unit and establishment references with the shared
+CONSORES TA/DE catalogues and produces:
 
 - `denominator_by_year` for the portable v2 bundle;
 - `incidence_exposure_by_year_um_uf_ta_de_profile` for the portable v3

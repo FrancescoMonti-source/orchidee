@@ -23,8 +23,9 @@ It must be an R data frame or tibble.
 
 ## Compatibility source
 
-For fidelity with the current CHU runtime, the validator also accepts the
-native `ratb_scope_cache` artifact if it contains `ratb_uf_ta_de_reference`.
+For compatibility with previously materialized local artifacts, the validator
+also accepts `ratb_scope_cache` when it contains
+`ratb_uf_ta_de_reference`.
 
 That compatibility path is for validation convenience only. The preferred
 external contract remains `sample_scope_reference.rds`.
@@ -88,6 +89,10 @@ When present as audit context, `sample_CODE_TA`, `sample_CODE_DE` and
 - `uf_absent_from_consores_structure`
 - `ta_03_20_unmapped_de`
 - `missing_sample_uf`
+
+`uf_absent_from_consores_structure` is a legacy identifier retained for
+contract compatibility. For Rouen it means that the UF is absent from the
+versioned establishment structure, not from a separate CONSORES workbook.
 
 ## Interpretation
 

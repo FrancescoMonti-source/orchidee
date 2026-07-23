@@ -10,8 +10,8 @@ This document defines the annual denominator consumed by the operational v2
 runtime.
 
 The external contract is a bundle because the incidence runtime uses a named
-annual nights table. The current CHU workflow can carry additional
-denominator audit tables, but those are not required from another hospital.
+annual nights table. A local adapter can carry additional denominator audit
+tables, but those are not required from another hospital.
 
 ## Preferred file
 
@@ -23,9 +23,9 @@ It must be an R list containing one required table:
 
 ## Compatibility source
 
-For fidelity with the current repo, the validator also accepts the native
-`ratb_scope_cache` artifact if it contains the required runtime table.
-It also accepts the older current-runtime table
+For compatibility with previously materialized local artifacts, the validator
+also accepts `ratb_scope_cache` when it contains the required runtime table.
+It also accepts the older runtime table
 `hospital_days_year_summary_provisional` and maps it to the canonical
 external table.
 
@@ -55,15 +55,15 @@ Invariants:
 
 The bundle may contain extra list elements or extra columns, but they are not
 part of the v2 contract. For example, `n_episodes`, `n_unit_stays`, and
-`n_cross_year_episodes` can remain useful audit columns in local CHU outputs.
+`n_cross_year_episodes` can remain useful audit columns in local Rouen outputs.
 
-The CHU adapter also keeps `hospital_nights_by_year_unit`, grouped by
-`calendar_year + SEJUM + SEJUF`, in its local scope cache. That table is the
-source of the annual global aggregate but is not required by the portable v2
-bundle. External bundle v3 instead transports profiled exposure at year + UM +
-UF + TA + DE grain, including mapped activity outside today's scope; see
-`denominator_bundle_v3.md`. The detail must never be recovered from the annual
-total.
+The Rouen adapter also keeps `hospital_nights_by_year_unit`, grouped by
+`calendar_year + SEJUM + SEJUF`, in its PMSI audit saved as
+`adapter_audit.rds`. That table is the source of the annual global aggregate but
+is not required by the portable v2 bundle. External bundle v3 instead
+transports profiled exposure at year + UM + UF + TA + DE grain, including
+mapped activity outside today's scope; see `denominator_bundle_v3.md`. The
+detail must never be recovered from the annual total.
 
 The validator ignores extra list elements and warns about extra columns.
 The canonical loader retains only the required v2 columns at the
@@ -71,7 +71,7 @@ portable ORCHIDEE boundary.
 
 ## Compatibility aliases
 
-Current CHU artifacts may still expose:
+Legacy local artifacts may still expose:
 
 - table: `hospital_days_year_summary_provisional`
 - night column: `hospital_nights_provisional`
@@ -79,13 +79,13 @@ Current CHU artifacts may still expose:
 The loader accepts that shape and converts it to
 `incidence_denominator_by_year$hospital_nights` before data crosses the
 portable ORCHIDEE boundary. The shared runtime helper expects the canonical
-table after this conversion. Current CHU/internal QA code may still carry the
+table after this conversion. Legacy local QA code may still carry the
 legacy table as an optional alias, but it is outside the shared runtime
 validation surface.
 
-## Optional CHU audit table
+## Optional local audit table
 
-The current CHU cache also contains `hospital_days_year_summary`, a generic
-annual hospital-days audit summary. It remains useful for local QA in the
-notebook, but another hospital does not need to provide it to satisfy the
-portable ORCHIDEE v2 input contract.
+Legacy local caches may also contain `hospital_days_year_summary`, a generic
+annual hospital-days audit summary. It remains useful for local QA, but another
+hospital does not need to provide it to satisfy the portable ORCHIDEE v2 input
+contract.

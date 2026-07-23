@@ -18,25 +18,26 @@ page explique comment ils s'enchaînent.
 ## Flux canonique
 
 ```text
-Export bactériologique local, format long
-        |
-        v
-Adaptateur microbiologique du site
+ROUEN                                  RENNES / AUTRE SITE
+Adaptateur fourni                      Pas d'adaptateur fourni
+        |                                       |
+        | deux chemins :                        | six blocs préparés
+        | - export BACT brut                    | par le site
+        | - RDS PMSI redsan                     |
+        v                                       |
+Adaptateur Rouen versionné                      |
+        |                                       |
+        +--------------+------------------------+
+                       |
+                       v
+Six blocs de handoff complets (artefacts de données non versionnés)
         |
         +--> microbiology_observations
         +--> bacteria_mapping
         +--> sample_type_mapping
         +--> antibiotic_mapping
-
-Export PMSI normalisé par redsan
-        |
-        v
-Adaptateur PMSI du site
-        |
         +--> unit_mapping
         +--> incidence_exposure_by_year_um_uf_ta_de_profile
-
-Six blocs de handoff complets, non versionnés
         |
         v
 Builder partagé ORCHIDEE
@@ -60,6 +61,11 @@ Runtime canonique v2
         +--> proportions et densités d'incidence annuelles
         +--> rapport
 ```
+
+L'opérateur Rouen renseigne seulement les deux chemins d'entrée. L'adaptateur
+déjà versionné génère les six blocs. Rennes, ou un autre site sans adaptateur
+fourni, prépare directement ces six blocs. Les deux entrées convergent avant le
+builder partagé.
 
 Le chemin analytique canonique utilise les données brutes, sans complétion. Les
 stratégies de complétion ne définissent ni l'entrée du bundle ni la méthode RATB

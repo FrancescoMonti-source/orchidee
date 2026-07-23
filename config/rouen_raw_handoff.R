@@ -1,4 +1,4 @@
-# Site-owned knobs for the Rouen raw-data adapter.
+# Versioned settings for the packaged Rouen raw-data adapter.
 #
 # Keep raw input paths out of this file. The CLI receives them explicitly so
 # this configuration remains public, portable and free of patient data.

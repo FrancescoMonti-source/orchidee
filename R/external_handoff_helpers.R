@@ -564,7 +564,7 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     result_key <- paste(row_id[result_rows], obs$atb_norm[result_rows], sep = "\r")
     split_rows <- split(result_rows, result_key)
     for (idx in split_rows) {
-      # Mirror the current CHU pivot rule: keep the last non-missing value.
+      # Apply the shared handoff pivot rule: keep the last non-missing value.
       vals <- obs$sir_result[idx]
       vals <- vals[!is.na(vals)]
       if (length(vals) > 0L) {

@@ -186,12 +186,12 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
         aussi cette table complète dans les entrées runtime
     -   valide les invariants minimaux des entrées runtime canoniques
 -   `R/ratb_hospital_days_helpers.R`
-    -   helpers natifs PMSI / CHU pour les audits de séjour et le
+    -   helpers PMSI Rouen pour les audits de séjour et le
         dénominateur local
     -   produit les nuits éligibles v2 et, séparément, l'exposition v3 de toute
         l'activité mappée par année, UM, UF, TA et DE
-    -   transformation des références CONSORES TA/DE locales vers la
-        `sample_scope_reference` canonique
+    -   combinaison de la structure d'établissement Rouen avec les catalogues
+        CONSORES TA/DE vers la `sample_scope_reference` canonique
     -   découpage inter-annuel
 -   `R/external_handoff_helpers.R`
     -   helpers de handoff pour un site externe : dérive les métadonnées

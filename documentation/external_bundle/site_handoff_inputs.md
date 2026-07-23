@@ -6,11 +6,15 @@ editor_options:
 
 # Site Handoff Inputs
 
-This is the first document a hospital data-warehouse team should read when it
-wants to connect local data to ORCHIDEE.
+This is the first document for Rennes or another hospital that does not already
+have a packaged ORCHIDEE site adapter.
 
-You do not need to reproduce the CHU extraction path. You prepare the simple
-input blocks below; ORCHIDEE turns them into its internal validated bundles.
+Rouen operators should not prepare the six blocks below. Start with
+[rouen_raw_handoff.md](rouen_raw_handoff.md) and provide only the BACT and PMSI
+input paths; the versioned Rouen adapter generates the blocks.
+
+You do not need to reproduce the Rouen adapter. You prepare the simple input
+blocks below; ORCHIDEE turns them into its internal validated bundles.
 
 ## What you need to provide
 
