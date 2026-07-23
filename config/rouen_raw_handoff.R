@@ -1,7 +1,25 @@
-# Site-owned knobs for the Rouen raw-data adapter.
+# Versioned settings for the packaged Rouen raw-data adapter.
 #
 # Keep raw input paths out of this file. The CLI receives them explicitly so
 # this configuration remains public, portable and free of patient data.
+
+rouen_structure_path_from_env <- function() {
+  current <- Sys.getenv("ORCHIDEE_ROUEN_STRUCTURE_PATH", unset = "")
+  legacy <- Sys.getenv("ORCHIDEE_CONSORES_STRUCTURE_PATH", unset = "")
+
+  if (nzchar(current)) {
+    return(current)
+  }
+  if (nzchar(legacy)) {
+    warning(
+      "ORCHIDEE_CONSORES_STRUCTURE_PATH is deprecated; ",
+      "use ORCHIDEE_ROUEN_STRUCTURE_PATH.",
+      call. = FALSE
+    )
+    return(legacy)
+  }
+  file.path("ref", "rouen", "establishment_structure_2025.xlsx")
+}
 
 rouen_raw_handoff_config <- list(
   adapter_id = "rouen_raw_handoff",
@@ -14,13 +32,10 @@ rouen_raw_handoff_config <- list(
     "BGSAMR_R.BGSAMR_R2"
   ),
   references = list(
-    unit_ref_dir = "ref",
-    consores_structure = Sys.getenv(
-      "ORCHIDEE_CONSORES_STRUCTURE_PATH",
-      unset = file.path("data", "consores_structure_intranet_maj_2025.xlsx")
-    ),
-    codes_ta = file.path("ref", "consores_codes_ta.csv"),
-    codes_de = file.path("ref", "consores_codes_de.csv")
+    unit_ref_dir = file.path("ref", "rouen"),
+    establishment_structure = rouen_structure_path_from_env(),
+    codes_ta = file.path("ref", "consores", "codes_ta.csv"),
+    codes_de = file.path("ref", "consores", "codes_de.csv")
   ),
   dictionaries = list(
     species = file.path("dictionaries", "species_regex_map.csv"),

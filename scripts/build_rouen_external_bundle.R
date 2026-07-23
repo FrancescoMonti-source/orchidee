@@ -158,11 +158,11 @@ if (help || length(args) != 3L) {
   cat(
     "Usage:\n",
     "  Rscript scripts/build_rouen_external_bundle.R \\\n",
-    "    <bacteriology_raw.rds> <pmsi.rds> <output_dir> \\\n",
+    "    <bact_path> <pmsi_path> <output_dir> \\\n",
     "    --contract=v2|v3 [--operational-v2-output=<dir>] [--force]\n\n",
     "Inputs:\n",
-    "  bacteriology_raw.rds: long Rouen bacteriology export.\n",
-    "  pmsi.rds: redsan PMSI output containing pmsi$main.\n",
+    "  bact_path: long Rouen bacteriology RDS export.\n",
+    "  pmsi_path: redsan RDS output containing pmsi$main.\n",
     "Output:\n",
     "  site_inputs/: the six explicit handoff tables for the selected contract.\n",
     "  bundle/: a direct compatibility build without projection.\n",
@@ -172,7 +172,8 @@ if (help || length(args) != 3L) {
     "  adapter_audit.rds: local audit; it may contain patient identifiers.\n",
     "  build_manifest.txt: human-readable paths, hashes and validation status.\n",
     "References:\n",
-    "  Set ORCHIDEE_CONSORES_STRUCTURE_PATH to override the private local workbook.\n",
+    "  Versioned Rouen and TA/DE references are loaded automatically.\n",
+    "  Set ORCHIDEE_ROUEN_STRUCTURE_PATH only to override the structure workbook.\n",
     "--contract is required. Preferred Rouen onboarding uses v3 with\n",
     "  --operational-v2-output.\n",
     sep = ""
@@ -388,7 +389,7 @@ orchidee_source_required_config("rouen_raw_handoff.R")
 config <- rouen_raw_handoff_config
 dictionary_paths <- unlist(config$dictionaries, use.names = TRUE)
 reference_paths <- c(
-  consores_structure = config$references$consores_structure,
+  establishment_structure = config$references$establishment_structure,
   codes_ta = config$references$codes_ta,
   codes_de = config$references$codes_de,
   unit_uf = file.path(config$references$unit_ref_dir, "ref_uf.txt"),
@@ -415,7 +416,7 @@ read_csv_quietly <- function(path) {
 bacteriology_raw <- readRDS(bacteriology_path)
 pmsi <- readRDS(pmsi_path)
 if (!is.list(pmsi) || !is.data.frame(pmsi$main)) {
-  stop("pmsi.rds must contain the redsan list element pmsi$main.", call. = FALSE)
+  stop("PMSI input must contain the redsan list element pmsi$main.", call. = FALSE)
 }
 
 species_rules <- readr::read_delim(
@@ -449,7 +450,7 @@ microbiology_handoff <- build_rouen_microbiology_handoff(
 )
 unit_refs <- load_ratb_unit_references(ref_dir = config$references$unit_ref_dir)
 ta_de_ref <- load_ratb_consores_ta_de_reference(
-  structure_path = config$references$consores_structure,
+  structure_path = config$references$establishment_structure,
   codes_ta_path = config$references$codes_ta,
   codes_de_path = config$references$codes_de
 )

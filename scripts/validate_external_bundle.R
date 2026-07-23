@@ -19,6 +19,7 @@ orchidee_source_required_script("external_bundle_validation_helpers.R", "externa
 
 args <- commandArgs(trailingOnly = TRUE)
 strict_preferred <- "--strict-preferred" %in% args
+help <- any(args %in% c("-h", "--help"))
 contract_args <- grep("^--contract=", args, value = TRUE)
 if (length(contract_args) > 1L) {
   stop("Pass at most one --contract option.", call. = FALSE)
@@ -31,23 +32,22 @@ contract_version <- if (length(contract_args) == 0L) {
 if (!is.na(contract_version) && !contract_version %in% c("v2", "v3")) {
   stop("--contract must be v2 or v3.", call. = FALSE)
 }
-args <- setdiff(args, c("--strict-preferred", contract_args))
+args <- setdiff(args, c("--strict-preferred", "-h", "--help", contract_args))
 
-if (length(args) > 1L || any(args %in% c("-h", "--help"))) {
+if (help || length(args) != 1L) {
   cat(
     "Usage: Rscript scripts/validate_external_bundle.R ",
-    "[bundle_dir] --contract=v2|v3 [--strict-preferred]\n",
+    "<bundle_dir> --contract=v2|v3 [--strict-preferred]\n",
     sep = ""
   )
-  cat("Default bundle_dir: data\n")
   cat("--strict-preferred requires sample_scope_reference.rds and denominator_bundle.rds\n")
-  quit(status = 0L)
+  quit(status = if (help) 0L else 1L)
 }
 if (is.na(contract_version)) {
   stop("Pass --contract=v2 or --contract=v3.", call. = FALSE)
 }
 
-bundle_dir <- if (length(args) == 0L) file.path("data") else args[[1]]
+bundle_dir <- args[[1L]]
 contract <- switch(
   contract_version,
   v2 = orchidee_external_contract_v2(),

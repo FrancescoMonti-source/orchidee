@@ -248,8 +248,8 @@ writeLines(
   useBytes = TRUE
 )
 
-# Why: protects the public/private source boundary and the complete synthetic
-# contract required to load local unit and CONSORES TA/DE references.
+# Why: protects the complete synthetic contract required to load the versioned
+# Rouen unit/establishment references and the CONSORES TA/DE catalogues.
 unit_refs <- load_ratb_unit_references(synthetic_reference_fixture_dir)
 ta_de_ref <- load_ratb_consores_ta_de_reference(
   structure_path = structure_fixture_path,
@@ -466,10 +466,10 @@ rscript <- file.path(
   if (.Platform$OS.type == "windows") "Rscript.exe" else "Rscript"
 )
 previous_structure_path <- Sys.getenv(
-  "ORCHIDEE_CONSORES_STRUCTURE_PATH",
+  "ORCHIDEE_ROUEN_STRUCTURE_PATH",
   unset = NA_character_
 )
-Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = structure_fixture_path)
+Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = structure_fixture_path)
 run_golden_cli <- function(
     force = FALSE,
     output_dir = cli_output_dir,
@@ -488,9 +488,9 @@ run_golden_cli <- function(
 }
 cli_output <- run_golden_cli()
 if (is.na(previous_structure_path)) {
-  Sys.unsetenv("ORCHIDEE_CONSORES_STRUCTURE_PATH")
+  Sys.unsetenv("ORCHIDEE_ROUEN_STRUCTURE_PATH")
 } else {
-  Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = previous_structure_path)
+  Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = previous_structure_path)
 }
 cli_status <- attr(cli_output, "status")
 if (is.null(cli_status)) cli_status <- 0L
@@ -501,12 +501,12 @@ if (!identical(cli_status, 0L)) {
     call. = FALSE
   )
 }
-Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = structure_fixture_path)
+Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = structure_fixture_path)
 cli_force_output <- run_golden_cli(force = TRUE)
 if (is.na(previous_structure_path)) {
-  Sys.unsetenv("ORCHIDEE_CONSORES_STRUCTURE_PATH")
+  Sys.unsetenv("ORCHIDEE_ROUEN_STRUCTURE_PATH")
 } else {
-  Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = previous_structure_path)
+  Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = previous_structure_path)
 }
 cli_force_status <- attr(cli_force_output, "status")
 if (is.null(cli_force_status)) cli_force_status <- 0L
@@ -518,7 +518,7 @@ if (!identical(cli_force_status, 0L)) {
   )
 }
 cli_direct_v2_dir <- file.path(cli_root, "direct_v2")
-Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = structure_fixture_path)
+Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = structure_fixture_path)
 cli_direct_v2_output <- system2(
   rscript,
   c(
@@ -533,9 +533,9 @@ cli_direct_v2_output <- system2(
   stderr = TRUE
 )
 if (is.na(previous_structure_path)) {
-  Sys.unsetenv("ORCHIDEE_CONSORES_STRUCTURE_PATH")
+  Sys.unsetenv("ORCHIDEE_ROUEN_STRUCTURE_PATH")
 } else {
-  Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = previous_structure_path)
+  Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = previous_structure_path)
 }
 cli_direct_v2_status <- attr(cli_direct_v2_output, "status")
 if (is.null(cli_direct_v2_status)) cli_direct_v2_status <- 0L
@@ -563,16 +563,16 @@ cli_direct_v2_files_exist <- all(file.exists(c(
 cli_lock_path <- paste0(cli_output_dir, ".rouen-build.lock")
 dir.create(cli_lock_path)
 writeLines("pid: synthetic-test-owner", file.path(cli_lock_path, "owner.txt"))
-Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = structure_fixture_path)
+Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = structure_fixture_path)
 cli_locked_output <- suppressWarnings(run_golden_cli(
   force = TRUE,
   output_dir = paste0(cli_output_dir, "/"),
   operational_v2_dir = paste0(cli_v2_dir, "/")
 ))
 if (is.na(previous_structure_path)) {
-  Sys.unsetenv("ORCHIDEE_CONSORES_STRUCTURE_PATH")
+  Sys.unsetenv("ORCHIDEE_ROUEN_STRUCTURE_PATH")
 } else {
-  Sys.setenv(ORCHIDEE_CONSORES_STRUCTURE_PATH = previous_structure_path)
+  Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = previous_structure_path)
 }
 cli_locked_status <- attr(cli_locked_output, "status")
 if (is.null(cli_locked_status)) cli_locked_status <- 0L

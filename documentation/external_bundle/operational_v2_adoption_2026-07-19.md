@@ -13,10 +13,11 @@ editor_options:
 
 ## Décision
 
-`external_bundle_v2` devient l'entrée opérationnelle canonique et la valeur
-par défaut des notebooks. `chu_native` reste disponible explicitement pour la
-comparaison historique et le rollback ; ce changement ne le supprime pas et
-n'ajoute aucun fallback entre les deux chemins.
+Au moment de cette décision, `external_bundle_v2` devenait l'entrée
+opérationnelle canonique et la valeur par défaut des notebooks. `chu_native`
+restait disponible explicitement pour la comparaison historique et le
+rollback, sans fallback entre les deux chemins. Il a depuis été retiré du
+chemin actif comme indiqué dans la note de statut ci-dessus.
 
 Cette décision concerne le runtime des notebooks. Les builders demandent
 désormais explicitement v2 ou v3 : un site ne doit déclarer aucun de ces
@@ -54,6 +55,6 @@ Cette adoption ne valide pas automatiquement l'adaptateur brut d'un autre
 établissement. Chaque site doit encore démontrer son attribution d'UF, ses
 mappings et son dénominateur avant de déclarer un bundle v2.
 
-La suppression éventuelle de `chu_native` et la généralisation d'un outil de
-comparaison restent des décisions ultérieures et séparées. Le contrat de
-compatibilité antérieur a depuis été retiré sans modifier le runtime v2.
+Le retrait de `chu_native` a depuis été réalisé sans modifier le runtime v2.
+Le gate de non-régression v2 couvre désormais la comparaison opérationnelle
+courante ; son extension à d'autres contextes reste une décision séparée.

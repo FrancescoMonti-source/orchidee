@@ -1,5 +1,3 @@
-#bact = readRDS("data/bact22_24")
-
 ################################################
 # Species identification and taxonomy mapping
 ################################################

@@ -6,7 +6,36 @@ editor_options:
 
 # Rouen raw handoff
 
-## Purpose
+## Start here
+
+From the repository root, first complete
+[Installation R](../../README.md#installation-r). Retrieve the automatic BACT
+export and the PMSI object produced by `redsan`. They may stay anywhere
+accessible to the local R process. Set the two input paths; keep or choose the
+output destination shown below:
+
+```powershell
+$bact = "data/bact22_24"
+$pmsi = "data/pmsi"
+$output = "outputs/rouen_current"
+
+Test-Path $bact
+Test-Path $pmsi
+
+Rscript scripts/build_rouen_external_bundle.R `
+  $bact `
+  $pmsi `
+  $output `
+  --contract=v3 `
+  --operational-v2-output="$output/bundle_v2_operational"
+```
+
+Both `Test-Path` calls must print `True`. A successful build writes the six
+intermediate handoff blocks under `$output/site_inputs/`, retains the complete
+v3 bundle and creates the v2 projection used by the current runtime. Do not
+prepare any of those outputs manually.
+
+## What the command does
 
 This adapter gives Rouen the same explicit handoff boundary used for an
 external site. It starts from the two local raw-domain objects and stops at the
@@ -27,9 +56,16 @@ deduplication, indicators or reporting.
 
 ## Inputs
 
-The command takes two local RDS files as positional inputs. Building the two
-PMSI handoff blocks also requires the local unit references and the private
-CONSORES structure workbook described below.
+For a routine Rouen build, the operator supplies exactly two input paths. The
+third positional argument is only the output destination, already set to
+`outputs/rouen_current` in the quick start above:
+
+1. the automatic long bacteriology export;
+2. the PMSI RDS produced by `redsan`.
+
+No dictionary, unit table, TA/DE catalogue or handoff block must be prepared
+alongside them. The adapter loads its versioned references from the checkout
+and generates the six handoff blocks.
 
 The versioned default window is the half-open interval
 `[2022-01-01, 2025-01-01)`, covering sample years 2022 through 2024. Both
@@ -57,28 +93,39 @@ values is rejected rather than guessed.
 ### PMSI
 
 The PMSI RDS is the list returned by `redsan` and must contain `pmsi$main`.
-The denominator path additionally needs the current PMSI fields used by the
-CHU audit, including `PMSISTATUT`, `SEJDUR` and `GHM`.
+The denominator path additionally needs the PMSI fields used by the Rouen
+audit, including `PMSISTATUT`, `SEJDUR` and `GHM`.
 
 The adapter reapplies `redsan::prefer_pmsi_src_c_over_dw()` to `pmsi$main`.
 This is idempotent for a current `redsan` 0.2.0 output and safely normalizes
 an older processed local artifact. ORCHIDEE does not reimplement the source
 policy.
 
-### Local unit and CONSORES references
+### Versioned references loaded automatically
 
-The Rouen producer reads the versioned `ref_uf.txt`, `ref_um.txt`,
-`ref_uf2um.txt` and TA/DE code lists. The institutional structure workbook is
-not public and must not be added to `ref/`. It is read by default from:
+The Rouen producer reads the Rouen-only unit and establishment references:
 
 ```text
-data/consores_structure_intranet_maj_2025.xlsx
+ref/rouen/ref_uf.txt
+ref/rouen/ref_um.txt
+ref/rouen/ref_uf2um.txt
+ref/rouen/establishment_structure_2025.xlsx
 ```
 
-Set `ORCHIDEE_CONSORES_STRUCTURE_PATH` when it is stored elsewhere. The
-workbook is a prerequisite of the local Rouen producer. It is not required by
-the operational `external_bundle_v2` runtime, nor by another site's builder
-when that site already supplies a complete `unit_mapping` block.
+It also reads the shared TA/DE catalogues under `ref/consores/`. All these
+references are already versioned in the checkout; the operator does not provide
+their paths. Set `ORCHIDEE_ROUEN_STRUCTURE_PATH` only to test an explicitly
+selected replacement for the default structure.
+
+These Rouen references are adapter-specific. They are not required by the
+operational `external_bundle_v2` runtime or by another site's builder when that
+site supplies a complete `unit_mapping` block.
+
+Persisted audit fields and status values containing `consores_` retain their
+historical spelling for contract compatibility. In particular, UF labels and
+care type come from the Rouen establishment structure above; TA/DE reference
+labels come from the CONSORES catalogues. Renaming those identifiers requires a
+separate contract migration.
 
 ## Microbiology decisions
 
@@ -175,7 +222,8 @@ kept in the local audit and is never used as a hidden fallback.
 ## TA/DE and denominator
 
 The same C-over-DW PMSI table feeds the unit-stay denominator. The adapter
-joins the current institutional unit and CONSORES references and produces:
+joins the versioned Rouen unit and establishment references with the shared
+CONSORES TA/DE catalogues and produces:
 
 - `denominator_by_year` for the portable v2 bundle;
 - `incidence_exposure_by_year_um_uf_ta_de_profile` for the portable v3
@@ -200,10 +248,12 @@ dimensions. The adapter verifies that selecting the current
 From the repository root:
 
 ```powershell
+$bact = "data/bact22_24"
+$pmsi = "data/pmsi"
 $output = "outputs/rouen_current"
 Rscript scripts/build_rouen_external_bundle.R `
-  <bacteriology_raw.rds> `
-  <pmsi.rds> `
+  $bact `
+  $pmsi `
   $output `
   --contract=v3 `
   --operational-v2-output="$output/bundle_v2_operational"

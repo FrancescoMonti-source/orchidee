@@ -1,5 +1,6 @@
-# Internal data and generated exports
-/data/
+# Local run inputs
+/data/*
+!/data/README.md
 /downloads/
 /outputs/
 

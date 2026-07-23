@@ -23,16 +23,14 @@ Le noyau actuel de l'étape 1 est gelé. Les changements courants doivent donc
 préserver les sorties validées, sauf décision explicite de modifier la méthode
 ou le périmètre publié.
 
-Les artefacts générés et les inputs opérationnels privés (`data/`,
-`downloads/`, `outputs/`, `archive/`) ne sont pas versionnés. Un clone frais ne
-contient donc pas les caches, les exports, les rendus locaux ni le classeur de
-structure CONSORES.
+Les données locales d'exécution (`data/`) et les artefacts générés
+(`downloads/`, `outputs/`, `archive/`) ne sont pas versionnés. Un clone frais
+ne contient donc ni données patient, ni caches, ni exports, ni rendus locaux.
 
-Ce classeur est recherché par défaut sous
-`data/consores_structure_intranet_maj_2025.xlsx`. Le chemin peut être fourni
-avec `ORCHIDEE_CONSORES_STRUCTURE_PATH`. Les sources méthodologiques publiques
-et la frontière avec les documents privés sont recensées dans
-`documentation/reference_sources.md`.
+Les références non sensibles propres à l'adaptateur Rouen sont en revanche
+versionnées sous `ref/rouen/`, y compris la structure interne de
+l'établissement. Les sources méthodologiques et les références consommées sont
+recensées dans `documentation/reference_sources.md`.
 
 ## Installation R
 
@@ -58,6 +56,14 @@ PMSI/BIOL appartiennent désormais à `redsan`. ORCHIDEE ne maintient plus de
 second client EDSaN : il consomme l'export bactériologique local et l'objet PMSI
 produit par `redsan`, puis les transforme par son adaptateur Rouen ou reçoit les
 six blocs de handoff d'un autre site.
+
+## Choisir le bon point d'entrée
+
+-   **Rouen** : fournir seulement les deux chemins d'entrée BACT et PMSI à
+    `scripts/build_rouen_external_bundle.R`. L'adaptateur génère les six blocs ;
+    commencer par `documentation/external_bundle/rouen_raw_handoff.md`.
+-   **Rennes ou un autre entrepôt** : fournir directement les six blocs décrits
+    dans `documentation/external_bundle/site_handoff_inputs.md`.
 
 ## Rennes / autre entrepôt : commencer ici
 
@@ -115,15 +121,24 @@ Le contrat, les décisions locales et le contenu de l'audit sont décrits dans :
 Le point d'entrée est :
 
 ```powershell
+$bact = "data/bact22_24"
+$pmsi = "data/pmsi"
 $output = "outputs/rouen_current"
 Rscript scripts/build_rouen_external_bundle.R `
-  <bacteriology_raw.rds> <pmsi.rds> $output `
+  $bact $pmsi $output `
   --contract=v3 `
   --operational-v2-output="$output/bundle_v2_operational"
 ```
 
 Le profil Rouen couvre par défaut les années 2022 à 2024 ; la même fenêtre
 est appliquée à la microbiologie et au dénominateur PMSI.
+
+Dans un checkout Rouen prêt à l'emploi, l'opérateur renseigne seulement les
+deux chemins d'entrée BACT et PMSI ; `$output` désigne simplement la destination
+des résultats. Les dictionnaires et les références sous `ref/rouen/` et
+`ref/consores/` sont déjà fournis et chargés automatiquement. Les six blocs de
+handoff et les bundles sont générés par la commande. Les fichiers d'entrée
+peuvent ne pas avoir d'extension, comme dans l'exemple.
 
 Les sorties restent locales et ignorées par Git. `site_inputs/` conserve les
 six blocs, `bundle_v3/` le contrat complet et `bundle_v2_operational/` l'entrée
@@ -214,17 +229,22 @@ Pour brancher un autre entrepôt, commencer par
 -   `config/`
     -   chemins, politiques de recompute et paramètres opérationnels ;
 -   `dictionaries/`
-    -   dictionnaires de normalisation microbiologique ;
+    -   mappings versionnés qui traduisent les valeurs microbiologiques locales
+        vers les valeurs canoniques ORCHIDEE ;
 -   `ref/`
-    -   référentiels tabulaires versionnables effectivement consommés, dont les
-        listes de codes TA/DE ; les snapshots sans consumer sont archivés hors
-        du dépôt ;
+    -   faits de référence versionnés effectivement consommés : catalogues
+        TA/DE partagés sous `ref/consores/` et références propres à Rouen sous
+        `ref/rouen/` ;
+-   `rules/`
+    -   décisions analytiques maintenues par ORCHIDEE ;
 -   `data/`
-    -   artefacts générés et inputs opérationnels privés, ignorés par Git ;
+    -   zone locale facultative pour les inputs d'une exécution, ignorés par
+        Git ; les scripts acceptent aussi des chemins protégés externes ;
 -   `downloads/`
     -   exports de rapport, ignorés par Git ;
 -   `outputs/`
-    -   brouillons et inspections locales, ignorés par Git.
+    -   bundles, caches, audits, brouillons et inspections générés localement,
+        ignorés par Git.
 
 ## Maintenance rapide
 

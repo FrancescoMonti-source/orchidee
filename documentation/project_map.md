@@ -186,12 +186,12 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
         aussi cette table complète dans les entrées runtime
     -   valide les invariants minimaux des entrées runtime canoniques
 -   `R/ratb_hospital_days_helpers.R`
-    -   helpers natifs PMSI / CHU pour les audits de séjour et le
+    -   helpers PMSI Rouen pour les audits de séjour et le
         dénominateur local
     -   produit les nuits éligibles v2 et, séparément, l'exposition v3 de toute
         l'activité mappée par année, UM, UF, TA et DE
-    -   transformation des références CONSORES TA/DE locales vers la
-        `sample_scope_reference` canonique
+    -   combinaison de la structure d'établissement Rouen avec les catalogues
+        CONSORES TA/DE vers la `sample_scope_reference` canonique
     -   découpage inter-annuel
 -   `R/external_handoff_helpers.R`
     -   helpers de handoff pour un site externe : dérive les métadonnées
@@ -216,7 +216,7 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   builders de sorties par taxon
     -   builders de la section phénotypes
 
-## Dictionnaires et contrat de publication
+## Dictionnaires, références et contrat de publication
 
 -   `assets/`
     -   feuilles de style et fragments HTML utilisés par les rendus
@@ -224,10 +224,16 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
 -   `config/pipeline.R`
     -   point d'entrée des réglages opérationnels : chemins, fenêtres de
         dates, flags de recompute et paramètres d'affichage
--   `data/consores_structure_intranet_maj_2025.xlsx`
-    -   classeur de structure CONSORES privé, ignoré par Git ; son chemin peut
-        être remplacé avec `ORCHIDEE_CONSORES_STRUCTURE_PATH`
--   `ref/consores_codes_ta.csv`, `ref/consores_codes_de.csv`
+-   `ref/rouen/establishment_structure_2025.xlsx`
+    -   structure interne non sensible de l'établissement, versionnée et
+        consommée uniquement par l'adaptateur Rouen
+    -   son chemin peut être remplacé avec
+        `ORCHIDEE_ROUEN_STRUCTURE_PATH`
+-   `ref/rouen/ref_uf.txt`, `ref/rouen/ref_um.txt`,
+    `ref/rouen/ref_uf2um.txt`
+    -   références d'unités propres à Rouen, versionnées et chargées
+        automatiquement par l'adaptateur
+-   `ref/consores/codes_ta.csv`, `ref/consores/codes_de.csv`
     -   listes de codes CONSORES tabulaires versionnées pour l'éligibilité
         TA/DE du périmètre RATB d'hospitalisation
     -   les anciens snapshots textuels sans consumer ne sont pas des sources
@@ -236,13 +242,15 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   emplacement réservé aux tables de règles analytiques maintenues
         par le projet
     -   ne contient plus de table active pour le périmètre RATB ; ce
-        périmètre repose sur le classeur CONSORES privé, les listes de codes
-        TA/DE versionnées et `R/ratb_hospital_days_helpers.R`
+        périmètre repose sur la structure de l'établissement Rouen, les listes
+        de codes TA/DE versionnées et `R/ratb_hospital_days_helpers.R`
 -   `documentation/ratb_indicator_spec.csv`
     -   contrat de publication des indicateurs
     -   premier endroit à vérifier quand on ajoute ou retire des sorties
 -   `dictionaries/couples_species_atb.csv`
     -   univers espèces/antibiotiques supporté
+    -   table de policy active dont le déplacement éventuel vers `rules/`
+        nécessite un changement séparé de son consumer
 -   `dictionaries/atb_regex_map.csv`
     -   table de normalisation regex des antibiotiques
 -   `dictionaries/rouen_naturepvt_regex.csv`
@@ -250,7 +258,8 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
 -   `dictionaries/rouen_naturepvt_exact_decisions.csv`
     -   décisions humaines exactes, motivées, pour les conflits ou reports connus
 -   `dictionaries/family.csv`
-    -   labels de familles et métadonnées de regroupement
+    -   ancien regroupement sans consumer actif ; candidat à l'archivage avec
+        `dictionaries/naturepvt_regex_map.csv`
 
 ### Contrat externe et validation
 
@@ -314,33 +323,32 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
 
 ## Artefacts générés
 
-Les artefacts internes de travail vivent dans `data/`. Ils ne jouent pas
-tous le même rôle dans la chaîne de traitement ; les principaux sont les
-suivants.
+Les artefacts générés vivent sous `outputs/` ou dans le workspace externe
+configuré. `data/` est uniquement une zone locale facultative pour déposer les
+inputs d'une exécution.
 
--   `sir_wide.rds`, `sir_wide_meta.rds`
+-   `outputs/rouen_current/bundle_v3/` et
+    `outputs/rouen_current/bundle_v2_operational/`
+    -   bundles validés générés par l'adaptateur Rouen
+-   `sir_wide.rds`, `sir_wide_meta.rds` dans chaque bundle
     -   artefact microbiologique canonique normalisé, utilisé comme point
         de départ amont du workflow aval
     -   le fichier `meta` porte les métadonnées de validation,
         d'empreinte et de reproductibilité de cet artefact
 
--   `ratb_scope_cache`, `ratb_scope_cache_meta`
-    -   payload du périmètre analytique d'hospitalisation et des objets
-        annuels de journées / nuits d'hospitalisation utilisés ensuite
-        dans le workflow et le rapport
-    -   le fichier `meta` permet de savoir si ce cache peut être rechargé
-        tel quel ou doit être recalculé
-
 -   `dedup_results`, `dedup_cache_meta`, `ratb_raw_runtime_audit`
     -   cache opérationnel brut, structuré par scope (`global`, `by_type`)
     -   le fichier `meta` lie les résultats à l'entrée opérationnelle et aux
         scripts actifs ; l'audit résume population, plausibilité et validation
+    -   écrits dans le workspace externe, par défaut
+        `outputs/external_bundle_v2_runtime/`
 
 Les artefacts d'export destinés au lecteur et générés par le rapport
 vivent dans `downloads/`.
 
-Les brouillons, inspections et artefacts temporaires locaux vivent dans
-`outputs/`, ignoré par Git. Ne pas l'utiliser comme source canonique.
+Les bundles, caches, audits, brouillons et inspections sous `outputs/` sont
+ignorés par Git. Le manifest du build, et non le répertoire source, indique
+qu'un bundle local est complet.
 
 ## Si vous devez changer X, commencez ici
 
@@ -357,9 +365,12 @@ Commencer par :
 Commencer par :
 
 -   `dictionaries/atb_regex_map.csv`
--   `dictionaries/family.csv`
 -   `dictionaries/couples_species_atb.csv`
 -   puis vérifier la spec des indicateurs
+
+`dictionaries/family.csv` et `dictionaries/naturepvt_regex_map.csv` ne sont pas
+des points d'entrée actifs tant qu'aucun consumer n'est réintroduit
+explicitement.
 
 ### Changer un réglage opérationnel du pipeline
 
