@@ -1,9 +1,9 @@
-# Dictionaries
+# Mappings
 
 This directory contains versioned mappings curated by ORCHIDEE to translate
 local microbiology values into canonical ORCHIDEE values.
 
-A dictionary encodes a maintained transformation such as a regex mapping,
+A mapping encodes a maintained transformation such as a regex rule,
 an exact reviewed decision or a source-to-target expansion. Imported facts
 about hospital structures, units or external code systems belong in `ref/`.
 Project-authored analytical inclusion rules belong in `rules/`.

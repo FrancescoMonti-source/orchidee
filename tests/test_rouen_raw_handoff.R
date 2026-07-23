@@ -21,16 +21,16 @@ source("R/rouen_microbiology_handoff_adapter.R")
 source("R/rouen_pmsi_handoff_adapter.R")
 
 species_rules <- readr::read_delim(
-  "dictionaries/species_regex_map.csv",
+  "mappings/species_regex_map.csv",
   delim = ";",
   show_col_types = FALSE
 )
 antibiotic_rules <- suppressMessages(readr::read_csv(
-  "dictionaries/atb_regex_map.csv",
+  "mappings/atb_regex_map.csv",
   show_col_types = FALSE
 ))
 antibiotic_expansion <- readr::read_csv(
-  "dictionaries/atb_expand_map.csv",
+  "mappings/atb_expand_map.csv",
   show_col_types = FALSE
 )
 supported_pairs <- readr::read_csv(
@@ -38,11 +38,11 @@ supported_pairs <- readr::read_csv(
   show_col_types = FALSE
 )
 sample_type_rules <- readr::read_csv(
-  "dictionaries/rouen_naturepvt_regex.csv",
+  "mappings/rouen_naturepvt_regex.csv",
   show_col_types = FALSE
 )
 sample_type_decisions <- readr::read_csv(
-  "dictionaries/rouen_naturepvt_exact_decisions.csv",
+  "mappings/rouen_naturepvt_exact_decisions.csv",
   show_col_types = FALSE
 )
 

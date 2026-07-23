@@ -43,7 +43,7 @@ result <- build_ratb_raw_operational_cache(
   operational_runtime = operational_runtime,
   sir_wide_meta = operational_runtime$sir_wide_meta,
   species_regex_map_path = file.path(
-    orchidee_config$paths$dictionaries_dir,
+    orchidee_config$paths$mappings_dir,
     "species_regex_map.csv"
   ),
   cache_dir = operational_runtime$context$cache_dir

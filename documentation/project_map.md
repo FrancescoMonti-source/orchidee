@@ -196,7 +196,7 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
 -   `R/external_handoff_helpers.R`
     -   helpers de handoff pour un site externe : dérive les métadonnées
         de `sir_wide`, construit `sir_wide` depuis des observations
-        microbiologiques longues et des dictionnaires locaux, construit la
+        microbiologiques longues et des mappings locaux, construit la
         `sample_scope_reference` depuis un mapping simple UF/TA-DE et
         enveloppe le dénominateur annuel v2 ou l'exposition profilée v3 en
         `denominator_bundle`
@@ -216,7 +216,7 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   builders de sorties par taxon
     -   builders de la section phénotypes
 
-## Dictionnaires, références et contrat de publication
+## Mappings, références et contrat de publication
 
 -   `assets/`
     -   feuilles de style et fragments HTML utilisés par les rendus
@@ -249,11 +249,11 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
 -   `documentation/ratb_indicator_spec.csv`
     -   contrat de publication des indicateurs
     -   premier endroit à vérifier quand on ajoute ou retire des sorties
--   `dictionaries/atb_regex_map.csv`
+-   `mappings/atb_regex_map.csv`
     -   table de normalisation regex des antibiotiques
--   `dictionaries/rouen_naturepvt_regex.csv`
+-   `mappings/rouen_naturepvt_regex.csv`
     -   règles Rouen évaluées sans utiliser leur ordre pour départager les cibles
--   `dictionaries/rouen_naturepvt_exact_decisions.csv`
+-   `mappings/rouen_naturepvt_exact_decisions.csv`
     -   décisions humaines exactes, motivées, pour les conflits ou reports connus
 
 ### Contrat externe et validation
@@ -359,7 +359,7 @@ Commencer par :
 
 Commencer par :
 
--   `dictionaries/atb_regex_map.csv`
+-   `mappings/atb_regex_map.csv`
 -   `rules/couples_species_atb.csv`
 -   puis vérifier la spec des indicateurs
 

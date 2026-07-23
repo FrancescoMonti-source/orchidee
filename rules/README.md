@@ -3,7 +3,7 @@
 This folder is reserved for Orchidee analytical rule tables.
 
 Use it for project-authored analytical decisions that are neither runtime
-config, normalization dictionaries nor imported reference facts.
+config, normalization mappings nor imported reference facts.
 
 `couples_species_atb.csv` is the active species-antibiotic universe consumed by
 the packaged Rouen adapter.

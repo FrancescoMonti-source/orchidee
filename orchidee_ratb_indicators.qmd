@@ -144,7 +144,7 @@ initialize_ratb_report_helpers(
 
 orchidee_source_required_script("helpers.R", "helpers script")
 
-dictionaries_dir <- orchidee_config$paths$dictionaries_dir
+mappings_dir <- orchidee_config$paths$mappings_dir
 
 operational_runtime <- load_ratb_operational_runtime(config = orchidee_config)
 ratb_operational_context <- operational_runtime$context
@@ -349,7 +349,7 @@ stopifnot(
   exists("build_ratb_indicator_panel_incidence_annual", mode = "function")
 )
 
-species_taxonomy_path <- file.path(dictionaries_dir, "species_regex_map.csv")
+species_taxonomy_path <- file.path(mappings_dir, "species_regex_map.csv")
 bact_order_map <- build_species_taxonomy_map(species_taxonomy_path)
 
 reference_dataset_name <- names(dedup_results)[[1]]

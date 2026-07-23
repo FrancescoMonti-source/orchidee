@@ -31,7 +31,7 @@ d'affichage.
 
 Les tables de règles analytiques maintenues par le projet doivent rester
 dans `rules/` lorsqu'elles existent.
-Les mappings de normalisation restent dans `dictionaries/`. Les faits de
+Les transformations de normalisation restent dans `mappings/`. Les faits de
 référence importés restent dans `ref/` : catalogues TA/DE partagés sous
 `ref/consores/`, références d'unités et structure interne de l'établissement
 sous `ref/rouen/`. Ces références Rouen sont versionnées, non sensibles et
@@ -94,7 +94,7 @@ le bundle v3 durable puis matérialise sa projection v2 opérationnelle :
 
 L'opérateur renseigne seulement les deux chemins d'entrée vers l'export BACT
 et l'objet PMSI `redsan` ; `$output` désigne la destination des résultats. Les
-dictionnaires, catalogues TA/DE et références Rouen sont déjà présents dans le
+mappings, catalogues TA/DE et références Rouen sont déjà présents dans le
 checkout.
 
 ```powershell

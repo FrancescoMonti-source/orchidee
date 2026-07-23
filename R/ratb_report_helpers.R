@@ -180,7 +180,7 @@ resolve_table_note_lines <- function(file_stem, caption = NULL) {
       "Une ligne correspond à une combinaison taxon / métrique / vue / signal ; la colonne `Indicateurs publiés` regroupe les indicateurs couverts par cette même logique de lecture."
     ),
     ratb_indicator_spec_validation = c(
-      "This table checks each spec row against the current artifact, dictionaries, and supported rule families.",
+      "This table checks each spec row against the current artifact, mappings, and supported rule families.",
       "Treat hard-validation failures as blockers; partial molecule availability can still matter even when execution stays allowed."
     ),
     ratb_indicator_coverage_audit = c(

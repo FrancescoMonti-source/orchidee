@@ -135,7 +135,7 @@ est appliquée à la microbiologie et au dénominateur PMSI.
 
 Dans un checkout Rouen prêt à l'emploi, l'opérateur renseigne seulement les
 deux chemins d'entrée BACT et PMSI ; `$output` désigne simplement la destination
-des résultats. Les dictionnaires et les références sous `ref/rouen/` et
+des résultats. Les mappings versionnés et les références sous `ref/rouen/` et
 `ref/consores/` sont déjà fournis et chargés automatiquement. Les six blocs de
 handoff et les bundles sont générés par la commande. Les fichiers d'entrée
 peuvent ne pas avoir d'extension, comme dans l'exemple.
@@ -228,7 +228,7 @@ Pour brancher un autre entrepôt, commencer par
     -   documentation de maintenance, décisions méthodologiques et specs ;
 -   `config/`
     -   chemins, politiques de recompute et paramètres opérationnels ;
--   `dictionaries/`
+-   `mappings/`
     -   mappings versionnés qui traduisent les valeurs microbiologiques locales
         vers les valeurs canoniques ORCHIDEE ;
 -   `ref/`

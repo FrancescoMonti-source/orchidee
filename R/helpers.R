@@ -64,15 +64,15 @@ resolve_existing_path <- function(candidates, what = "file", must_exist = TRUE) 
   normalizePath(existing[[1]], winslash = "/", mustWork = TRUE)
 }
 
-resolve_dictionary_path <- function(
+resolve_mapping_path <- function(
     filename,
     what,
-    dictionaries_dir = "dictionaries",
+    mappings_dir = "mappings",
     data_dir = "data"
   ) {
   resolve_existing_path(
     c(
-      file.path(dictionaries_dir, filename),
+      file.path(mappings_dir, filename),
       filename,
       file.path(data_dir, filename)
     ),

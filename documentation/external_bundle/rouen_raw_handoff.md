@@ -63,7 +63,7 @@ third positional argument is only the output destination, already set to
 1. the automatic long bacteriology export;
 2. the PMSI RDS produced by `redsan`.
 
-No dictionary, unit table, TA/DE catalogue or handoff block must be prepared
+No mapping, unit table, TA/DE catalogue or handoff block must be prepared
 alongside them. The adapter loads its versioned references from the checkout
 and generates the six handoff blocks.
 
@@ -174,8 +174,8 @@ conflict:
 
 The rules and human decisions are separate:
 
-- `dictionaries/rouen_naturepvt_regex.csv`;
-- `dictionaries/rouen_naturepvt_exact_decisions.csv`.
+- `mappings/rouen_naturepvt_regex.csv`;
+- `mappings/rouen_naturepvt_exact_decisions.csv`.
 
 For example, explicit urine collected through a catheter remains `urines`,
 explicit catheter material can be `pvt_profond`, and the generic label
@@ -183,7 +183,7 @@ explicit catheter material can be `pvt_profond`, and the generic label
 
 ### Bacteria, antibiotics and phenotypes
 
-The adapter reuses the existing species and antibiotic dictionaries. A
+The adapter reuses the existing species and antibiotic mappings. A
 bacterial label containing alternatives such as `X ou Y` remains ambiguous
 instead of being forced to the first species.
 
