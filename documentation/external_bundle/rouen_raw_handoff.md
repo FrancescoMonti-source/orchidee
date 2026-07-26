@@ -36,7 +36,9 @@ Remove `-DryRun` to start the build. The default output is
 `-Output "C:\protected\rouen_current"` to choose another destination. Add
 `-DryRun` again at any time to check both inputs, the locked R version and the
 required Rouen packages without reading the clinical objects or starting the
-build. Existing output is reported during this check but does not make it fail.
+build. Existing output from this same workflow is reported during the check but
+does not make it fail. An incompatible older layout fails the preflight because
+`-Force` cannot replace it; choose another `-Output`.
 
 Inside the checkout, `-Output` must name a dedicated directory below
 `outputs/`; a dedicated protected directory outside the checkout is also

@@ -126,12 +126,13 @@ seulement d'indiquer un autre exécutable de cette même version. Il utilise
 ratifié. Utiliser `-Output` pour une autre destination, `-DryRun` pour le
 préflight sans lecture des objets et `-Force` seulement pour remplacer des
 sorties existantes du même parcours. Le préflight vérifie aussi les paquets
-réellement requis par l'adaptateur ; il signale un output existant sans échouer,
-puis rappelle si le build réel exige `-Force` ou un autre chemin.
-Choisir un autre `-Output` face à un ancien layout de build direct. Dans le
-checkout, la destination doit être un sous-répertoire dédié de `outputs/` ; un
-chemin protégé externe dédié reste accepté, mais pas une racine de disque ni
-un répertoire parent du checkout. La CLI R sous-jacente reste
+réellement requis par l'adaptateur ; il signale un output compatible existant
+sans échouer, puis rappelle si le build réel exige `-Force` ou un autre chemin.
+Un ancien layout de build direct fait échouer le préflight, car `-Force` ne peut
+pas le remplacer : choisir un autre `-Output`. Dans le checkout, la destination
+doit être un sous-répertoire dédié de `outputs/` ; un chemin protégé externe
+dédié reste accepté, mais pas une racine de disque ni un répertoire parent du
+checkout. La CLI R sous-jacente reste
 `scripts/build_rouen_external_bundle.R` pour les mainteneurs qui doivent
 comparer explicitement les contrats.
 

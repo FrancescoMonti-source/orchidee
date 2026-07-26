@@ -193,15 +193,16 @@ Dans un checkout Rouen prêt à l'emploi, l'opérateur renseigne seulement les
 deux chemins d'entrée BACT et PMSI. La destination par défaut est
 `outputs/rouen_current` ; `-Output` permet d'en choisir une autre et `-DryRun`
 vérifie les chemins, la version R verrouillée et les paquets nécessaires sans
-lancer le build. Un output existant est signalé pendant ce préflight sans le
-bloquer ; le build réel exige ensuite `-Force` ou un autre `-Output`. Les
-mappings versionnés et les références sous `ref/rouen/` et `ref/consores/` sont
-déjà fournis et chargés automatiquement. Les six blocs de handoff et les bundles
-sont générés par la commande. Les fichiers d'entrée peuvent ne pas avoir
-d'extension, comme dans l'exemple. Dans le checkout, le wrapper refuse une
-destination hors de `outputs/` ; un répertoire dédié dans un emplacement
-protégé externe reste accepté, mais pas la racine d'un disque ni un dossier
-parent du checkout.
+lancer le build. Un output compatible existant est signalé pendant ce préflight
+sans le bloquer ; le build réel exige ensuite `-Force` ou un autre `-Output`.
+Un ancien layout incompatible fait échouer le préflight et impose un autre
+`-Output`. Les mappings versionnés et les références sous `ref/rouen/` et
+`ref/consores/` sont déjà fournis et chargés automatiquement. Les six blocs de
+handoff et les bundles sont générés par la commande. Les fichiers d'entrée
+peuvent ne pas avoir d'extension, comme dans l'exemple. Dans le checkout, le
+wrapper refuse une destination hors de `outputs/` ; un répertoire dédié dans un
+emplacement protégé externe reste accepté, mais pas la racine d'un disque ni un
+dossier parent du checkout.
 
 Les sorties restent locales et ignorées par Git. `site_inputs/` conserve les
 six blocs, `bundle_v3/` le contrat complet et `bundle_v2_operational/` l'entrée

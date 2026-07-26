@@ -235,15 +235,11 @@ Write-Host "Output: $outputPath"
 Write-Host "R:      $rScript"
 
 if ($existingIncompatibleOutputPaths.Count -gt 0) {
-  $message = (
+  throw (
     "Output contains artifacts from another Rouen build layout: $outputPath. " +
-    'Choose a distinct -Output; -Force cannot replace a different layout.'
+    'Choose a distinct -Output; -Force cannot replace a different layout. ' +
+    'No build was run.'
   )
-  if ($DryRun) {
-    Write-Warning $message
-  } else {
-    throw $message
-  }
 }
 
 if ($existingOutputPaths.Count -gt 0) {
