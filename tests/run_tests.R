@@ -16,7 +16,10 @@ rscript <- file.path(
 
 for (test_file in test_files) {
   cat("RUN:", test_file, "\n")
-  status <- system2(rscript, c("--vanilla", shQuote(test_file)))
+  status <- system2(
+    rscript,
+    c("--no-save", "--no-restore", shQuote(test_file))
+  )
   if (!identical(status, 0L)) {
     stop("Standalone source test failed: ", test_file, call. = FALSE)
   }

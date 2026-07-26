@@ -9,6 +9,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'orchidee_environment.ps1')
 
 function Resolve-Quarto {
   $candidates = @()
@@ -26,27 +27,11 @@ function Resolve-Quarto {
   throw 'Quarto executable not found. Set ORCHIDEE_QUARTO or install Quarto.'
 }
 
-function Resolve-RScript {
-  $candidates = @()
-  if ($env:ORCHIDEE_R -and (Test-Path $env:ORCHIDEE_R)) { $candidates += $env:ORCHIDEE_R }
-  if ($env:QUARTO_R -and (Test-Path $env:QUARTO_R)) { $candidates += $env:QUARTO_R }
-  $cmd = Get-Command Rscript -ErrorAction SilentlyContinue
-  if ($cmd) { $candidates += $cmd.Source }
-  $candidates += @(
-    'C:\Program Files\R\R-4.5.3\bin\Rscript.exe',
-    'C:\Program Files\R\R-4.5.2\bin\Rscript.exe',
-    'C:\Program Files\R\R-4.5.1\bin\Rscript.exe',
-    'C:\Program Files\R\R-4.4.3\bin\Rscript.exe'
-  )
-  foreach ($candidate in $candidates | Select-Object -Unique) {
-    if ($candidate -and (Test-Path $candidate)) { return $candidate }
-  }
-  return $null
-}
-
 $quarto = Resolve-Quarto
-$rScript = Resolve-RScript
-if ($rScript) { $env:QUARTO_R = $rScript }
+$rScript = Resolve-OrchideeRScript `
+  -RepoRoot $RepoRoot `
+  -AdditionalCandidates @($env:QUARTO_R)
+$env:QUARTO_R = $rScript
 
 $targets = switch ($Target) {
   'memo' {
@@ -66,22 +51,17 @@ $targets = switch ($Target) {
 Write-Host "Repo: $RepoRoot"
 Write-Host "Target: $Target"
 Write-Host "Quarto: $quarto"
-if ($rScript) {
-  Write-Host "QUARTO_R: $rScript"
-} else {
-  Write-Warning 'No explicit Rscript found. Quarto will use its default R resolution.'
-}
+Write-Host "QUARTO_R: $rScript"
 
 if ($Target -eq 'full') {
-  if (-not $rScript) {
-    throw 'Rscript is required to build the canonical raw RATB cache.'
-  }
   $rawBuilder = Join-Path $RepoRoot 'scripts/build_ratb_raw_runtime.R'
-  Write-Host "> $rScript --vanilla scripts/build_ratb_raw_runtime.R"
+  Write-Host (
+    "> $rScript --no-save --no-restore scripts/build_ratb_raw_runtime.R"
+  )
   if (-not $DryRun) {
     Push-Location $RepoRoot
     try {
-      & $rScript --vanilla $rawBuilder
+      & $rScript --no-save --no-restore $rawBuilder
       if ($LASTEXITCODE -ne 0) {
         throw "Raw RATB cache build failed (exit $LASTEXITCODE)"
       }

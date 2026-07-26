@@ -475,7 +475,8 @@ run_golden_cli <- function(
     output_dir = cli_output_dir,
     operational_v2_dir = cli_v2_dir) {
   cli_args <- c(
-    "--vanilla",
+    "--no-save",
+    "--no-restore",
     shQuote("scripts/build_rouen_external_bundle.R"),
     shQuote(cli_bacteriology_path),
     shQuote(cli_pmsi_path),
@@ -522,7 +523,8 @@ Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = structure_fixture_path)
 cli_direct_v2_output <- system2(
   rscript,
   c(
-    "--vanilla",
+    "--no-save",
+    "--no-restore",
     shQuote("scripts/build_rouen_external_bundle.R"),
     shQuote(cli_bacteriology_path),
     shQuote(cli_pmsi_path),
