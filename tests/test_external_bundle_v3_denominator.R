@@ -267,7 +267,8 @@ rscript <- file.path(
 cli_output <- system2(
   rscript,
   c(
-    "--vanilla",
+    "--no-save",
+    "--no-restore",
     shQuote("scripts/build_external_bundle_from_site_inputs.R"),
     shQuote(unname(cli_block_paths)),
     shQuote(cli_v3_dir),
@@ -305,7 +306,8 @@ cli_seventh_block_output <- suppressWarnings(
   system2(
     rscript,
     c(
-      "--vanilla",
+      "--no-save",
+      "--no-restore",
       shQuote("scripts/build_external_bundle_from_site_inputs.R"),
       shQuote(unname(cli_block_paths)),
       shQuote(file.path(cli_root, "invalid_v3")),
@@ -327,7 +329,8 @@ cli_colliding_output <- suppressWarnings(
   system2(
     rscript,
     c(
-      "--vanilla",
+      "--no-save",
+      "--no-restore",
       shQuote("scripts/build_external_bundle_from_site_inputs.R"),
       shQuote(unname(cli_block_paths)),
       shQuote(cli_v3_dir),

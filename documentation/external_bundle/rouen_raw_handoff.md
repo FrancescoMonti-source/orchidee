@@ -4,38 +4,72 @@ editor_options:
     wrap: 72
 ---
 
-# Rouen raw handoff
+# Construction Rouen à partir des exports bruts
 
-## Start here
+## Démarrage opérateur
 
-From the repository root, first complete
-[Installation R](../../README.md#installation-r). Retrieve the automatic BACT
-export and the PMSI object produced by `redsan`. They may stay anywhere
-accessible to the local R process. Set the two input paths; keep or choose the
-output destination shown below:
+### Prérequis hors ORCHIDEE
+
+ORCHIDEE ne récupère pas l'export BACT et ne produit pas l'objet PMSI
+`redsan`. Ces deux fichiers doivent déjà avoir été obtenus par les procédures
+institutionnelles Rouen. S'il en manque un, s'arrêter ici.
+
+Pour un build ordinaire, la frontière est :
+
+| Vous fournissez | Déjà dans le checkout | Généré par ORCHIDEE |
+| --- | --- | --- |
+| Chemin BACT, chemin PMSI | Références Rouen, mappings et règles analytiques | Six blocs de handoff, bundles validés, audit et manifest |
+
+Dans un clone frais, restaurer une fois l'environnement R verrouillé :
 
 ```powershell
-$bact = "data/bact22_24"
-$pmsi = "data/pmsi"
-$output = "outputs/rouen_current"
-
-Test-Path $bact
-Test-Path $pmsi
-
-Rscript scripts/build_rouen_external_bundle.R `
-  $bact `
-  $pmsi `
-  $output `
-  --contract=v3 `
-  --operational-v2-output="$output/bundle_v2_operational"
+& .\scripts\setup.ps1
 ```
 
-Both `Test-Path` calls must print `True`. A successful build writes the six
-intermediate handoff blocks under `$output/site_inputs/`, retains the complete
-v3 bundle and creates the v2 projection used by the current runtime. Do not
-prepare any of those outputs manually.
+Les deux entrées peuvent rester dans un emplacement protégé hors du dépôt.
+Contrôler l'environnement, les chemins et la configuration effective sans lire
+les objets cliniques :
 
-## What the command does
+```powershell
+& .\scripts\build_rouen.ps1 `
+  -Bact "C:\protected\bact22_24" `
+  -Pmsi "C:\protected\pmsi" `
+  -DryRun
+```
+
+Retirer `-DryRun` pour lancer le build. La sortie par défaut est
+`outputs/rouen_current`; ajouter
+`-Output "C:\protected\rouen_current"` pour en choisir une autre. Aucun fichier
+de configuration, mapping ou intermédiaire ne doit être préparé ou modifié pour
+un run ordinaire.
+
+Dans le checkout, `-Output` doit être un répertoire dédié sous `outputs/`. Un
+répertoire protégé externe est également accepté. Une exécution réussie finit
+par `PASS` et écrit `<Output>\build_manifest.txt`. Sans ce manifest, ne pas
+utiliser la sortie. Le build réel peut prendre environ 19 minutes et rester
+silencieux pendant une partie du calcul.
+
+### Quand le build est terminé
+
+- `site_inputs/` contient les six blocs intermédiaires générés ;
+- `bundle_v3/` est le bundle complet à conserver ;
+- `bundle_v2_operational/` est l'entrée du runtime actuel ;
+- `build_manifest.txt` est la preuve de fin et de validation.
+
+Si l'objectif est le handoff, le parcours opérateur s'arrête ici. Pour produire
+les indicateurs à partir du même build :
+
+```powershell
+& .\scripts\render_orchidee.ps1 -Target full `
+  -Bundle "outputs/rouen_current/bundle_v2_operational" `
+  -Workspace "outputs/rouen_current/runtime"
+```
+
+Adapter les deux chemins si le build utilisait `-Output`. La suite de ce
+document est une référence mainteneur ; elle n'ajoute aucune étape
+d'onboarding.
+
+## Maintainer reference: what the command does
 
 This adapter gives Rouen the same explicit handoff boundary used for an
 external site. It starts from the two local raw-domain objects and stops at the
@@ -57,8 +91,8 @@ deduplication, indicators or reporting.
 ## Inputs
 
 For a routine Rouen build, the operator supplies exactly two input paths. The
-third positional argument is only the output destination, already set to
-`outputs/rouen_current` in the quick start above:
+optional `-Output` parameter only changes the output destination, already set
+to `outputs/rouen_current` by default:
 
 1. the automatic long bacteriology export;
 2. the PMSI RDS produced by `redsan`.
@@ -248,24 +282,36 @@ dimensions. The adapter verifies that selecting the current
 From the repository root:
 
 ```powershell
-$bact = "data/bact22_24"
-$pmsi = "data/pmsi"
+& .\scripts\build_rouen.ps1 `
+  -Bact "C:\protected\bact22_24" `
+  -Pmsi "C:\protected\pmsi"
+```
+
+Add `-Force` only to replace existing outputs from the same workflow. If the
+destination contains a different direct-build layout, choose another
+`-Output`. The wrapper requires the R version declared in `renv.lock`;
+`ORCHIDEE_R` may point to another executable only when it has that same exact
+version. It selects the preferred v3 construction and materializes the
+operational v2 projection automatically. If the R environment is incomplete,
+run `scripts/setup.ps1` and retry.
+
+The underlying R CLI remains available for maintenance or contract comparison:
+
+```powershell
 $output = "outputs/rouen_current"
-Rscript scripts/build_rouen_external_bundle.R `
-  $bact `
-  $pmsi `
+& .\scripts\run_r.ps1 scripts/build_rouen_external_bundle.R `
+  "C:\protected\bact22_24" `
+  "C:\protected\pmsi" `
   $output `
   --contract=v3 `
   --operational-v2-output="$output/bundle_v2_operational"
 ```
 
-Add `--force` only to replace existing outputs.
-
-This is the preferred Rouen path. It retains the complete v3 construction and
-materializes the separate v2 input accepted by the current notebooks. A direct
-`--contract=v2` build remains available as an explicit compatibility path; it
-replaces the sixth block with `denominator_by_year.rds` and writes its bundle
-under `bundle/`.
+Both command forms above execute the preferred v3 + operational-v2 workflow;
+the PowerShell wrapper is the operator entry point and the R form exposes its
+maintenance options. A direct `--contract=v2` build remains available as an
+explicit compatibility path; it replaces the sixth block with
+`denominator_by_year.rds` and writes its bundle under `bundle/`.
 
 The output contains:
 

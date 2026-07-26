@@ -257,7 +257,7 @@ if (!is.na(operational_v2_output)) {
     "\"\n",
     "  $env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = ",
     "\"outputs/site_runtime\"\n",
-    "  & \"", rscript_path, "\" --vanilla ",
+    "  & \"", rscript_path, "\" --no-save --no-restore ",
     "scripts/smoke_external_runtime_inputs.R ",
     "$env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR ",
     "--contract=v2 --strict-preferred\n",

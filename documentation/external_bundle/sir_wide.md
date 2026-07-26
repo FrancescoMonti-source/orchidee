@@ -107,7 +107,7 @@ declared shape and semantics; it cannot reconstruct the local PMSI attribution.
 Build and validate an explicit direct v2 bundle with:
 
 ```powershell
-Rscript scripts/build_external_bundle_from_site_inputs.R `
+& .\scripts\run_r.ps1 scripts/build_external_bundle_from_site_inputs.R `
   <microbiology_observations> `
   <bacteria_mapping> `
   <sample_type_mapping> `
@@ -117,12 +117,12 @@ Rscript scripts/build_external_bundle_from_site_inputs.R `
   <output_bundle_dir> `
   --contract=v2
 
-Rscript scripts/validate_external_bundle.R `
+& .\scripts\run_r.ps1 scripts/validate_external_bundle.R `
   <output_bundle_dir> `
   --contract=v2 `
   --strict-preferred
 
-Rscript scripts/smoke_external_runtime_inputs.R `
+& .\scripts\run_r.ps1 scripts/smoke_external_runtime_inputs.R `
   <output_bundle_dir> `
   --contract=v2 `
   --strict-preferred

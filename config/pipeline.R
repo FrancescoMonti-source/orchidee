@@ -1,6 +1,8 @@
-# Operational knobs for routine Orchidee runs.
+# Runtime, cache, report and publication settings for ORCHIDEE.
 #
-# Edit this file when changing how the pipeline runs. Keep normalization
+# Routine Rouen onboarding does not require editing this file: BACT, PMSI and
+# output paths are CLI parameters. The `ratb` section is part of the analytical
+# and publication contract, not a convenience knob. Keep normalization
 # transformations in mappings/, external reference extracts in ref/, and
 # implementation logic in R/.
 
@@ -29,6 +31,7 @@ orchidee_config <- list(
     )
   ),
   cache = list(
+    # Maintainer controls for an intentional cache refresh.
     # Force rebuild of dedup outputs.
     # Turn on after dedup logic/scope changes, render once, then set back to FALSE.
     recompute_dedup = FALSE,
@@ -37,12 +40,16 @@ orchidee_config <- list(
     recompute_incidence_pipeline = FALSE
   ),
   report = list(
+    # Display-only settings.
     datatable_digits = 3L,
     datatable_filter_default = "top",
     datatable_initial_zoom = 0.95,
     datatable_zoom_step = 0.05
   ),
   ratb = list(
+    # Analytical and publication settings. Changes require the corresponding
+    # source tests, full render and operational gate; they are not routine-run
+    # overrides.
     indicator_sample_types = c("hemoculture", "urines"),
     indicator_show_full_spec = FALSE,
     indicator_min_n = 0L,

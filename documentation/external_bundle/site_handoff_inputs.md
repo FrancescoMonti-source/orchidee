@@ -278,8 +278,7 @@ From the repository root, build the durable v3 bundle and its current
 operational v2 projection in one command:
 
 ```powershell
-Rscript `
-  scripts/build_external_bundle_from_site_inputs.R `
+& .\scripts\run_r.ps1 scripts/build_external_bundle_from_site_inputs.R `
   inputs/microbiology_observations.csv `
   inputs/bacteria_mapping.csv `
   inputs/sample_type_mapping.csv `
@@ -308,12 +307,14 @@ $env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR = `
 $env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = `
   (Join-Path (Get-Location) "outputs/site_runtime")
 
-Rscript scripts/smoke_external_runtime_inputs.R `
+& .\scripts\run_r.ps1 scripts/smoke_external_runtime_inputs.R `
   $env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR `
   --contract=v2 `
   --strict-preferred
 
-& .\scripts\render_orchidee.ps1 -Target full
+& .\scripts\render_orchidee.ps1 -Target full `
+  -Bundle $env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR `
+  -Workspace $env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR
 ```
 
 The smoke command checks that the four v2 files can build the shared RATB
@@ -328,8 +329,7 @@ block 6 under v2. `unit_mapping` still provides `CODE_TA`, `CODE_DE` and
 command is:
 
 ```powershell
-Rscript `
-  scripts/build_external_bundle_from_site_inputs.R `
+& .\scripts\run_r.ps1 scripts/build_external_bundle_from_site_inputs.R `
   inputs/microbiology_observations.csv `
   inputs/bacteria_mapping.csv `
   inputs/sample_type_mapping.csv `

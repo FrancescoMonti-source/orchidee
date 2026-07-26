@@ -19,6 +19,13 @@ before shared RATB scope, deduplication and indicator logic run.
 
 ## Start here
 
+For a Rouen operator starting from the automatic BACT export and the PMSI object
+already produced by `redsan`, start with:
+
+[rouen_raw_handoff.md](rouen_raw_handoff.md)
+
+That path asks for two clinical input paths and generates the six handoff blocks.
+
 For Rennes or another hospital HDW team, start with:
 
 [site_handoff_inputs.md](site_handoff_inputs.md)
@@ -51,8 +58,7 @@ site prepare, with which columns?
 ## Main external-site command
 
 ```powershell
-Rscript `
-  scripts/build_external_bundle_from_site_inputs.R `
+& .\scripts\run_r.ps1 scripts/build_external_bundle_from_site_inputs.R `
   <microbiology_observations> `
   <bacteria_mapping> `
   <sample_type_mapping> `
