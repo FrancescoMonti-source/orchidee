@@ -238,8 +238,14 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   feuilles de style et fragments HTML utilisés par les rendus
         Quarto
 -   `config/pipeline.R`
-    -   point d'entrée des réglages opérationnels : chemins, fenêtres de
-        dates, flags de recompute et paramètres d'affichage
+    -   sous-listes nommées pour les chemins runtime, contrôles de cache,
+        paramètres d'affichage et contrat analytique/de publication
+    -   les commentaires du fichier distinguent les contrôles de maintenance
+        des réglages qui exigent un gate complet
+-   `config/rouen_raw_handoff.R`
+    -   configuration mainteneur de l'adaptateur Rouen : fenêtre
+        d'extraction, codes de screening et chemins des entrées versionnées
+    -   ne reçoit jamais les chemins cliniques BACT ou PMSI
 -   `ref/rouen/establishment_structure_2025.xlsx`
     -   structure interne non sensible de l'établissement, versionnée et
         consommée uniquement par l'adaptateur Rouen
@@ -310,6 +316,10 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   point d'entrée opérateur Rouen : demande seulement les chemins BACT et
         PMSI, résout R, choisit le parcours v3 + projection v2 ratifié et utilise
         `outputs/rouen_current` par défaut
+-   `scripts/render_orchidee.ps1`
+    -   point d'entrée de rendu : accepte un bundle et un workspace explicites,
+        affiche leur provenance et préflight Quarto, R, paquets et fichiers
+        avant le calcul
 -   `scripts/build_rouen_external_bundle.R`
     -   CLI R sous-jacente pour la construction Rouen et les comparaisons
         explicites de contrats
@@ -388,10 +398,13 @@ Commencer par :
 
 Commencer par :
 
--   `config/pipeline.R`
+-   `config/pipeline.R` pour chemins runtime, cache et affichage ;
+-   `config/rouen_raw_handoff.R` pour la fenêtre ou le screening de
+    l'adaptateur Rouen.
 
-Exemples : chemins, fenêtre d'extraction attendue, flags de recompute,
-paramètres d'affichage et seuils de publication non biologiques.
+Les sous-listes et commentaires de ces fichiers indiquent si le réglage relève
+d'un run, de la maintenance ou du contrat analytique. Une modification de
+`ratb`, de la fenêtre Rouen ou du screening exige une validation complète.
 
 ### Changer le comportement de dédoublonnage
 

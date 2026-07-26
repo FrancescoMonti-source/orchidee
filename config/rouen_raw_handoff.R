@@ -1,7 +1,10 @@
-# Versioned settings for the packaged Rouen raw-data adapter.
+# Maintainer-owned settings for the packaged Rouen raw-data adapter.
 #
-# Keep raw input paths out of this file. The CLI receives them explicitly so
-# this configuration remains public, portable and free of patient data.
+# Routine onboarding does not require editing this file. Changes to the window,
+# screening policy or versioned inputs require a new audited build and the
+# relevant full operational gate. Keep raw input paths out of this file: the CLI
+# receives them explicitly so this configuration remains public, portable and
+# free of patient data.
 
 rouen_structure_path_from_env <- function() {
   current <- Sys.getenv("ORCHIDEE_ROUEN_STRUCTURE_PATH", unset = "")

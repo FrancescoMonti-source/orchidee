@@ -312,7 +312,9 @@ $env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = `
   --contract=v2 `
   --strict-preferred
 
-& .\scripts\render_orchidee.ps1 -Target full
+& .\scripts\render_orchidee.ps1 -Target full `
+  -Bundle $env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR `
+  -Workspace $env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR
 ```
 
 The smoke command checks that the four v2 files can build the shared RATB

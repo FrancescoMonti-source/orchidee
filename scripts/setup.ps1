@@ -2,6 +2,14 @@
 .SYNOPSIS
 Restores the R environment declared by renv.lock.
 
+.DESCRIPTION
+Finds the exact R version declared in renv.lock, restores the project library
+and verifies installed package versions and sources.
+
+.PARAMETER DryRun
+Check only that the locked R executable and renv.lock are available. This does
+not restore or verify the installed package library.
+
 .EXAMPLE
 & .\scripts\setup.ps1
 

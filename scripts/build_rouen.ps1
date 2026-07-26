@@ -2,6 +2,31 @@
 .SYNOPSIS
 Builds the validated ORCHIDEE Rouen bundles from BACT and PMSI inputs.
 
+.DESCRIPTION
+This is the routine Rouen operator entry point. It accepts the two protected
+clinical input files, uses the versioned Rouen adapter configuration already in
+the checkout, retains bundle v3 and creates the operational bundle v2.
+
+.PARAMETER Bact
+Path to the automatic long BACT export. Relative paths are resolved from the
+repository root. The file may have no extension.
+
+.PARAMETER Pmsi
+Path to the PMSI RDS object produced by redsan. Relative paths are resolved
+from the repository root. The file may have no extension.
+
+.PARAMETER Output
+Dedicated output directory. Defaults to outputs\rouen_current. A destination
+inside the checkout must be below outputs\.
+
+.PARAMETER Force
+Replace outputs from this same Rouen v3 plus operational-v2 workflow. It cannot
+replace an incompatible older layout.
+
+.PARAMETER DryRun
+Check the input paths, locked R environment, required packages and effective
+Rouen configuration without reading the clinical objects or running the build.
+
 .EXAMPLE
 & .\scripts\build_rouen.ps1 `
   -Bact "C:\protected\bact22_24" `
@@ -304,3 +329,11 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
 }
 
 Write-Host "PASS: Rouen build complete. Manifest: $manifestPath"
+Write-Host 'Handoff complete; no further command is required.'
+Write-Host 'Optional indicator render from this same build:'
+$runtimeWorkspace = Join-Path $outputPath 'runtime'
+Write-Host (
+  '& .\scripts\render_orchidee.ps1 -Target full ' +
+  "-Bundle `"$operationalV2Path`" " +
+  "-Workspace `"$runtimeWorkspace`""
+)

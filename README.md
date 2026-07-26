@@ -22,6 +22,10 @@ L'opérateur Rouen fournit exactement deux fichiers cliniques :
 1.  l'export BACT automatique récupéré localement ;
 2.  l'objet PMSI RDS produit par `redsan`.
 
+ORCHIDEE ne télécharge ni ne produit ces deux entrées. Si l'une manque, il faut
+d'abord suivre la procédure institutionnelle Rouen correspondante ; aucun
+mapping ou artefact intermédiaire ORCHIDEE ne peut la remplacer.
+
 Depuis la racine d'un clone frais, restaurer une fois l'environnement R :
 
 ```powershell
@@ -46,6 +50,18 @@ Puis retirer `-DryRun` pour construire les artefacts :
   -Pmsi "C:\protected\pmsi"
 ```
 
+Un run ordinaire ne demande de modifier aucun fichier sous `config/`,
+`mappings/`, `ref/` ou `rules/`. Pour afficher l'aide complète du point
+d'entrée :
+
+```powershell
+Get-Help .\scripts\build_rouen.ps1 -Full
+```
+
+La procédure opérateur de référence, y compris les règles de destination et le
+contenu des sorties, est
+[`documentation/external_bundle/rouen_raw_handoff.md`](documentation/external_bundle/rouen_raw_handoff.md).
+
 La destination par défaut est `outputs/rouen_current`. La présence de
 `outputs/rouen_current/build_manifest.txt` marque un build terminé. Les
 mappings, références et règles Rouen sont déjà dans le checkout ; les six blocs
@@ -54,6 +70,28 @@ construction ; il intervient seulement lors du rendu ultérieur des rapports.
 Le traitement réel prend des minutes, pas des secondes, et peut rester
 silencieux pendant une partie du calcul : ne consommer la sortie qu'après
 l'apparition du manifest.
+
+À ce stade :
+
+-   `site_inputs/` contient les six blocs intermédiaires générés ;
+-   `bundle_v3/` est le bundle complet à conserver ;
+-   `bundle_v2_operational/` est l'entrée du runtime actuel ;
+-   `build_manifest.txt` prouve que la construction et ses validations sont
+    terminées.
+
+Si l'objectif était seulement de produire le handoff, s'arrêter ici. Pour
+calculer ensuite les indicateurs à partir de ce même build, lier explicitement
+le bundle et son workspace au rendu :
+
+```powershell
+& .\scripts\render_orchidee.ps1 -Target full `
+  -Bundle "outputs/rouen_current/bundle_v2_operational" `
+  -Workspace "outputs/rouen_current/runtime"
+```
+
+Si `-Output` a été changé pendant le build, remplacer
+`outputs/rouen_current` dans ces deux chemins. Le wrapper affiche toujours le
+bundle, le workspace et l'origine de leur sélection avant de calculer.
 
 ## Installation R
 
@@ -78,6 +116,12 @@ courant demande R 4.5.3. Sous Windows, cette version reste disponible dans
 Une mise à jour de R ou du lock n'est acceptée qu'avec une restauration depuis
 un cache vide, les tests source et le gate opérationnel complet décrits dans le
 runbook.
+
+Sur le poste Windows qualifié, le setup annonce explicitement l'usage de
+Schannel avec révocation TLS en mode `best-effort` lorsque le service de
+révocation est indisponible. Cette exception est limitée à la restauration,
+conserve la validation de la chaîne de certificats et est documentée dans
+`documentation/r_environment_baseline_2026-07-26.md`.
 
 Pour les commandes R de maintenance, utiliser le même resolver et la même
 bibliothèque de projet :
@@ -183,8 +227,9 @@ Le contrat, les décisions locales et le contenu de l'audit sont décrits dans :
 
 `documentation/external_bundle/rouen_raw_handoff.md`
 
-Le point d'entrée opérateur est la commande à deux chemins du démarrage rapide
-ci-dessus.
+Le démarrage rapide ci-dessus résume la procédure opérateur de référence liée
+plus haut. Le reste de cette section décrit le contrat sans ajouter d'étape au
+parcours ordinaire.
 
 Le profil Rouen couvre par défaut les années 2022 à 2024 ; la même fenêtre
 est appliquée à la microbiologie et au dénominateur PMSI.
@@ -263,6 +308,9 @@ caches et téléchargements sont isolés sous
 `outputs/external_bundle_v2_runtime/` par défaut, ou sous le workspace désigné
 par `ORCHIDEE_EXTERNAL_WORKSPACE_DIR`. Un bundle absent ou invalide fait échouer
 explicitement le runtime : il n'existe aucun autodétecteur ni fallback.
+Pour un rendu ponctuel, préférer les paramètres explicites `-Bundle` et
+`-Workspace` du wrapper : ils rendent la provenance visible et ne modifient les
+variables que pendant cette invocation.
 
 Le chemin canonique reste brut et n'applique aucune complétion. Les dernières
 implémentations cohérentes de la complétion exploratoire et du runtime

@@ -24,6 +24,10 @@ if (
       if (is.null(getOption("download.file.extra"))) {
         options(download.file.extra = "--ssl-revoke-best-effort")
       }
+      message(
+        "ORCHIDEE setup: Schannel TLS revocation uses best-effort mode; ",
+        "certificate-chain validation remains enabled."
+      )
     }
   })
 }

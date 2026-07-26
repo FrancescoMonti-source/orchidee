@@ -19,15 +19,32 @@ Utiliser le wrapper plutôt que des commandes de rendu ad hoc :
 Cibles disponibles :
 
 -   `memo`
--   `docs`
+-   `docs`, alias de compatibilité de `memo`
 -   `indicators`
 -   `full`
 
+Le wrapper affiche les exécutables R et Quarto résolus. Pour `indicators` et
+`full`, il affiche aussi le bundle, le workspace et la provenance de leur
+sélection. Une installation Quarto non standard peut être indiquée avec
+`ORCHIDEE_QUARTO`.
+
 ## Point d'entrée des réglages
 
-Les réglages opérationnels vivent dans `config/pipeline.R` : chemins,
-fenêtre d'extraction attendue, flags de recompute et paramètres
-d'affichage.
+Un build Rouen ordinaire ne modifie aucune configuration : ses deux entrées et
+sa destination sont les paramètres `-Bact`, `-Pmsi` et `-Output`.
+
+La classification maintenue avec le code est portée par les sous-listes et
+commentaires de `config/pipeline.R` :
+
+-   `runtime` et `paths` résolvent les emplacements ;
+-   `cache` et `report` portent les contrôles de maintenance et d'affichage ;
+-   `ratb` appartient au contrat analytique et de publication, pas aux
+    préférences d'un run.
+
+La fenêtre, les codes de screening et les sources versionnées de l'adaptateur
+Rouen vivent séparément dans `config/rouen_raw_handoff.R`. Une modification de
+ce fichier exige un nouveau build audité et le gate opérationnel pertinent.
+Les chemins BACT et PMSI n'appartiennent à aucun de ces deux fichiers.
 
 Les tables de règles analytiques maintenues par le projet doivent rester
 dans `rules/` lorsqu'elles existent.
@@ -72,6 +89,12 @@ dans
 Une évolution de R ou du lock doit être traitée comme un changement
 d'environnement : restauration depuis un cache vide, tests source et gate
 opérationnel complet avant acceptation.
+
+Pendant le setup Windows seulement, `.Rprofile` peut annoncer l'usage de
+Schannel avec `--ssl-revoke-best-effort` lorsque le service de révocation est
+indisponible. La validation de la chaîne de certificats reste active. Cette
+exception qualifiée et son gate sont consignés dans
+`documentation/r_environment_baseline_2026-07-26.md`.
 
 Après ajout, suppression ou mise à jour volontaire d'une dépendance, vérifier
 l'état puis mettre à jour le lockfile :
@@ -160,14 +183,18 @@ v3 sans l'adopter comme entrée des notebooks. Le build direct
 Le bundle v2 strict est l'unique chemin opérationnel. Sans surcharge,
 `config/pipeline.R` cherche le bundle sous
 `outputs/rouen_current/bundle_v2_operational`. Après sa construction, lancer un
-rendu complet :
+rendu complet en liant explicitement le bundle construit et son workspace :
 
 ```powershell
-& .\scripts\render_orchidee.ps1 -Target full
+& .\scripts\render_orchidee.ps1 -Target full `
+  -Bundle "outputs/rouen_current/bundle_v2_operational" `
+  -Workspace "outputs/rouen_current/runtime"
 ```
 
 `full` construit le cache RATB brut canonique puis rend le rapport
-d'indicateurs. La complétion ne fait pas partie de ce chemin.
+d'indicateurs. La complétion ne fait pas partie de ce chemin. Avant tout calcul,
+le wrapper contrôle Quarto, les paquets R réellement chargés et les quatre
+fichiers du bundle, puis affiche les chemins résolus.
 
 La complétion exploratoire n'est plus un target de rendu actif. Sa dernière
 implémentation cohérente est conservée au tag
@@ -176,14 +203,20 @@ implémentation cohérente est conservée au tag
 Pour utiliser un bundle ou un workspace protégé situé ailleurs :
 
 ```powershell
-$env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR = "C:\chemin\protege\bundle"
-$env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = "C:\chemin\protege\runtime"
-& .\scripts\render_orchidee.ps1 -Target full
+& .\scripts\render_orchidee.ps1 -Target full `
+  -Bundle "C:\chemin\protege\bundle" `
+  -Workspace "C:\chemin\protege\runtime"
 ```
 
+Les variables `ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR` et
+`ORCHIDEE_EXTERNAL_WORKSPACE_DIR` restent disponibles pour une session répétée.
+Le wrapper signale un override bundle actif quand `-Bundle` n'est pas fourni,
+afin qu'un réglage persistant ne change jamais silencieusement la source. Les
+paramètres explicites ne modifient ces variables que pendant l'invocation.
+
 Le loader exige les quatre fichiers préférés du contrat v2 et échoue sans
-fallback. Cache brut, dédoublonnage et téléchargements sont
-écrits sous le workspace externe, pas dans `data/` ni `downloads/`.
+fallback. Cache brut, dédoublonnage et téléchargements sont écrits sous le
+workspace externe, pas dans `data/` ni `downloads/`.
 
 Pour revenir aux chemins configurés par défaut dans la même session PowerShell :
 
@@ -219,6 +252,10 @@ Une baseline acceptée doit être conservée comme un oracle immuable.
 
 ## Matrice de rendu
 
+Pour les cibles qui consomment les données, les exemples ci-dessous nomment la
+sortie Rouen par défaut. Adapter les deux chemins si le build utilisait un autre
+`-Output` ; ne pas les omettre.
+
 ### Si seul le mémo a changé
 
 Commande :
@@ -227,9 +264,10 @@ Commande :
 & .\scripts\render_orchidee.ps1 -Target memo
 ```
 
-### Si les deux documents méthodologiques ont changé
+### Alias de compatibilité `docs`
 
-Commande :
+Il ne reste qu'un document méthodologique actif. `docs` est conservé comme
+alias explicite de `memo` et émet un avertissement :
 
 ```powershell
 & .\scripts\render_orchidee.ps1 -Target docs
@@ -249,7 +287,9 @@ Exemples :
 Commande :
 
 ```powershell
-& .\scripts\render_orchidee.ps1 -Target indicators
+& .\scripts\render_orchidee.ps1 -Target indicators `
+  -Bundle "outputs/rouen_current/bundle_v2_operational" `
+  -Workspace "outputs/rouen_current/runtime"
 ```
 
 ### Si la logique amont a changé
@@ -265,7 +305,9 @@ Exemples :
 Commande :
 
 ```powershell
-& .\scripts\render_orchidee.ps1 -Target full
+& .\scripts\render_orchidee.ps1 -Target full `
+  -Bundle "outputs/rouen_current/bundle_v2_operational" `
+  -Workspace "outputs/rouen_current/runtime"
 ```
 
 `full` exécute dans cet ordre :
@@ -288,8 +330,9 @@ Commande :
     rapports.
 -   Garder les bundles, caches, audits, brouillons et inspections générés sous
     `outputs/` ou dans le workspace externe configuré.
--   Modifier `config/pipeline.R` pour les réglages de run avant de
-    modifier un notebook.
+-   Passer les chemins d'un run par les paramètres CLI. Modifier les
+    configurations versionnées seulement lorsqu'un contrat de maintenance ou
+    d'analyse doit réellement changer.
 -   Préférer de petits diffs.
 -   Éviter de mélanger nettoyage structurel et changements de logique
     scientifique.

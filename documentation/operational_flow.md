@@ -147,7 +147,9 @@ notebook et helpers compris, est conservée au tag
 `archive/completion-chu-native-2026-07-22`.
 
 `scripts/render_orchidee.ps1 -Target full` construit le cache brut puis rend le
-rapport d'indicateurs.
+rapport d'indicateurs. Le wrapper affiche toujours le bundle et le workspace
+effectifs ; `-Bundle` et `-Workspace` permettent de les lier explicitement au
+build que l'on veut consommer.
 
 Le gate Rouen réel du 2026-07-20 a confirmé que le nouveau chemin brut reproduit
 exactement les objets ratifiés : `dedup`, `class_map`, `episode_summary` et
