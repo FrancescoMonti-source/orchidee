@@ -15,6 +15,88 @@ Ce dépôt a deux publics, dans cet ordre :
     ORCHIDEE.
 2.  Les mainteneurs ORCHIDEE qui doivent garder le noyau de l'étape 1 stable.
 
+## Rouen : démarrage rapide
+
+L'opérateur Rouen fournit exactement deux fichiers cliniques :
+
+1.  l'export BACT automatique récupéré localement ;
+2.  l'objet PMSI RDS produit par `redsan`.
+
+Depuis la racine d'un clone frais, restaurer une fois l'environnement R :
+
+```powershell
+& .\scripts\setup.ps1
+```
+
+Vérifier ensuite les deux chemins, R et les paquets nécessaires sans lire les
+objets cliniques ni lancer le build :
+
+```powershell
+& .\scripts\build_rouen.ps1 `
+  -Bact "C:\protected\bact22_24" `
+  -Pmsi "C:\protected\pmsi" `
+  -DryRun
+```
+
+Puis retirer `-DryRun` pour construire les artefacts :
+
+```powershell
+& .\scripts\build_rouen.ps1 `
+  -Bact "C:\protected\bact22_24" `
+  -Pmsi "C:\protected\pmsi"
+```
+
+La destination par défaut est `outputs/rouen_current`. La présence de
+`outputs/rouen_current/build_manifest.txt` marque un build terminé. Les
+mappings, références et règles Rouen sont déjà dans le checkout ; les six blocs
+de handoff et les bundles sont générés. Quarto n'est pas nécessaire pour cette
+construction ; il intervient seulement lors du rendu ultérieur des rapports.
+Le traitement réel prend des minutes, pas des secondes, et peut rester
+silencieux pendant une partie du calcul : ne consommer la sortie qu'après
+l'apparition du manifest.
+
+## Installation R
+
+Les dépendances et la version de R sont figées dans `renv.lock`.
+`scripts/setup.ps1` trouve la version R attendue sans exiger `Rscript` dans le
+`PATH`, restaure la bibliothèque locale `renv/` et vérifie les versions
+installées :
+
+```powershell
+& .\scripts\setup.ps1
+```
+
+Le resolver essaie, dans cet ordre, `ORCHIDEE_R`, l'installation correspondant
+exactement à `renv.lock`, puis les autres candidats connus. `-DryRun` vérifie R
+et le lockfile sans installer ni modifier de paquet. Relancer le setup après une
+modification volontaire de `renv.lock`.
+
+Le patch R est volontairement exact pour ce pipeline clinique gelé : le lock
+courant demande R 4.5.3. Sous Windows, cette version reste disponible dans
+[les archives officielles CRAN](https://cran.r-project.org/bin/windows/base/old/4.5.3/).
+Une mise à jour de R ou du lock n'est acceptée qu'avec une restauration depuis
+un cache vide, les tests source et le gate opérationnel complet décrits dans le
+runbook.
+
+Pour les commandes R de maintenance, utiliser le même resolver et la même
+bibliothèque de projet :
+
+```powershell
+& .\scripts\run_r.ps1 tests/run_tests.R
+& .\scripts\run_r.ps1 -Expression "renv::status()"
+```
+
+L'adaptateur PMSI Rouen utilise `redsan` 0.2.0 ou plus récent. Sa politique
+PMSI par défaut applique explicitement `C > DW` à
+l'intérieur d'une même unité sans fusionner les intervalles retenus. Cette
+dépendance est enregistrée dans `renv.lock` ; elle ne remplace pas le chemin de
+handoff d'un site externe.
+
+L'opérateur ORCHIDEE ne doit donc pas installer `redsan` séparément. Il doit en
+revanche disposer de l'objet PMSI que le pipeline `redsan` a produit en amont.
+
+## Repères du dépôt
+
 Le principe pour un site externe est simple : le site ne reproduit pas le chemin
 d'extraction CHU. Il fournit des blocs locaux lisibles, puis ORCHIDEE dérive les
 fichiers internes utilisés par ORCHIDEE.
@@ -32,25 +114,6 @@ versionnées sous `ref/rouen/`, y compris la structure interne de
 l'établissement. Les sources méthodologiques et les références consommées sont
 recensées dans `documentation/reference_sources.md`.
 
-## Installation R
-
-Les dépendances R sont figées dans `renv.lock`. Après un clone frais, installer
-`renv` si nécessaire, puis restaurer l'environnement depuis la racine du dépôt :
-
-```powershell
-Rscript -e "if (!requireNamespace('renv', quietly = TRUE)) install.packages('renv'); renv::restore(prompt = FALSE)"
-```
-
-Si `Rscript` n'est pas disponible dans le `PATH`, utiliser le chemin complet de
-l'installation R locale. La version R attendue est celle indiquée dans
-`renv.lock`.
-
-L'adaptateur PMSI Rouen utilise `redsan` 0.2.0 ou plus récent. Sa politique
-PMSI par défaut applique explicitement `C > DW` à
-l'intérieur d'une même unité sans fusionner les intervalles retenus. Cette
-dépendance est enregistrée dans `renv.lock` ; elle ne remplace pas le chemin de
-handoff d'un site externe.
-
 L'interrogation EDSaN, le découpage en lots et la normalisation des modules
 PMSI/BIOL appartiennent désormais à `redsan`. ORCHIDEE ne maintient plus de
 second client EDSaN : il consomme l'export bactériologique local et l'objet PMSI
@@ -60,8 +123,9 @@ six blocs de handoff d'un autre site.
 ## Choisir le bon point d'entrée
 
 -   **Rouen** : fournir seulement les deux chemins d'entrée BACT et PMSI à
-    `scripts/build_rouen_external_bundle.R`. L'adaptateur génère les six blocs ;
-    commencer par `documentation/external_bundle/rouen_raw_handoff.md`.
+    `scripts/build_rouen.ps1`. Le wrapper trouve R et l'adaptateur génère les
+    six blocs ; commencer par
+    `documentation/external_bundle/rouen_raw_handoff.md`.
 -   **Rennes ou un autre entrepôt** : fournir directement les six blocs décrits
     dans `documentation/external_bundle/site_handoff_inputs.md`.
 
@@ -118,27 +182,25 @@ Le contrat, les décisions locales et le contenu de l'audit sont décrits dans :
 
 `documentation/external_bundle/rouen_raw_handoff.md`
 
-Le point d'entrée est :
-
-```powershell
-$bact = "data/bact22_24"
-$pmsi = "data/pmsi"
-$output = "outputs/rouen_current"
-Rscript scripts/build_rouen_external_bundle.R `
-  $bact $pmsi $output `
-  --contract=v3 `
-  --operational-v2-output="$output/bundle_v2_operational"
-```
+Le point d'entrée opérateur est la commande à deux chemins du démarrage rapide
+ci-dessus.
 
 Le profil Rouen couvre par défaut les années 2022 à 2024 ; la même fenêtre
 est appliquée à la microbiologie et au dénominateur PMSI.
 
 Dans un checkout Rouen prêt à l'emploi, l'opérateur renseigne seulement les
-deux chemins d'entrée BACT et PMSI ; `$output` désigne simplement la destination
-des résultats. Les mappings versionnés et les références sous `ref/rouen/` et
-`ref/consores/` sont déjà fournis et chargés automatiquement. Les six blocs de
-handoff et les bundles sont générés par la commande. Les fichiers d'entrée
-peuvent ne pas avoir d'extension, comme dans l'exemple.
+deux chemins d'entrée BACT et PMSI. La destination par défaut est
+`outputs/rouen_current` ; `-Output` permet d'en choisir une autre et `-DryRun`
+vérifie les chemins, la version R verrouillée et les paquets nécessaires sans
+lancer le build. Un output existant est signalé pendant ce préflight sans le
+bloquer ; le build réel exige ensuite `-Force` ou un autre `-Output`. Les
+mappings versionnés et les références sous `ref/rouen/` et `ref/consores/` sont
+déjà fournis et chargés automatiquement. Les six blocs de handoff et les bundles
+sont générés par la commande. Les fichiers d'entrée peuvent ne pas avoir
+d'extension, comme dans l'exemple. Dans le checkout, le wrapper refuse une
+destination hors de `outputs/` ; un répertoire dédié dans un emplacement
+protégé externe reste accepté, mais pas la racine d'un disque ni un dossier
+parent du checkout.
 
 Les sorties restent locales et ignorées par Git. `site_inputs/` conserve les
 six blocs, `bundle_v3/` le contrat complet et `bundle_v2_operational/` l'entrée
@@ -180,6 +242,8 @@ Rouen recommandée.
     -   carte mainteneur : où se trouve la logique dans le code ;
 -   `documentation/maintenance_runbook.md`
     -   commandes de rendu, validation locale et dépannage courant ;
+-   `documentation/r_environment_baseline_2026-07-26.md`
+    -   qualification du bootstrap froid et du gate fonctionnel du lock R ;
 -   `documentation/ratb_implementation_decisions.qmd`
     -   mémo méthodologique du noyau RATB gelé ;
 -   `documentation/reference_sources.md`
@@ -220,8 +284,11 @@ Pour brancher un autre entrepôt, commencer par
 -   `R/`
     -   helpers R et logique réutilisable ;
 -   `scripts/`
-    -   points d'entrée CLI : builder externe, validateurs, smoke test et
-        wrapper de rendu ;
+    -   setup R et points d'entrée CLI : runner R commun, builders,
+        validateurs, smoke test et wrapper de rendu ;
+-   `renv/`
+    -   infrastructure d'activation versionnée ; la bibliothèque restaurée sous
+        `renv/library/` reste locale et ignorée par Git ;
 -   `documentation/external_bundle/`
     -   contrat d'entrée pour Rennes ou un autre entrepôt ;
 -   `documentation/`

@@ -54,14 +54,31 @@ Les dépendances sont enregistrées dans `renv.lock`.
 Pour restaurer l'environnement d'un clone frais :
 
 ```powershell
-Rscript -e "if (!requireNamespace('renv', quietly = TRUE)) install.packages('renv'); renv::restore(prompt = FALSE)"
+& .\scripts\setup.ps1
 ```
+
+Le setup trouve la version exacte de R déclarée dans le lockfile, sans exiger
+`Rscript` dans le `PATH`, restaure la bibliothèque de projet sous `renv/` et
+vérifie les versions et les sources enregistrées sans charger les 111 paquets
+dans la session de setup. `.Rprofile` et
+`renv/activate.R` assurent l'activation standard de cette bibliothèque pour les
+commandes lancées depuis la racine. `scripts/setup.ps1 -DryRun` contrôle
+seulement R et le lockfile.
+
+Le patch R exact est une contrainte volontaire du pipeline clinique gelé. Le
+lock courant exige R 4.5.3 ; sous Windows, son installateur reste disponible
+dans
+[les archives officielles CRAN](https://cran.r-project.org/bin/windows/base/old/4.5.3/).
+Une évolution de R ou du lock doit être traitée comme un changement
+d'environnement : restauration depuis un cache vide, tests source et gate
+opérationnel complet avant acceptation.
 
 Après ajout, suppression ou mise à jour volontaire d'une dépendance, vérifier
 l'état puis mettre à jour le lockfile :
 
 ```powershell
-Rscript -e "renv::status(); renv::snapshot(prompt = FALSE)"
+& .\scripts\run_r.ps1 -Expression `
+  "renv::status(); renv::snapshot(prompt = FALSE)"
 ```
 
 Ne pas snapshotter après avoir seulement chargé des artefacts locaux ou rendu un
@@ -73,16 +90,16 @@ session de travail.
 `redsan` possède l'interrogation EDSaN, le batching et la normalisation des
 modules PMSI/BIOL. ORCHIDEE ne duplique plus ces fonctions. Pour le chemin
 Rouen, partir de l'export bactériologique long et de l'objet PMSI produit par
-`redsan`, puis utiliser `scripts/build_rouen_external_bundle.R`. Toute évolution
-du contrat source EDSaN doit donc être réalisée et testée dans `redsan` avant
-son adoption par ORCHIDEE.
+`redsan`, puis utiliser `scripts/build_rouen.ps1`. Toute évolution du contrat
+source EDSaN doit donc être réalisée et testée dans `redsan` avant son adoption
+par ORCHIDEE.
 
 ## Tests R autonomes
 
 Exécuter les tests source depuis la racine du dépôt :
 
 ```powershell
-Rscript tests/run_tests.R
+& .\scripts\run_r.ps1 tests/run_tests.R
 ```
 
 Chaque fichier `tests/test_*.R` est exécuté dans un processus R distinct.
@@ -93,21 +110,30 @@ Le parcours normal transforme les exports Rouen en six blocs complets, conserve
 le bundle v3 durable puis matérialise sa projection v2 opérationnelle :
 
 L'opérateur renseigne seulement les deux chemins d'entrée vers l'export BACT
-et l'objet PMSI `redsan` ; `$output` désigne la destination des résultats. Les
-mappings, catalogues TA/DE et références Rouen sont déjà présents dans le
-checkout.
+et l'objet PMSI `redsan` ; `-Output` permet éventuellement de changer la
+destination des résultats. Les mappings, catalogues TA/DE et références Rouen
+sont déjà présents dans le checkout.
 
 ```powershell
-$bact = "data/bact22_24"
-$pmsi = "data/pmsi"
-$output = "outputs/rouen_current"
-Rscript scripts/build_rouen_external_bundle.R `
-  $bact `
-  $pmsi `
-  $output `
-  --contract=v3 `
-  --operational-v2-output="$output/bundle_v2_operational"
+& .\scripts\build_rouen.ps1 `
+  -Bact "data/bact22_24" `
+  -Pmsi "data/pmsi"
 ```
+
+Le wrapper privilégie la version R déclarée dans `renv.lock`, sauf surcharge
+explicite par `ORCHIDEE_R`. Il utilise `outputs/rouen_current` par défaut et
+applique le parcours v3 + projection v2 ratifié. Utiliser `-Output` pour une
+autre destination, `-DryRun` pour le préflight sans lecture des objets et
+`-Force` seulement pour remplacer des sorties existantes du même parcours. Le
+préflight vérifie aussi les paquets réellement requis par l'adaptateur ; il
+signale un output existant sans échouer, puis rappelle si le build réel exige
+`-Force` ou un autre chemin.
+Choisir un autre `-Output` face à un ancien layout de build direct. Dans le
+checkout, la destination doit être un sous-répertoire dédié de `outputs/` ; un
+chemin protégé externe dédié reste accepté, mais pas une racine de disque ni
+un répertoire parent du checkout. La CLI R sous-jacente reste
+`scripts/build_rouen_external_bundle.R` pour les mainteneurs qui doivent
+comparer explicitement les contrats.
 
 La commande écrit les six blocs sous `site_inputs/`, les quatre fichiers v3 sous
 `bundle_v3/`, la projection courante sous `bundle_v2_operational/` et l'audit
@@ -174,7 +200,7 @@ candidat avec le gate read-only :
 ```powershell
 $baseline = "C:\chemin\protege\validation-v2"
 $candidate = "C:\chemin\protege\rouen-current"
-Rscript scripts/compare_operational_v2_gate.R `
+& .\scripts\run_r.ps1 scripts/compare_operational_v2_gate.R `
   "$baseline\bundle-v2-projected" `
   "$baseline\runtime" `
   "$candidate\bundle_v2_operational" `

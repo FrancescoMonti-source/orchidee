@@ -121,6 +121,22 @@ chargés hors notebook.
 
 ### Bootstrap
 
+-   `.Rprofile`
+    -   délègue à l'autoloader standard versionné `renv/activate.R`
+-   `renv/activate.R`
+    -   initialise puis active la version de `renv` enregistrée dans le lockfile
+-   `scripts/setup.ps1`
+    -   résout la version R du lockfile, restaure la bibliothèque `renv/` et
+        vérifie les versions et sources installées
+-   `scripts/run_r.ps1`
+    -   lance un script ou une expression avec la version R exacte et la
+        bibliothèque `renv` du dépôt
+-   `scripts/orchidee_environment.ps1`
+    -   resolver PowerShell partagé de R et du lockfile, utilisé par le setup,
+        le runner R, le builder Rouen et le wrapper de rendu
+-   `documentation/r_environment_baseline_2026-07-26.md`
+    -   preuve versionnée du bootstrap froid et du gate fonctionnel ayant
+        qualifié le lock R courant
 -   `R/setup.R`
     -   bootstrap portable : chargement des librairies, sourcing de
         `R/bootstrap.R`, lecture de la config et helpers communs ; sourcé
@@ -290,8 +306,13 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   dérive `sir_wide.rds`, `sir_wide_meta.rds`,
         `sample_scope_reference.rds` et `denominator_bundle.rds`, puis
         lance la validation stricte
+-   `scripts/build_rouen.ps1`
+    -   point d'entrée opérateur Rouen : demande seulement les chemins BACT et
+        PMSI, résout R, choisit le parcours v3 + projection v2 ratifié et utilise
+        `outputs/rouen_current` par défaut
 -   `scripts/build_rouen_external_bundle.R`
-    -   point d'entrée Rouen bactériologie brute + objet PMSI `redsan`
+    -   CLI R sous-jacente pour la construction Rouen et les comparaisons
+        explicites de contrats
     -   le parcours recommandé écrit les six blocs, conserve le bundle v3,
         projette `spares_current` vers un bundle v2 opérationnel et produit
         un manifest lisible, puis valide et smoke les deux contrats
