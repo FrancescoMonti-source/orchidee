@@ -110,7 +110,8 @@ function Restore-ProcessEnvironmentVariable {
     [string]$Name,
 
     [AllowNull()]
-    [string]$Value
+    # [string] would coerce an absent value ($null) to "" and prevent removal.
+    [object]$Value
   )
 
   if ($null -eq $Value) {
