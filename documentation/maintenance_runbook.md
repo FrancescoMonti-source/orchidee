@@ -120,14 +120,14 @@ sont déjà présents dans le checkout.
   -Pmsi "data/pmsi"
 ```
 
-Le wrapper privilégie la version R déclarée dans `renv.lock`, sauf surcharge
-explicite par `ORCHIDEE_R`. Il utilise `outputs/rouen_current` par défaut et
-applique le parcours v3 + projection v2 ratifié. Utiliser `-Output` pour une
-autre destination, `-DryRun` pour le préflight sans lecture des objets et
-`-Force` seulement pour remplacer des sorties existantes du même parcours. Le
-préflight vérifie aussi les paquets réellement requis par l'adaptateur ; il
-signale un output existant sans échouer, puis rappelle si le build réel exige
-`-Force` ou un autre chemin.
+Le wrapper exige la version R déclarée dans `renv.lock`. `ORCHIDEE_R` permet
+seulement d'indiquer un autre exécutable de cette même version. Il utilise
+`outputs/rouen_current` par défaut et applique le parcours v3 + projection v2
+ratifié. Utiliser `-Output` pour une autre destination, `-DryRun` pour le
+préflight sans lecture des objets et `-Force` seulement pour remplacer des
+sorties existantes du même parcours. Le préflight vérifie aussi les paquets
+réellement requis par l'adaptateur ; il signale un output existant sans échouer,
+puis rappelle si le build réel exige `-Force` ou un autre chemin.
 Choisir un autre `-Output` face à un ancien layout de build direct. Dans le
 checkout, la destination doit être un sous-répertoire dédié de `outputs/` ; un
 chemin protégé externe dédié reste accepté, mais pas une racine de disque ni

@@ -269,10 +269,11 @@ From the repository root:
 
 Add `-Force` only to replace existing outputs from the same workflow. If the
 destination contains a different direct-build layout, choose another
-`-Output`. The wrapper prefers the R version declared in `renv.lock` unless
-`ORCHIDEE_R` explicitly overrides it, selects the preferred v3 construction
-and materializes the operational v2 projection automatically. If the R
-environment is incomplete, run `scripts/setup.ps1` and retry.
+`-Output`. The wrapper requires the R version declared in `renv.lock`;
+`ORCHIDEE_R` may point to another executable only when it has that same exact
+version. It selects the preferred v3 construction and materializes the
+operational v2 projection automatically. If the R environment is incomplete,
+run `scripts/setup.ps1` and retry.
 
 The underlying R CLI remains available for maintenance or contract comparison:
 

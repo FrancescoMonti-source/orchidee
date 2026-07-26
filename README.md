@@ -66,10 +66,11 @@ installées :
 & .\scripts\setup.ps1
 ```
 
-Le resolver essaie, dans cet ordre, `ORCHIDEE_R`, l'installation correspondant
-exactement à `renv.lock`, puis les autres candidats connus. `-DryRun` vérifie R
-et le lockfile sans installer ni modifier de paquet. Relancer le setup après une
-modification volontaire de `renv.lock`.
+Le resolver examine d'abord `ORCHIDEE_R`, qui doit lui aussi pointer vers la
+version exacte déclarée dans `renv.lock`, puis l'installation standard de cette
+version et les autres candidats connus. `-DryRun` vérifie R et le lockfile sans
+installer ni modifier de paquet. Relancer le setup après une modification
+volontaire de `renv.lock`.
 
 Le patch R est volontairement exact pour ce pipeline clinique gelé : le lock
 courant demande R 4.5.3. Sous Windows, cette version reste disponible dans
