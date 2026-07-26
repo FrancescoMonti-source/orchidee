@@ -15,7 +15,7 @@ if (length(args) != 1L || !args[[1L]] %in% c(
 target <- args[[1L]]
 
 required_packages <- if (target %in% c("memo", "docs")) {
-  "knitr"
+  c("knitr", "rmarkdown")
 } else {
   c(
     "conflicted",
@@ -28,6 +28,7 @@ required_packages <- if (target %in% c("memo", "docs")) {
     "purrr",
     "ggplot2",
     "knitr",
+    "rmarkdown",
     "dplyr",
     "tibble"
   )
