@@ -15,6 +15,15 @@ Ce dépôt a deux publics, dans cet ordre :
     ORCHIDEE.
 2.  Les mainteneurs ORCHIDEE qui doivent garder le noyau de l'étape 1 stable.
 
+## Choisir le bon point d'entrée
+
+-   **Rouen** : fournir seulement les chemins BACT et PMSI à
+    `scripts/build_rouen.ps1`. Commencer par la
+    [procédure opérateur Rouen](documentation/external_bundle/rouen_raw_handoff.md).
+-   **Rennes ou un autre entrepôt** : préparer les six blocs attendus par
+    `scripts/build_site.ps1`. Commencer par la
+    [procédure opérateur site](documentation/external_bundle/site_handoff_inputs.md).
+
 ## Rouen : démarrage rapide
 
 L'opérateur Rouen fournit exactement deux fichiers cliniques :
@@ -42,56 +51,20 @@ objets cliniques ni lancer le build :
   -DryRun
 ```
 
-Puis retirer `-DryRun` pour construire les artefacts :
+Après le `PASS`, relancer exactement la même commande sans `-DryRun`. Un run
+ordinaire ne demande de modifier aucun fichier sous `config/`, `mappings/`,
+`ref/` ou `rules/`.
 
-```powershell
-& .\scripts\build_rouen.ps1 `
-  -Bact "C:\protected\bact22_24" `
-  -Pmsi "C:\protected\pmsi"
-```
+La procédure opérateur de référence décrit les sorties, le manifest de fin et
+le rendu à partir du même build :
 
-Un run ordinaire ne demande de modifier aucun fichier sous `config/`,
-`mappings/`, `ref/` ou `rules/`. Pour afficher l'aide complète du point
-d'entrée :
+[`documentation/external_bundle/rouen_raw_handoff.md`](documentation/external_bundle/rouen_raw_handoff.md)
+
+Toutes les options du point d'entrée sont visibles avec :
 
 ```powershell
 Get-Help .\scripts\build_rouen.ps1 -Full
 ```
-
-La procédure opérateur de référence, y compris les règles de destination et le
-contenu des sorties, est
-[`documentation/external_bundle/rouen_raw_handoff.md`](documentation/external_bundle/rouen_raw_handoff.md).
-
-La destination par défaut est `outputs/rouen_current`. La présence de
-`outputs/rouen_current/build_manifest.txt` marque un build terminé. Les
-mappings, références et règles Rouen sont déjà dans le checkout ; les six blocs
-de handoff et les bundles sont générés. Quarto n'est pas nécessaire pour cette
-construction ; il intervient seulement lors du rendu ultérieur des rapports.
-Le traitement réel prend des minutes, pas des secondes, et peut rester
-silencieux pendant une partie du calcul : ne consommer la sortie qu'après
-l'apparition du manifest.
-
-À ce stade :
-
--   `site_inputs/` contient les six blocs intermédiaires générés ;
--   `bundle_v3/` est le bundle complet à conserver ;
--   `bundle_v2_operational/` est l'entrée du runtime actuel ;
--   `build_manifest.txt` prouve que la construction et ses validations sont
-    terminées.
-
-Si l'objectif était seulement de produire le handoff, s'arrêter ici. Pour
-calculer ensuite les indicateurs à partir de ce même build, lier explicitement
-le bundle et son workspace au rendu :
-
-```powershell
-& .\scripts\render_orchidee.ps1 -Target full `
-  -Bundle "outputs/rouen_current/bundle_v2_operational" `
-  -Workspace "outputs/rouen_current/runtime"
-```
-
-Si `-Output` a été changé pendant le build, remplacer
-`outputs/rouen_current` dans ces deux chemins. Le wrapper affiche toujours le
-bundle, le workspace et l'origine de leur sélection avant de calculer.
 
 ## Installation R
 
@@ -165,16 +138,6 @@ second client EDSaN : il consomme l'export bactériologique local et l'objet PMS
 produit par `redsan`, puis les transforme par son adaptateur Rouen ou reçoit les
 six blocs de handoff d'un autre site.
 
-## Choisir le bon point d'entrée
-
--   **Rouen** : fournir seulement les deux chemins d'entrée BACT et PMSI à
-    `scripts/build_rouen.ps1`. Le wrapper trouve R et l'adaptateur génère les
-    six blocs ; commencer par
-    `documentation/external_bundle/rouen_raw_handoff.md`.
--   **Rennes ou un autre entrepôt** : fournir directement les six blocs décrits
-    dans `documentation/external_bundle/site_handoff_inputs.md` à
-    `scripts/build_site.ps1`.
-
 ## Rennes / autre entrepôt : commencer ici
 
 Cette section sert uniquement d'orientation. La procédure opérateur maintenue,
@@ -205,56 +168,6 @@ Get-Help .\scripts\build_site.ps1 -Full
 Après validation, ORCHIDEE conserve le bundle v3 complet, matérialise le bundle
 v2 opérationnel et affiche la commande de rendu liée à ce même build. Les
 fichiers RDS internes sont générés par ORCHIDEE, pas préparés par le site.
-
-## Rouen : des exports locaux au même handoff
-
-Rouen dispose maintenant d'un adaptateur explicite qui transforme l'export
-bactériologique long et l'objet PMSI produit par `redsan` en ces mêmes familles
-de blocs, puis construit dans une seule exécution le bundle v3 durable et sa
-projection v2 opérationnelle. Il applique l'UF
-d'hébergement active au prélèvement sans fallback silencieux vers l'UF
-microbiologique.
-
-Le contrat, les décisions locales et le contenu de l'audit sont décrits dans :
-
-`documentation/external_bundle/rouen_raw_handoff.md`
-
-Le démarrage rapide ci-dessus résume la procédure opérateur de référence liée
-plus haut. Le reste de cette section décrit le contrat sans ajouter d'étape au
-parcours ordinaire.
-
-Le profil Rouen couvre par défaut les années 2022 à 2024 ; la même fenêtre
-est appliquée à la microbiologie et au dénominateur PMSI.
-
-Dans un checkout Rouen prêt à l'emploi, l'opérateur renseigne seulement les
-deux chemins d'entrée BACT et PMSI. La destination par défaut est
-`outputs/rouen_current` ; `-Output` permet d'en choisir une autre et `-DryRun`
-vérifie les chemins, la version R verrouillée et les paquets nécessaires sans
-lancer le build. Un output compatible existant est signalé pendant ce préflight
-sans le bloquer ; le build réel exige ensuite `-Force` ou un autre `-Output`.
-Un ancien layout incompatible fait échouer le préflight et impose un autre
-`-Output`. Les mappings versionnés et les références sous `ref/rouen/` et
-`ref/consores/` sont déjà fournis et chargés automatiquement. Les six blocs de
-handoff et les bundles sont générés par la commande. Les fichiers d'entrée
-peuvent ne pas avoir d'extension, comme dans l'exemple. Dans le checkout, le
-wrapper refuse une destination hors de `outputs/` ; un répertoire dédié dans un
-emplacement protégé externe reste accepté, mais pas la racine d'un disque ni un
-dossier parent du checkout.
-
-Les sorties restent locales et ignorées par Git. `site_inputs/` conserve les
-six blocs, `bundle_v3/` le contrat complet et `bundle_v2_operational/` l'entrée
-du runtime actuel. `build_manifest.txt` indique leurs chemins, empreintes et
-statuts de validation sans devoir ouvrir les objets RDS.
-
-Le contrat v3 conserve la sémantique d'UF d'hébergement de v2 et remplace le
-total annuel transporté
-par une table d'exposition profilée au grain année + UM + UF + TA + DE. Elle
-conserve aussi l'activité mappée hors du périmètre courant. Le runtime applique
-le contexte fermé `spares_current` et redérive exactement le total annuel
-v2. v3 n'est pas consommé directement par les notebooks et n'ajoute pas encore
-de panels stratifiés. Le build direct `--contract=v2` reste disponible comme
-chemin de compatibilité explicite, mais ce n'est plus la commande d'onboarding
-Rouen recommandée.
 
 ## Carte des documents
 

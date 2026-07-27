@@ -142,8 +142,12 @@ suivants :
     effectuer le mapping local ;
 -   le wrapper conserve v3, matérialise et smoke le v2 opérationnel, puis écrit
     les deux manifests en dernier avec le même `build_id` ;
--   `-Force` ne remplace qu'un layout complet issu du même workflow ; un
-    manifest manquant ou un autre layout impose un nouveau `-Output`.
+-   `-Force` ne remplace qu'un layout complet issu du même workflow ;
+-   pour des bundles partiels sans manifests valides, choisir un autre
+    `-Output` ou, après avoir confirmé qu'aucun build ne tourne, exécuter la
+    commande de nettoyage affichée par le wrapper avant de réutiliser la
+    destination ;
+-   un layout provenant d'un autre workflow impose un nouveau `-Output`.
 
 La CLI positionnelle `scripts/build_external_bundle_from_site_inputs.R` reste
 un outil mainteneur pour les comparaisons explicites de contrats.
