@@ -156,9 +156,9 @@ args <- setdiff(
 )
 if (help || length(args) != 3L) {
   cat(
-    "Usage:\n",
-    "  Rscript scripts/build_rouen_external_bundle.R \\\n",
-    "    <bact_path> <pmsi_path> <output_dir> \\\n",
+    "Usage (PowerShell):\n",
+    "  & .\\scripts\\run_r.ps1 scripts/build_rouen_external_bundle.R `\n",
+    "    <bact_path> <pmsi_path> <output_dir> `\n",
     "    --contract=v2|v3 [--operational-v2-output=<dir>] [--force]\n\n",
     "Inputs:\n",
     "  bact_path: long Rouen bacteriology RDS export.\n",

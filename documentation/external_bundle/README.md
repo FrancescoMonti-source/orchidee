@@ -58,20 +58,24 @@ site prepare, with which columns?
 ## Main external-site command
 
 ```powershell
-& .\scripts\run_r.ps1 scripts/build_external_bundle_from_site_inputs.R `
-  <microbiology_observations> `
-  <bacteria_mapping> `
-  <sample_type_mapping> `
-  <antibiotic_mapping> `
-  <unit_mapping> `
-  <incidence_exposure_by_year_um_uf_ta_de_profile> `
-  <output_bundle_v3_dir> `
-  --contract=v3 `
-  --operational-v2-output=<output_bundle_v2_dir> `
-  [--force]
+$handoff = "data/site_handoff"
+& .\scripts\build_site.ps1 `
+  -MicrobiologyObservations `
+    (Join-Path $handoff "microbiology_observations.csv") `
+  -BacteriaMapping (Join-Path $handoff "bacteria_mapping.csv") `
+  -SampleTypeMapping (Join-Path $handoff "sample_type_mapping.csv") `
+  -AntibioticMapping (Join-Path $handoff "antibiotic_mapping.csv") `
+  -UnitMapping (Join-Path $handoff "unit_mapping.csv") `
+  -IncidenceExposure `
+    (Join-Path $handoff `
+      "incidence_exposure_by_year_um_uf_ta_de_profile.csv") `
+  -DryRun
 ```
 
-The command examples and required columns are in `site_handoff_inputs.md`.
+For a first build, after `PASS`, run the same command without `-DryRun`. If the
+preflight reports a completed existing output, follow its collision message:
+choose another `-Output` or, after review, add `-Force`. The command examples
+and required columns are in `site_handoff_inputs.md`.
 The preferred handoff is always six complete, unversioned blocks. Contract v3
 retains the v2 hospitalization-unit semantics and interprets the sixth block as
 profiled exposure at year + UM + UF + TA + DE grain. The command validates and
@@ -91,6 +95,8 @@ path for a new hospital team:
   - validates an already built ORCHIDEE input bundle.
 - `scripts/smoke_external_runtime_inputs.R`
   - checks that a validated bundle can build the downstream RATB inputs.
+- `scripts/build_external_bundle_from_site_inputs.R`
+  - underlying positional CLI for explicit contract and output comparisons.
 
 ## Ownership rule
 

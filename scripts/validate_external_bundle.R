@@ -36,7 +36,8 @@ args <- setdiff(args, c("--strict-preferred", "-h", "--help", contract_args))
 
 if (help || length(args) != 1L) {
   cat(
-    "Usage: Rscript scripts/validate_external_bundle.R ",
+    "Usage (PowerShell): & .\\scripts\\run_r.ps1 ",
+    "scripts/validate_external_bundle.R ",
     "<bundle_dir> --contract=v2|v3 [--strict-preferred]\n",
     sep = ""
   )

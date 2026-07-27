@@ -127,6 +127,30 @@ Exécuter les tests source depuis la racine du dépôt :
 
 Chaque fichier `tests/test_*.R` est exécuté dans un processus R distinct.
 
+## Construction d'un site externe depuis les six blocs
+
+Pour Rennes ou un autre site sans adaptateur local, utiliser
+`scripts/build_site.ps1`. Commencer avec les six chemins nommés et `-DryRun`,
+puis, pour une première construction, retirer uniquement `-DryRun` après le
+`PASS`. Si un output complet existe déjà, suivre l'avertissement et utiliser un
+autre `-Output` ou `-Force` après revue. Le wrapper conserve v3 sous
+`outputs/site_current/bundle_v3`, matérialise et smoke le v2 opérationnel sous
+`outputs/site_current/bundle_v2_operational`, et écrit un
+`build_manifest.txt` en dernier dans chacun des deux répertoires. Les deux
+manifests attestent la validation stricte et le smoke runtime, et doivent porter
+le même `build_id`.
+
+`-Force` remplace seulement un layout complet issu de ce même workflow. Un
+manifest manquant ou un autre layout impose un nouveau `-Output`. Pour créer
+les six en-têtes sans les recopier depuis la documentation :
+
+```powershell
+& .\scripts\build_site.ps1 -EmitTemplates "data/site_handoff"
+```
+
+La CLI positionnelle `scripts/build_external_bundle_from_site_inputs.R` reste
+un outil mainteneur pour les comparaisons explicites de contrats.
+
 ## Construction locale Rouen de bout en bout
 
 Le parcours normal transforme les exports Rouen en six blocs complets, conserve

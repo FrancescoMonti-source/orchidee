@@ -87,6 +87,23 @@ if (target %in% c("indicators", "full")) {
       call. = FALSE
     )
   }
+  validation_environment <- new.env(parent = baseenv())
+  sys.source(
+    "R/external_bundle_validation_helpers.R",
+    envir = validation_environment
+  )
+  bundle_validation <- validation_environment$validate_external_input_bundle(
+    bundle_dir = context$bundle_dir,
+    contract = validation_environment$orchidee_external_contract_v2(),
+    strict_preferred = TRUE
+  )
+  if (!isTRUE(bundle_validation$ok)) {
+    stop(
+      "Operational bundle failed strict validation:\n - ",
+      paste(bundle_validation$errors, collapse = "\n - "),
+      call. = FALSE
+    )
+  }
 
   workspace_dir <- dirname(context$cache_dir)
   if (file.exists(workspace_dir) && !dir.exists(workspace_dir)) {
@@ -107,10 +124,25 @@ if (target %in% c("indicators", "full")) {
         dir.exists(required_cache_files)
     ]
     if (length(missing_cache_files) > 0L) {
+      quote_powershell_string <- function(value) {
+        paste0("'", gsub("'", "''", value, fixed = TRUE), "'")
+      }
       stop(
         "Canonical raw dedup cache is incomplete: ",
         paste(missing_cache_files, collapse = ", "),
-        ". Run render_orchidee.ps1 -Target full for this bundle and workspace.",
+        ". Run:\n& .\\scripts\\render_orchidee.ps1 -Target full ",
+        "-Bundle ",
+        quote_powershell_string(normalizePath(
+          context$bundle_dir,
+          winslash = "/",
+          mustWork = TRUE
+        )),
+        " -Workspace ",
+        quote_powershell_string(normalizePath(
+          workspace_dir,
+          winslash = "/",
+          mustWork = FALSE
+        )),
         call. = FALSE
       )
     }

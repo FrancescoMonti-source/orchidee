@@ -4,6 +4,177 @@
 ## site-owned input blocks. They deliberately sit upstream of the canonical
 ## runtime contract validated in `R/external_bundle_validation_helpers.R`.
 
+orchidee_handoff_site_input_spec <- function(contract_version = c("v3", "v2")) {
+  contract_version <- match.arg(contract_version)
+  microbiology_required <- c(
+    "PATID",
+    "ELTID",
+    "DATEPRELEV",
+    "SEJUF",
+    "bacteria_local",
+    "sample_type_local",
+    "antibiotic_local",
+    "sir_result"
+  )
+  diagnostic_scope_columns <- c(
+    "ratb_diagnostic_scope",
+    "diagnostic_scope",
+    "is_diagnostic"
+  )
+  spec <- list(
+    microbiology_observations = list(
+      required_columns = microbiology_required,
+      required_one_of = list(
+        diagnostic_scope = diagnostic_scope_columns
+      ),
+      template_columns = c(
+        "PATID",
+        "EVTID",
+        "ELTID",
+        "DATEPRELEV",
+        "HEUREPRELEV",
+        "SEJUF",
+        "souche_id",
+        "bacteria_local",
+        "sample_type_local",
+        "antibiotic_local",
+        "sir_result",
+        "ratb_diagnostic_scope",
+        "blse_status_row",
+        "carbapenemase_status_row"
+      )
+    ),
+    bacteria_mapping = list(
+      required_columns = c("bacteria_local", "bact_norm"),
+      required_one_of = list(),
+      template_columns = c("bacteria_local", "bact_norm")
+    ),
+    sample_type_mapping = list(
+      required_columns = c("sample_type_local", "naturepvt_norm"),
+      required_one_of = list(),
+      template_columns = c("sample_type_local", "naturepvt_norm")
+    ),
+    antibiotic_mapping = list(
+      required_columns = c("antibiotic_local", "atb_norm"),
+      required_one_of = list(),
+      template_columns = c("antibiotic_local", "atb_norm")
+    ),
+    unit_mapping = list(
+      required_columns = c("SEJUF", "CODE_TA", "CODE_DE", "de_domain_ref"),
+      required_one_of = list(),
+      template_columns = c("SEJUF", "CODE_TA", "CODE_DE", "de_domain_ref")
+    )
+  )
+
+  denominator_name <- if (identical(contract_version, "v3")) {
+    "incidence_exposure_by_year_um_uf_ta_de_profile"
+  } else {
+    "denominator_by_year"
+  }
+  denominator_columns <- if (identical(contract_version, "v3")) {
+    c(
+      "calendar_year",
+      "SEJUM",
+      "SEJUF",
+      "CODE_TA",
+      "CODE_DE",
+      "de_domain_ref",
+      "denominator_profile_id",
+      "exposure_value",
+      "exposure_unit"
+    )
+  } else {
+    c("calendar_year", "hospital_nights")
+  }
+  spec[[denominator_name]] <- list(
+    required_columns = denominator_columns,
+    required_one_of = list(),
+    template_columns = denominator_columns
+  )
+  spec
+}
+
+orchidee_handoff_validate_site_input_columns <- function(
+    site_inputs,
+    contract_version = c("v3", "v2")
+  ) {
+  contract_version <- match.arg(contract_version)
+  spec <- orchidee_handoff_site_input_spec(contract_version)
+  if (!is.list(site_inputs)) {
+    stop("site_inputs must be a named list.", call. = FALSE)
+  }
+  if (
+    is.null(names(site_inputs)) ||
+      any(!nzchar(names(site_inputs))) ||
+      anyDuplicated(names(site_inputs))
+  ) {
+    stop(
+      "site_inputs must have unique, non-empty block names.",
+      call. = FALSE
+    )
+  }
+  missing_blocks <- setdiff(names(spec), names(site_inputs))
+  if (length(missing_blocks) > 0L) {
+    stop(
+      "Missing site handoff blocks: ",
+      paste(missing_blocks, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  extra_blocks <- setdiff(names(site_inputs), names(spec))
+  if (length(extra_blocks) > 0L) {
+    stop(
+      "Unexpected site handoff blocks: ",
+      paste(extra_blocks, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  for (block_name in names(spec)) {
+    block <- site_inputs[[block_name]]
+    if (!is.data.frame(block)) {
+      stop(block_name, " must be a data frame.", call. = FALSE)
+    }
+    duplicate_columns <- unique(names(block)[duplicated(names(block))])
+    if (length(duplicate_columns) > 0L) {
+      stop(
+        block_name,
+        " contains duplicate column names: ",
+        paste(duplicate_columns, collapse = ", "),
+        call. = FALSE
+      )
+    }
+    missing_columns <- setdiff(
+      spec[[block_name]]$required_columns,
+      names(block)
+    )
+    if (length(missing_columns) > 0L) {
+      stop(
+        block_name,
+        " is missing required columns: ",
+        paste(missing_columns, collapse = ", "),
+        call. = FALSE
+      )
+    }
+    for (one_of_name in names(spec[[block_name]]$required_one_of)) {
+      candidates <- spec[[block_name]]$required_one_of[[one_of_name]]
+      present_candidates <- intersect(candidates, names(block))
+      if (length(present_candidates) != 1L) {
+        stop(
+          block_name,
+          " must contain exactly one of these ",
+          one_of_name,
+          " columns: ",
+          paste(candidates, collapse = ", "),
+          call. = FALSE
+        )
+      }
+    }
+  }
+
+  invisible(spec)
+}
+
 orchidee_handoff_trim_or_na <- function(x) {
   x <- trimws(as.character(x))
   x[!nzchar(x)] <- NA_character_
@@ -50,6 +221,57 @@ orchidee_handoff_read_table <- function(path) {
   if (ext %in% c("tsv", "tab")) {
     return(utils::read.delim(
       file = path,
+      stringsAsFactors = FALSE,
+      check.names = FALSE,
+      colClasses = "character",
+      fileEncoding = "UTF-8"
+    ))
+  }
+
+  stop(
+    "Unsupported handoff input extension for ",
+    path,
+    ". Use .rds, .csv, .tsv, .tab, or .txt.",
+    call. = FALSE
+  )
+}
+
+orchidee_handoff_read_table_schema <- function(path) {
+  if (!file.exists(path)) {
+    stop("Missing handoff input file: ", path, call. = FALSE)
+  }
+
+  ext <- tolower(tools::file_ext(path))
+  if (identical(ext, "rds")) {
+    object <- readRDS(path)
+    if (!is.data.frame(object)) {
+      stop("Handoff RDS input must contain a data frame: ", path, call. = FALSE)
+    }
+    return(object[0, , drop = FALSE])
+  }
+
+  if (ext %in% c("csv", "txt")) {
+    delimiter <- orchidee_handoff_detect_delimiter(path)
+    return(utils::read.table(
+      file = path,
+      header = TRUE,
+      nrows = 0L,
+      sep = delimiter,
+      quote = "\"",
+      comment.char = "",
+      stringsAsFactors = FALSE,
+      check.names = FALSE,
+      fill = TRUE,
+      colClasses = "character",
+      fileEncoding = "UTF-8"
+    ))
+  }
+
+  if (ext %in% c("tsv", "tab")) {
+    return(utils::read.delim(
+      file = path,
+      header = TRUE,
+      nrows = 0L,
       stringsAsFactors = FALSE,
       check.names = FALSE,
       colClasses = "character",
@@ -332,11 +554,10 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
   if (!is.list(contract)) {
     stop("contract must be a list.", call. = FALSE)
   }
+  site_spec <- orchidee_handoff_site_input_spec(contract$version)
+  microbiology_spec <- site_spec$microbiology_observations
 
-  required_obs_cols <- c(
-    "PATID", "ELTID", "DATEPRELEV", "SEJUF",
-    "bacteria_local", "sample_type_local", "antibiotic_local", "sir_result"
-  )
+  required_obs_cols <- microbiology_spec$required_columns
   missing_obs_cols <- setdiff(required_obs_cols, names(microbiology_observations))
   if (length(missing_obs_cols) > 0L) {
     stop(
@@ -345,33 +566,41 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
       call. = FALSE
     )
   }
-  diagnostic_cols <- c("ratb_diagnostic_scope", "diagnostic_scope", "is_diagnostic")
-  diagnostic_col <- diagnostic_cols[diagnostic_cols %in% names(microbiology_observations)][1]
-  if (is.na(diagnostic_col)) {
+  diagnostic_cols <-
+    microbiology_spec$required_one_of$diagnostic_scope
+  diagnostic_present <- diagnostic_cols[
+    diagnostic_cols %in% names(microbiology_observations)
+  ]
+  if (length(diagnostic_present) != 1L) {
     stop(
-      "microbiology_observations must contain ratb_diagnostic_scope ",
-      "(or diagnostic_scope/is_diagnostic) so screening rows are explicit.",
+      "microbiology_observations must contain exactly one diagnostic-scope ",
+      "column: ",
+      paste(diagnostic_cols, collapse = ", "),
       call. = FALSE
     )
   }
+  diagnostic_col <- diagnostic_present[[1L]]
 
+  bacteria_columns <- site_spec$bacteria_mapping$required_columns
+  sample_type_columns <- site_spec$sample_type_mapping$required_columns
+  antibiotic_columns <- site_spec$antibiotic_mapping$required_columns
   bacteria_map <- orchidee_handoff_prepare_mapping(
     bacteria_mapping,
-    "bacteria_local",
-    "bact_norm",
+    bacteria_columns[[1L]],
+    bacteria_columns[[2L]],
     "bacteria_mapping"
   )
   sample_type_map <- orchidee_handoff_prepare_mapping(
     sample_type_mapping,
-    "sample_type_local",
-    "naturepvt_norm",
+    sample_type_columns[[1L]],
+    sample_type_columns[[2L]],
     "sample_type_mapping",
     allow_missing_canonical = TRUE
   )
   antibiotic_map <- orchidee_handoff_prepare_mapping(
     antibiotic_mapping,
-    "antibiotic_local",
-    "atb_norm",
+    antibiotic_columns[[1L]],
+    antibiotic_columns[[2L]],
     "antibiotic_mapping"
   )
 
@@ -676,7 +905,9 @@ orchidee_handoff_build_sample_scope_reference <- function(
     stop("unit_mapping must be a data frame.", call. = FALSE)
   }
 
-  required_unit_cols <- c("SEJUF", "CODE_TA", "CODE_DE", "de_domain_ref")
+  required_unit_cols <- orchidee_handoff_site_input_spec(
+    contract$version
+  )$unit_mapping$required_columns
   missing_unit_cols <- setdiff(required_unit_cols, names(unit_mapping))
   if (length(missing_unit_cols) > 0L) {
     stop(
@@ -790,11 +1021,9 @@ orchidee_handoff_build_denominator_bundle <- function(
         call. = FALSE
       )
     }
-    required_cols <- c(
-      "calendar_year", "SEJUM", "SEJUF", "CODE_TA", "CODE_DE",
-      "de_domain_ref", "denominator_profile_id", "exposure_value",
-      "exposure_unit"
-    )
+    required_cols <- orchidee_handoff_site_input_spec(
+      "v3"
+    )$incidence_exposure_by_year_um_uf_ta_de_profile$required_columns
     missing_cols <- setdiff(required_cols, names(exposure))
     if (length(missing_cols) > 0L) {
       stop(
@@ -890,7 +1119,9 @@ orchidee_handoff_build_denominator_bundle <- function(
   if (!is.data.frame(denominator_by_year)) {
     stop("denominator_by_year must be a data frame.", call. = FALSE)
   }
-  required_cols <- c("calendar_year", "hospital_nights")
+  required_cols <- orchidee_handoff_site_input_spec(
+    "v2"
+  )$denominator_by_year$required_columns
   missing_cols <- setdiff(required_cols, names(denominator_by_year))
   if (length(missing_cols) > 0L) {
     stop(
@@ -961,6 +1192,35 @@ orchidee_handoff_build_external_bundle_from_site_inputs <- function(
     contract = orchidee_external_contract_v2(),
     incidence_exposure_by_year_um_uf_ta_de_profile = NULL
   ) {
+  if (
+    !is.list(contract) ||
+      length(contract$version) != 1L ||
+      !contract$version %in% c("v2", "v3")
+  ) {
+    stop("contract must declare version v2 or v3.", call. = FALSE)
+  }
+  denominator_name <- if (identical(contract$version, "v3")) {
+    "incidence_exposure_by_year_um_uf_ta_de_profile"
+  } else {
+    "denominator_by_year"
+  }
+  site_inputs <- list(
+    microbiology_observations = microbiology_observations,
+    bacteria_mapping = bacteria_mapping,
+    sample_type_mapping = sample_type_mapping,
+    antibiotic_mapping = antibiotic_mapping,
+    unit_mapping = unit_mapping
+  )
+  site_inputs[[denominator_name]] <- if (identical(contract$version, "v3")) {
+    incidence_exposure_by_year_um_uf_ta_de_profile
+  } else {
+    denominator_by_year
+  }
+  orchidee_handoff_validate_site_input_columns(
+    site_inputs,
+    contract_version = contract$version
+  )
+
   sir_wide <- orchidee_handoff_build_sir_wide_from_microbiology(
     microbiology_observations = microbiology_observations,
     bacteria_mapping = bacteria_mapping,
