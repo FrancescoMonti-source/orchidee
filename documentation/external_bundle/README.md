@@ -20,13 +20,6 @@ before shared RATB scope, deduplication and indicator logic run.
 
 ## Start here
 
-For a Rouen operator starting from the automatic BACT export and the PMSI object
-already produced by `redsan`, start with:
-
-[rouen_raw_handoff.md](rouen_raw_handoff.md)
-
-That path asks for two clinical input paths and generates the six handoff blocks.
-
 For Rennes or another hospital HDW team, start with:
 
 [site_handoff_inputs.md](site_handoff_inputs.md)
@@ -35,6 +28,13 @@ That document answers the practical first question: which files should the
 site prepare, with which columns? Its template command also emits the
 ORCHIDEE mapping targets and TA/DE references needed to populate them without
 guessing canonical values.
+
+For a Rouen operator starting from the automatic BACT export and the PMSI object
+already produced by `redsan`, start with:
+
+[rouen_raw_handoff.md](rouen_raw_handoff.md)
+
+That path asks for two clinical input paths and generates the six handoff blocks.
 
 ## Which document answers which question?
 

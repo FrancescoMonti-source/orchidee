@@ -104,32 +104,8 @@ canonical `SEJUF` is missing, so they are excluded from the
 hospitalization-based analytical perimeter. The bundle validator checks the
 declared shape and semantics; it cannot reconstruct the local PMSI attribution.
 
-Build and validate an explicit direct v2 bundle with:
-
-```powershell
-$handoff = "data/site_handoff"
-$output = "outputs/site_bundle_v2"
-
-& .\scripts\run_r.ps1 scripts/build_external_bundle_from_site_inputs.R `
-  (Join-Path $handoff "microbiology_observations.csv") `
-  (Join-Path $handoff "bacteria_mapping.csv") `
-  (Join-Path $handoff "sample_type_mapping.csv") `
-  (Join-Path $handoff "antibiotic_mapping.csv") `
-  (Join-Path $handoff "unit_mapping.csv") `
-  (Join-Path $handoff "denominator_by_year.csv") `
-  $output `
-  --contract=v2
-
-& .\scripts\run_r.ps1 scripts/validate_external_bundle.R `
-  $output `
-  --contract=v2 `
-  --strict-preferred
-
-& .\scripts\run_r.ps1 scripts/smoke_external_runtime_inputs.R `
-  $output `
-  --contract=v2 `
-  --strict-preferred
-```
-
 The preferred onboarding path constructs bundle v3 and its separate v2
-operational projection as described in `site_handoff_inputs.md`.
+operational projection as described in
+[site_handoff_inputs.md](site_handoff_inputs.md). Maintainers who need the
+positional direct-v2 comparison path should use its
+[single maintained recipe](site_handoff_inputs.md#explicit-direct-v2-path).
