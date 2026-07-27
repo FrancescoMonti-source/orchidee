@@ -1,5 +1,7 @@
 #!/usr/bin/env Rscript
 
+source("R/external_bundle_validation_helpers.R")
+source("R/ratb_hospital_days_helpers.R")
 source("R/external_handoff_helpers.R")
 
 capture_error <- function(expr) {
@@ -129,6 +131,36 @@ template_run <- run_r_script(
   template_dir
 )
 template_paths <- file.path(template_dir, paste0(expected_blocks, ".csv"))
+expected_reference_tables <- orchidee_handoff_mapping_reference_tables(".")
+reference_dir <- file.path(template_dir, "mapping_reference")
+reference_paths <- file.path(
+  reference_dir,
+  paste0(names(expected_reference_tables), ".csv")
+)
+names(reference_paths) <- names(expected_reference_tables)
+as_character_frame <- function(x) {
+  x[] <- lapply(x, as.character)
+  x
+}
+generated_reference_tables <- lapply(reference_paths, function(path) {
+  utils::read.csv(
+    path,
+    stringsAsFactors = FALSE,
+    check.names = FALSE,
+    colClasses = "character",
+    na.strings = "",
+    fileEncoding = "UTF-8"
+  )
+})
+expected_reference_tables_character <- lapply(
+  expected_reference_tables,
+  as_character_frame
+)
+reference_readme <- readLines(
+  file.path(reference_dir, "README.txt"),
+  warn = FALSE,
+  encoding = "UTF-8"
+)
 template_headers <- vapply(
   template_paths,
   function(path) readLines(path, n = 1L, warn = FALSE),
@@ -177,6 +209,7 @@ wrapper_unnecessary_force_run <- NULL
 wrapper_incomplete_force_run <- NULL
 wrapper_stale_lock_run <- NULL
 wrapper_template_run <- NULL
+wrapper_unsupported_atb_run <- NULL
 render_valid_run <- NULL
 render_invalid_run <- NULL
 if (identical(.Platform$OS.type, "windows")) {
@@ -288,7 +321,7 @@ if (identical(.Platform$OS.type, "windows")) {
     ),
     bacteria_mapping = data.frame(
       bacteria_local = "E. coli local",
-      bact_norm = "Escherichia coli",
+      bact_norm = "escherichia_coli",
       stringsAsFactors = FALSE
     ),
     sample_type_mapping = data.frame(
@@ -304,7 +337,7 @@ if (identical(.Platform$OS.type, "windows")) {
     unit_mapping = data.frame(
       SEJUF = "UF1",
       CODE_TA = "03",
-      CODE_DE = "D03",
+      CODE_DE = "102",
       de_domain_ref = "MÉDECINE",
       stringsAsFactors = FALSE
     ),
@@ -313,7 +346,7 @@ if (identical(.Platform$OS.type, "windows")) {
       SEJUM = "UM1",
       SEJUF = "UF1",
       CODE_TA = "03",
-      CODE_DE = "D03",
+      CODE_DE = "102",
       de_domain_ref = "MÉDECINE",
       denominator_profile_id = "midnight_presence",
       exposure_value = 100,
@@ -326,6 +359,30 @@ if (identical(.Platform$OS.type, "windows")) {
     paste0(names(build_blocks), ".rds")
   )
   invisible(Map(saveRDS, build_blocks, build_input_paths))
+
+  unsupported_atb_input_dir <- file.path(
+    test_root,
+    "unsupported atb inputs"
+  )
+  dir.create(unsupported_atb_input_dir)
+  unsupported_atb_blocks <- build_blocks
+  unsupported_atb_blocks$antibiotic_mapping$atb_norm <-
+    "not_an_orchidee_atb"
+  unsupported_atb_paths <- file.path(
+    unsupported_atb_input_dir,
+    paste0(names(unsupported_atb_blocks), ".rds")
+  )
+  invisible(Map(
+    saveRDS,
+    unsupported_atb_blocks,
+    unsupported_atb_paths
+  ))
+  wrapper_unsupported_atb_run <- run_site_wrapper(
+    input_paths = unsupported_atb_paths,
+    output_path = file.path(test_root, "unsupported_atb_output"),
+    dry_run = FALSE
+  )
+
   build_output_dir <- file.path(
     test_root,
     "site_build_output $with'apostrophe"
@@ -444,9 +501,9 @@ if (
 }
 
 # Why: protects the executable onboarding boundary. A site owns exactly six
-# named blocks, generated templates share that same specification, help teaches
-# the repository runner, and DryRun must reject a swapped mapping without
-# publishing anything.
+# named blocks, generated templates and mapping references share executable
+# sources, help teaches the repository runner, and DryRun must reject a swapped
+# mapping without publishing anything.
 stopifnot(
   identical(names(spec), expected_blocks),
   all(vapply(
@@ -474,6 +531,46 @@ stopifnot(
   ),
   identical(template_run$status, 0L),
   all(file.exists(template_paths)),
+  all(file.exists(reference_paths)),
+  identical(
+    generated_reference_tables,
+    expected_reference_tables_character
+  ),
+  any(
+    generated_reference_tables$reference_code_ta$CODE_TA == "03" &
+      generated_reference_tables$reference_code_ta[[
+        "included_in_spares_current"
+      ]] == "TRUE"
+  ),
+  any(
+    generated_reference_tables$reference_code_ta$CODE_TA == "10" &
+      generated_reference_tables$reference_code_ta[[
+        "included_in_spares_current"
+      ]] == "FALSE"
+  ),
+  any(grepl(
+    "not a bundle-wide allow-list",
+    reference_readme,
+    fixed = TRUE
+  )),
+  all(c(
+    "klebsiella_variicola",
+    "citrobacter_amalonaticus",
+    "citrobacter_freundii",
+    "salmonella_spp"
+  ) %in% generated_reference_tables$recognized_bact_norm$bact_norm),
+  identical(
+    generated_reference_tables$recognized_bact_norm$bact_order[
+      generated_reference_tables$recognized_bact_norm$bact_norm ==
+        "klebsiella_variicola"
+    ],
+    "Enterobacterales"
+  ),
+  any(grepl(
+    "mapping-reference kit were created",
+    template_run$output,
+    fixed = TRUE
+  )),
   identical(unname(template_headers), unname(expected_headers)),
   !identical(template_second_run$status, 0L),
   any(grepl(
@@ -659,6 +756,12 @@ if (identical(.Platform$OS.type, "windows")) {
     !any(grepl(
       "\\.site-build\\.lock$",
       list.files(test_root, recursive = TRUE, full.names = TRUE)
+    )),
+    !identical(wrapper_unsupported_atb_run$status, 0L),
+    any(grepl(
+      "mapping_reference/supported_atb_norm.csv",
+      wrapper_unsupported_atb_run$output,
+      fixed = TRUE
     )),
     is.null(wrapper_pwsh_dry_run) ||
       identical(wrapper_pwsh_dry_run$status, 0L)

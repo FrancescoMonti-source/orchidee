@@ -31,7 +31,9 @@ For Rennes or another hospital HDW team, start with:
 [site_handoff_inputs.md](site_handoff_inputs.md)
 
 That document answers the practical first question: which files should the
-site prepare, with which columns?
+site prepare, with which columns? Its template command also emits the
+ORCHIDEE mapping targets and TA/DE references needed to populate them without
+guessing canonical values.
 
 ## Which document answers which question?
 

@@ -177,12 +177,19 @@ six blocs de handoff d'un autre site.
 
 ## Rennes / autre entrepôt : commencer ici
 
-Si les six fichiers n'existent pas encore, générer leurs en-têtes :
+Si les six fichiers n'existent pas encore, générer leurs en-têtes et le kit de
+références pour les valeurs cibles ORCHIDEE :
 
 ```powershell
 $handoff = "data/site_handoff"
 & .\scripts\build_site.ps1 -EmitTemplates $handoff
 ```
+
+Le sous-répertoire `mapping_reference/` indique notamment les valeurs
+`atb_norm` supportées, la taxonomie bactérienne reconnue, les types de
+prélèvement utilisés par les indicateurs actuels, les catalogues nationaux
+TA/DE et le profil de dénominateur accepté. Il ne réalise aucun mapping local :
+le site reste responsable d'associer ses propres libellés à ces cibles.
 
 Une fois les fichiers remplis, commencer par le préflight ci-dessous. Il
 contrôle les chemins, R, les paquets et les colonnes sans construire de bundle :

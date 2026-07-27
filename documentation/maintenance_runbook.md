@@ -142,11 +142,18 @@ le même `build_id`.
 
 `-Force` remplace seulement un layout complet issu de ce même workflow. Un
 manifest manquant ou un autre layout impose un nouveau `-Output`. Pour créer
-les six en-têtes sans les recopier depuis la documentation :
+les six en-têtes et les références de mapping sans les recopier depuis la
+documentation :
 
 ```powershell
 & .\scripts\build_site.ps1 -EmitTemplates "data/site_handoff"
 ```
+
+La commande ajoute `mapping_reference/`. Les listes ATB et profils sont
+fermées ; la taxonomie bactérienne expose les cibles reconnues ; les types de
+prélèvement décrivent la publication actuelle ; les catalogues TA/DE sont
+complets et portent un flag de périmètre. Ces références indiquent au site vers
+quoi mapper ses propres libellés, sans effectuer le mapping local à sa place.
 
 La CLI positionnelle `scripts/build_external_bundle_from_site_inputs.R` reste
 un outil mainteneur pour les comparaisons explicites de contrats.

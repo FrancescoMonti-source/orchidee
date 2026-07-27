@@ -39,8 +39,9 @@ writing a bundle. Delimited inputs are read as headers; RDS inputs must be
 deserialized to inspect their columns.
 
 .PARAMETER EmitTemplates
-Create the six empty v3 handoff CSV templates in a new or unused directory.
-Existing template files are never overwritten.
+Create the six empty v3 handoff CSV templates and the ORCHIDEE mapping-reference
+kit in a new or unused directory. Existing generated files are never
+overwritten.
 
 .EXAMPLE
 & .\scripts\build_site.ps1 `

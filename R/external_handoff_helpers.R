@@ -299,6 +299,169 @@ orchidee_handoff_require_functions <- function(required_funs) {
   }
 }
 
+orchidee_handoff_mapping_reference_tables <- function(project_root = ".") {
+  orchidee_handoff_require_functions(c(
+    "orchidee_external_contract_v2",
+    "ratb_analysis_context_profile",
+    "ratb_denominator_profile_registry",
+    "ratb_normalize_code_ta",
+    "ratb_normalize_code_de"
+  ))
+
+  project_root <- normalizePath(
+    project_root,
+    winslash = "/",
+    mustWork = TRUE
+  )
+  contract <- orchidee_external_contract_v2()
+  context <- ratb_analysis_context_profile("spares_current")
+
+  species_taxonomy <- orchidee_handoff_read_table(file.path(
+    project_root,
+    "mappings",
+    "species_regex_map.csv"
+  ))
+  required_taxonomy_columns <- c(
+    "bact_norm",
+    "bact_order",
+    "bact_family",
+    "bact_genus"
+  )
+  missing_taxonomy_columns <- setdiff(
+    required_taxonomy_columns,
+    names(species_taxonomy)
+  )
+  if (length(missing_taxonomy_columns) > 0L) {
+    stop(
+      "mappings/species_regex_map.csv is missing columns: ",
+      paste(missing_taxonomy_columns, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  species_taxonomy <- species_taxonomy[required_taxonomy_columns]
+  species_taxonomy[] <- lapply(
+    species_taxonomy,
+    orchidee_handoff_trim_or_na
+  )
+  species_taxonomy <- unique(species_taxonomy[
+    !is.na(species_taxonomy$bact_norm),
+    ,
+    drop = FALSE
+  ])
+  if (anyDuplicated(species_taxonomy$bact_norm)) {
+    stop(
+      "mappings/species_regex_map.csv has non-unique taxonomy for bact_norm.",
+      call. = FALSE
+    )
+  }
+  species_taxonomy <- species_taxonomy[
+    order(species_taxonomy$bact_norm),
+    ,
+    drop = FALSE
+  ]
+  rownames(species_taxonomy) <- NULL
+
+  config_env <- new.env(parent = baseenv())
+  sys.source(
+    file.path(project_root, "config", "pipeline.R"),
+    envir = config_env
+  )
+  if (
+    !exists("orchidee_config", envir = config_env, inherits = FALSE) ||
+      is.null(config_env$orchidee_config$ratb$indicator_sample_types)
+  ) {
+    stop(
+      "config/pipeline.R must define ratb$indicator_sample_types.",
+      call. = FALSE
+    )
+  }
+  current_sample_types <- unique(orchidee_handoff_trim_or_na(
+    config_env$orchidee_config$ratb$indicator_sample_types
+  ))
+  current_sample_types <- current_sample_types[!is.na(current_sample_types)]
+
+  ta_reference <- orchidee_handoff_read_table(file.path(
+    project_root,
+    "ref",
+    "consores",
+    "codes_ta.csv"
+  ))
+  missing_ta_columns <- setdiff(
+    c("CODE_TA", "LIBELLE_TA"),
+    names(ta_reference)
+  )
+  if (length(missing_ta_columns) > 0L) {
+    stop(
+      "ref/consores/codes_ta.csv is missing columns: ",
+      paste(missing_ta_columns, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  ta_reference <- ta_reference[c("CODE_TA", "LIBELLE_TA")]
+  ta_reference$CODE_TA <- ratb_normalize_code_ta(ta_reference$CODE_TA)
+  ta_reference$LIBELLE_TA <- orchidee_handoff_trim_or_na(
+    ta_reference$LIBELLE_TA
+  )
+  ta_reference$included_in_spares_current <-
+    ta_reference$CODE_TA %in% context$eligible_ta_codes
+  ta_order <- order(
+    suppressWarnings(as.integer(ta_reference$CODE_TA)),
+    ta_reference$CODE_TA
+  )
+  ta_reference <- ta_reference[ta_order, , drop = FALSE]
+  rownames(ta_reference) <- NULL
+
+  de_reference <- orchidee_handoff_read_table(file.path(
+    project_root,
+    "ref",
+    "consores",
+    "codes_de.csv"
+  ))
+  missing_de_columns <- setdiff(
+    c("DOMAINE", "CODE_DE", "LIBELLE_DE"),
+    names(de_reference)
+  )
+  if (length(missing_de_columns) > 0L) {
+    stop(
+      "ref/consores/codes_de.csv is missing columns: ",
+      paste(missing_de_columns, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  de_reference <- de_reference[c("DOMAINE", "CODE_DE", "LIBELLE_DE")]
+  de_reference$DOMAINE <- orchidee_handoff_trim_or_na(
+    de_reference$DOMAINE
+  )
+  de_reference$CODE_DE <- ratb_normalize_code_de(de_reference$CODE_DE)
+  de_reference$LIBELLE_DE <- orchidee_handoff_trim_or_na(
+    de_reference$LIBELLE_DE
+  )
+  de_reference$included_in_spares_current <-
+    de_reference$DOMAINE %in% context$eligible_de_domains
+  de_order <- order(
+    de_reference$DOMAINE,
+    suppressWarnings(as.integer(de_reference$CODE_DE)),
+    de_reference$CODE_DE
+  )
+  de_reference <- de_reference[de_order, , drop = FALSE]
+  rownames(de_reference) <- NULL
+
+  list(
+    supported_atb_norm = data.frame(
+      atb_norm = contract$sir_wide$atb_cols,
+      stringsAsFactors = FALSE
+    ),
+    recognized_bact_norm = species_taxonomy,
+    current_indicator_naturepvt_norm = data.frame(
+      naturepvt_norm = current_sample_types,
+      stringsAsFactors = FALSE
+    ),
+    reference_code_ta = ta_reference,
+    reference_code_de = de_reference,
+    allowed_denominator_profiles = ratb_denominator_profile_registry()
+  )
+}
+
 orchidee_handoff_integerish_vector <- function(x, col_name) {
   if (is.factor(x)) x <- as.character(x)
 
@@ -730,6 +893,8 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     stop(
       "antibiotic_mapping maps to unsupported ORCHIDEE ATB columns: ",
       paste(unsupported_atb, collapse = ", "),
+      ". See mapping_reference/supported_atb_norm.csv generated by ",
+      "build_site.ps1 -EmitTemplates.",
       call. = FALSE
     )
   }
