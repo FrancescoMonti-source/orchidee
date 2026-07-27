@@ -177,83 +177,34 @@ six blocs de handoff d'un autre site.
 
 ## Rennes / autre entrepôt : commencer ici
 
-Si les six fichiers n'existent pas encore, générer leurs en-têtes et le kit de
-références pour les valeurs cibles ORCHIDEE :
+Cette section sert uniquement d'orientation. La procédure opérateur maintenue,
+avec les colonnes, commandes et erreurs possibles, est
+[`documentation/external_bundle/site_handoff_inputs.md`](documentation/external_bundle/site_handoff_inputs.md).
+
+Après l'[installation R](#installation-r), si les six fichiers n'existent pas
+encore, générer leurs en-têtes et le kit de références pour les valeurs cibles
+ORCHIDEE :
 
 ```powershell
 $handoff = "data/site_handoff"
 & .\scripts\build_site.ps1 -EmitTemplates $handoff
 ```
 
-Le sous-répertoire `mapping_reference/` indique notamment les valeurs
-`atb_norm` supportées, la taxonomie bactérienne reconnue, les types de
-prélèvement utilisés par les indicateurs actuels, les catalogues nationaux
-TA/DE et le profil de dénominateur accepté. Il ne réalise aucun mapping local :
-le site reste responsable d'associer ses propres libellés à ces cibles.
+Le site remplit les six fichiers de premier niveau. `mapping_reference/`
+indique vers quelles valeurs ORCHIDEE mapper les libellés locaux ; ce
+sous-répertoire est un kit d'aide, pas un septième bloc à fournir. Suivre
+ensuite dans la procédure opérateur la commande nommée avec `-DryRun`, puis
+retirer uniquement `-DryRun` après le `PASS`.
 
-Une fois les fichiers remplis, commencer par le préflight ci-dessous. Il
-contrôle les chemins, R, les paquets et les colonnes sans construire de bundle :
-
-```powershell
-$handoff = "data/site_handoff"
-& .\scripts\build_site.ps1 `
-  -MicrobiologyObservations `
-    (Join-Path $handoff "microbiology_observations.csv") `
-  -BacteriaMapping (Join-Path $handoff "bacteria_mapping.csv") `
-  -SampleTypeMapping (Join-Path $handoff "sample_type_mapping.csv") `
-  -AntibioticMapping (Join-Path $handoff "antibiotic_mapping.csv") `
-  -UnitMapping (Join-Path $handoff "unit_mapping.csv") `
-  -IncidenceExposure `
-    (Join-Path $handoff `
-      "incidence_exposure_by_year_um_uf_ta_de_profile.csv") `
-  -DryRun
-```
-
-Pour une première construction, après `PASS`, relancer exactement la même
-commande sans `-DryRun`. Si le préflight signale un output complet existant,
-suivre son message : choisir un autre `-Output` ou, après revue, ajouter
-`-Force`.
-
-`documentation/external_bundle/site_handoff_inputs.md` décrit les colonnes et
-les erreurs possibles ; c'est la source de vérité pour les six entrées.
-
-Pour placer les résultats dans un espace protégé externe, ajouter
-`-Output "D:\ORCHIDEE\site_current"`. Toutes les options sont visibles avec :
+Toutes les options du point d'entrée sont visibles avec :
 
 ```powershell
 Get-Help .\scripts\build_site.ps1 -Full
 ```
 
-En résumé, le site prépare exactement six blocs de handoff non versionnés :
-
--   `microbiology_observations` ;
--   `bacteria_mapping` ;
--   `sample_type_mapping` ;
--   `antibiotic_mapping` ;
--   `unit_mapping`, avec `CODE_TA`, `CODE_DE` et `de_domain_ref` ;
--   `incidence_exposure_by_year_um_uf_ta_de_profile`.
-
-Ces blocs conservent les informations nécessaires au bundle v3, même si le
-runtime opérationnel consomme encore v2. Le builder peut valider et conserver
-v3 puis en matérialiser la projection v2 `spares_current` conforme au contrat
-d'entrée du runtime.
-
-ORCHIDEE dérive ensuite :
-
--   `sir_wide.rds`
--   `sir_wide_meta.rds`
--   `sample_scope_reference.rds`
--   `denominator_bundle.rds`
-
-Ces quatre fichiers sont construits par ORCHIDEE. Un site externe ne doit pas
-les construire à la main.
-
-Le wrapper écrit par défaut le bundle v3 conservé sous
-`outputs/site_current/bundle_v3` et le bundle v2 opérationnel sous
-`outputs/site_current/bundle_v2_operational`. Chaque répertoire n'est utilisable
-qu'après apparition de son `build_manifest.txt`, avec le même `build_id` dans
-les deux manifests. Le wrapper affiche ensuite la commande de rendu avec ces
-chemins explicites.
+Après validation, ORCHIDEE conserve le bundle v3 complet, matérialise le bundle
+v2 opérationnel et affiche la commande de rendu liée à ce même build. Les
+fichiers RDS internes sont générés par ORCHIDEE, pas préparés par le site.
 
 ## Rouen : des exports locaux au même handoff
 

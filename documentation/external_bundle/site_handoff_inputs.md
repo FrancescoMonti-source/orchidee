@@ -6,8 +6,10 @@ editor_options:
 
 # Site Handoff Inputs
 
-This is the first document for Rennes or another hospital that does not already
-have a packaged ORCHIDEE site adapter.
+This is the sole maintained human-facing operator procedure for Rennes or
+another hospital that does not already have a packaged ORCHIDEE site adapter.
+The repository README and external-bundle index only orient readers here;
+`Get-Help .\scripts\build_site.ps1 -Full` lists the current command parameters.
 
 Rouen operators should not prepare the six blocks below. Start with
 [rouen_raw_handoff.md](rouen_raw_handoff.md) and provide only the BACT and PMSI
