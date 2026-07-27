@@ -309,6 +309,8 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   point d'entrée opérateur Rennes/autre site : six chemins nommés,
         préflight `-DryRun`, bundle v3 conservé, projection v2 opérationnelle et
         smoke automatique sous `outputs/site_current`
+    -   `-RunExample` exécute ce même parcours sur les six CSV synthétiques
+        versionnés sous `examples/site_handoff_minimal/`
 -   `scripts/check_site_environment.R`
     -   vérifie les paquets et le contrat de colonnes des six blocs sans
         construire de bundle ; lit seulement les en-têtes délimités

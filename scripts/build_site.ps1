@@ -26,8 +26,9 @@ Hospitalization UF mapping with CODE_TA, CODE_DE and de_domain_ref.
 Profiled incidence exposure at year + UM + UF + TA + DE grain.
 
 .PARAMETER Output
-Dedicated output root. Defaults to outputs\site_current. A destination inside
-the checkout must be below outputs\.
+Dedicated output root. Defaults to outputs\site_current for local inputs and
+outputs\site_example with -RunExample. A destination inside the checkout must
+be below outputs\.
 
 .PARAMETER Force
 Replace a complete output from this same site v3 plus operational-v2 workflow.
@@ -43,6 +44,11 @@ Create the six empty v3 handoff CSV templates and the ORCHIDEE mapping-reference
 kit in a new or unused directory. Existing generated files are never
 overwritten.
 
+.PARAMETER RunExample
+Build the versioned synthetic six-block example. This proves that the complete
+site workflow works before protected local data are introduced. The default
+output is outputs\site_example.
+
 .EXAMPLE
 & .\scripts\build_site.ps1 `
   -MicrobiologyObservations "C:\handoff\microbiology_observations.csv" `
@@ -56,6 +62,9 @@ overwritten.
 
 .EXAMPLE
 & .\scripts\build_site.ps1 -EmitTemplates "data\site_handoff"
+
+.EXAMPLE
+& .\scripts\build_site.ps1 -RunExample
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Build')]
@@ -79,16 +88,21 @@ param(
   [string]$IncidenceExposure,
 
   [Parameter(ParameterSetName = 'Build')]
+  [Parameter(ParameterSetName = 'Example')]
   [string]$Output,
 
   [Parameter(ParameterSetName = 'Build')]
+  [Parameter(ParameterSetName = 'Example')]
   [switch]$Force,
 
   [Parameter(ParameterSetName = 'Build')]
   [switch]$DryRun,
 
   [Parameter(Mandatory, ParameterSetName = 'Templates')]
-  [string]$EmitTemplates
+  [string]$EmitTemplates,
+
+  [Parameter(Mandatory, ParameterSetName = 'Example')]
+  [switch]$RunExample
 )
 
 Set-StrictMode -Version Latest
@@ -225,6 +239,22 @@ if ($PSCmdlet.ParameterSetName -eq 'Templates') {
   return
 }
 
+$isExample = $PSCmdlet.ParameterSetName -eq 'Example'
+if ($isExample) {
+  $exampleRoot = Join-Path $RepoRoot 'examples\site_handoff_minimal'
+  $MicrobiologyObservations = Join-Path `
+    $exampleRoot `
+    'microbiology_observations.csv'
+  $BacteriaMapping = Join-Path $exampleRoot 'bacteria_mapping.csv'
+  $SampleTypeMapping = Join-Path $exampleRoot 'sample_type_mapping.csv'
+  $AntibioticMapping = Join-Path $exampleRoot 'antibiotic_mapping.csv'
+  $UnitMapping = Join-Path $exampleRoot 'unit_mapping.csv'
+  $IncidenceExposure = Join-Path `
+    $exampleRoot `
+    'incidence_exposure_by_year_um_uf_ta_de_profile.csv'
+  Write-Host 'Mode: versioned synthetic site example'
+}
+
 $inputDefinitions = @(
   [pscustomobject]@{
     Name = 'microbiology_observations'
@@ -260,7 +290,11 @@ $inputPaths = @(
   }
 )
 $outputRoot = if ([string]::IsNullOrWhiteSpace($Output)) {
-  Join-Path $RepoRoot 'outputs\site_current'
+  if ($isExample) {
+    Join-Path $RepoRoot 'outputs\site_example'
+  } else {
+    Join-Path $RepoRoot 'outputs\site_current'
+  }
 } else {
   Resolve-OrchideeRepoPath -RepoRoot $RepoRoot -Path $Output
 }

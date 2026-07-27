@@ -1,0 +1,2 @@
+PATID,EVTID,ELTID,DATEPRELEV,HEUREPRELEV,SEJUF,souche_id,bacteria_local,sample_type_local,antibiotic_local,sir_result,ratb_diagnostic_scope,blse_status_row,carbapenemase_status_row
+SYNTHETIC_PATIENT_001,SYNTHETIC_STAY_001,SYNTHETIC_SAMPLE_001,2024-01-15,09:00,UF_EXAMPLE_01,SYNTHETIC_ISOLATE_001,E. coli example,Urine example,Cefotaxime example,S,TRUE,no_signal,no_signal

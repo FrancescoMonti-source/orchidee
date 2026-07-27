@@ -59,6 +59,20 @@ from `renv.lock`:
 & .\scripts\setup.ps1
 ```
 
+Before working on protected local data, prove that the complete site workflow
+works with the versioned synthetic six-block example:
+
+```powershell
+& .\scripts\build_site.ps1 -RunExample
+```
+
+This uses only files under `examples/site_handoff_minimal/`, runs the same v3
+build, v2 projection, strict validation and runtime smoke as a real handoff,
+and writes under `outputs/site_example/` by default. A `PASS` separates a
+working ORCHIDEE installation from later problems in local extraction or
+mapping. On a deliberate repeat, follow the collision message and use
+`-Force`, or select another `-Output`.
+
 If the six files do not exist yet, generate empty CSV templates with the
 canonical headers and the ORCHIDEE mapping-reference kit:
 
