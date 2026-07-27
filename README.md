@@ -17,12 +17,43 @@ Ce dépôt a deux publics, dans cet ordre :
 
 ## Choisir le bon point d'entrée
 
--   **Rouen** : fournir seulement les chemins BACT et PMSI à
-    `scripts/build_rouen.ps1`. Commencer par la
-    [procédure opérateur Rouen](documentation/external_bundle/rouen_raw_handoff.md).
 -   **Rennes ou un autre entrepôt** : préparer les six blocs attendus par
     `scripts/build_site.ps1`. Commencer par la
     [procédure opérateur site](documentation/external_bundle/site_handoff_inputs.md).
+-   **Rouen** : fournir seulement les chemins BACT et PMSI à
+    `scripts/build_rouen.ps1`. Commencer par la
+    [procédure opérateur Rouen](documentation/external_bundle/rouen_raw_handoff.md).
+
+## Rennes / autre entrepôt : commencer ici
+
+Cette section sert uniquement d'orientation. La procédure opérateur maintenue,
+avec les colonnes, commandes et erreurs possibles, est
+[`documentation/external_bundle/site_handoff_inputs.md`](documentation/external_bundle/site_handoff_inputs.md).
+
+Après l'[installation R](#installation-r), si les six fichiers n'existent pas
+encore, générer leurs en-têtes et le kit de références pour les valeurs cibles
+ORCHIDEE :
+
+```powershell
+$handoff = "data/site_handoff"
+& .\scripts\build_site.ps1 -EmitTemplates $handoff
+```
+
+Le site remplit les six fichiers de premier niveau. `mapping_reference/`
+indique vers quelles valeurs ORCHIDEE mapper les libellés locaux ; ce
+sous-répertoire est un kit d'aide, pas un septième bloc à fournir. Suivre
+ensuite dans la procédure opérateur la commande nommée avec `-DryRun`, puis
+retirer uniquement `-DryRun` après le `PASS`.
+
+Toutes les options du point d'entrée sont visibles avec :
+
+```powershell
+Get-Help .\scripts\build_site.ps1 -Full
+```
+
+Après validation, ORCHIDEE conserve le bundle v3 complet, matérialise le bundle
+v2 opérationnel et affiche la commande de rendu liée à ce même build. Les
+fichiers RDS internes sont générés par ORCHIDEE, pas préparés par le site.
 
 ## Rouen : démarrage rapide
 
@@ -137,37 +168,6 @@ PMSI/BIOL appartiennent désormais à `redsan`. ORCHIDEE ne maintient plus de
 second client EDSaN : il consomme l'export bactériologique local et l'objet PMSI
 produit par `redsan`, puis les transforme par son adaptateur Rouen ou reçoit les
 six blocs de handoff d'un autre site.
-
-## Rennes / autre entrepôt : commencer ici
-
-Cette section sert uniquement d'orientation. La procédure opérateur maintenue,
-avec les colonnes, commandes et erreurs possibles, est
-[`documentation/external_bundle/site_handoff_inputs.md`](documentation/external_bundle/site_handoff_inputs.md).
-
-Après l'[installation R](#installation-r), si les six fichiers n'existent pas
-encore, générer leurs en-têtes et le kit de références pour les valeurs cibles
-ORCHIDEE :
-
-```powershell
-$handoff = "data/site_handoff"
-& .\scripts\build_site.ps1 -EmitTemplates $handoff
-```
-
-Le site remplit les six fichiers de premier niveau. `mapping_reference/`
-indique vers quelles valeurs ORCHIDEE mapper les libellés locaux ; ce
-sous-répertoire est un kit d'aide, pas un septième bloc à fournir. Suivre
-ensuite dans la procédure opérateur la commande nommée avec `-DryRun`, puis
-retirer uniquement `-DryRun` après le `PASS`.
-
-Toutes les options du point d'entrée sont visibles avec :
-
-```powershell
-Get-Help .\scripts\build_site.ps1 -Full
-```
-
-Après validation, ORCHIDEE conserve le bundle v3 complet, matérialise le bundle
-v2 opérationnel et affiche la commande de rendu liée à ce même build. Les
-fichiers RDS internes sont générés par ORCHIDEE, pas préparés par le site.
 
 ## Carte des documents
 
