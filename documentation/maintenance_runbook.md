@@ -129,31 +129,25 @@ Chaque fichier `tests/test_*.R` est exécuté dans un processus R distinct.
 
 ## Construction d'un site externe depuis les six blocs
 
-Pour Rennes ou un autre site sans adaptateur local, utiliser
-`scripts/build_site.ps1`. Commencer avec les six chemins nommés et `-DryRun`,
-puis, pour une première construction, retirer uniquement `-DryRun` après le
-`PASS`. Si un output complet existe déjà, suivre l'avertissement et utiliser un
-autre `-Output` ou `-Force` après revue. Le wrapper conserve v3 sous
-`outputs/site_current/bundle_v3`, matérialise et smoke le v2 opérationnel sous
-`outputs/site_current/bundle_v2_operational`, et écrit un
-`build_manifest.txt` en dernier dans chacun des deux répertoires. Les deux
-manifests attestent la validation stricte et le smoke runtime, et doivent porter
-le même `build_id`.
+La procédure opérateur maintenue pour Rennes ou un autre site sans adaptateur
+local est
+[`external_bundle/site_handoff_inputs.md`](external_bundle/site_handoff_inputs.md).
+Ce runbook ne la reproduit pas. Pour la maintenance, retenir les invariants
+suivants :
 
-`-Force` remplace seulement un layout complet issu de ce même workflow. Un
-manifest manquant ou un autre layout impose un nouveau `-Output`. Pour créer
-les six en-têtes et les références de mapping sans les recopier depuis la
-documentation :
-
-```powershell
-& .\scripts\build_site.ps1 -EmitTemplates "data/site_handoff"
-```
-
-La commande ajoute `mapping_reference/`. Les listes ATB et profils sont
-fermées ; la taxonomie bactérienne expose les cibles reconnues ; les types de
-prélèvement décrivent la publication actuelle ; les catalogues TA/DE sont
-complets et portent un flag de périmètre. Ces références indiquent au site vers
-quoi mapper ses propres libellés, sans effectuer le mapping local à sa place.
+-   `scripts/build_site.ps1` est l'unique point d'entrée opérateur ;
+-   `-DryRun` vérifie les six chemins nommés, R, les paquets et les colonnes
+    avant toute construction ;
+-   `-EmitTemplates` produit les six en-têtes et `mapping_reference/`, sans
+    effectuer le mapping local ;
+-   le wrapper conserve v3, matérialise et smoke le v2 opérationnel, puis écrit
+    les deux manifests en dernier avec le même `build_id` ;
+-   `-Force` ne remplace qu'un layout complet issu du même workflow ;
+-   pour des bundles partiels sans manifests valides, choisir un autre
+    `-Output` ou, après avoir confirmé qu'aucun build ne tourne, exécuter la
+    commande de nettoyage affichée par le wrapper avant de réutiliser la
+    destination ;
+-   un layout provenant d'un autre workflow impose un nouveau `-Output`.
 
 La CLI positionnelle `scripts/build_external_bundle_from_site_inputs.R` reste
 un outil mainteneur pour les comparaisons explicites de contrats.

@@ -9,8 +9,9 @@ editor_options:
 This folder documents how another hospital can connect local data to the
 ORCHIDEE RATB core.
 
-This file is only an index. It should not duplicate the detailed contract.
-When details differ, the contract files below are authoritative.
+This file is only an index and deliberately contains no runnable onboarding
+recipe. Follow the linked operator contract; current command parameters are
+also available through the entry point's `Get-Help` output.
 
 ORCHIDEE can have different local entry adapters. Rouen uses its site-specific
 adapter. Rennes or another hospital should use the site-handoff inputs
@@ -18,13 +19,6 @@ described here. Both paths must converge to the same internal ORCHIDEE files
 before shared RATB scope, deduplication and indicator logic run.
 
 ## Start here
-
-For a Rouen operator starting from the automatic BACT export and the PMSI object
-already produced by `redsan`, start with:
-
-[rouen_raw_handoff.md](rouen_raw_handoff.md)
-
-That path asks for two clinical input paths and generates the six handoff blocks.
 
 For Rennes or another hospital HDW team, start with:
 
@@ -34,6 +28,13 @@ That document answers the practical first question: which files should the
 site prepare, with which columns? Its template command also emits the
 ORCHIDEE mapping targets and TA/DE references needed to populate them without
 guessing canonical values.
+
+For a Rouen operator starting from the automatic BACT export and the PMSI object
+already produced by `redsan`, start with:
+
+[rouen_raw_handoff.md](rouen_raw_handoff.md)
+
+That path asks for two clinical input paths and generates the six handoff blocks.
 
 ## Which document answers which question?
 
@@ -56,37 +57,6 @@ guessing canonical values.
 - `../operational_flow.md`
   - How do the Rouen adapter, bundle v2, raw RATB runtime and future unit-grain
     denominator fit together?
-
-## Main external-site command
-
-```powershell
-$handoff = "data/site_handoff"
-& .\scripts\build_site.ps1 `
-  -MicrobiologyObservations `
-    (Join-Path $handoff "microbiology_observations.csv") `
-  -BacteriaMapping (Join-Path $handoff "bacteria_mapping.csv") `
-  -SampleTypeMapping (Join-Path $handoff "sample_type_mapping.csv") `
-  -AntibioticMapping (Join-Path $handoff "antibiotic_mapping.csv") `
-  -UnitMapping (Join-Path $handoff "unit_mapping.csv") `
-  -IncidenceExposure `
-    (Join-Path $handoff `
-      "incidence_exposure_by_year_um_uf_ta_de_profile.csv") `
-  -DryRun
-```
-
-For a first build, after `PASS`, run the same command without `-DryRun`. If the
-preflight reports a completed existing output, follow its collision message:
-choose another `-Output` or, after review, add `-Force`. The command examples
-and required columns are in `site_handoff_inputs.md`.
-The preferred handoff is always six complete, unversioned blocks. Contract v3
-retains the v2 hospitalization-unit semantics and interprets the sixth block as
-profiled exposure at year + UM + UF + TA + DE grain. The command validates and
-retains that complete bundle, then materializes the closed
-`spares_current` projection as a separate strict v2 bundle for the current
-runtime. It does not switch the notebooks to v3 or publish stratified panels.
-
-CLIs that support both bundle contracts require an explicit
-`--contract=v2|v3`; there is no implicit third contract.
 
 ## Maintainer-only helpers
 
