@@ -58,16 +58,50 @@ from `renv.lock`:
 ```
 
 If the six files do not exist yet, generate empty CSV templates with the
-canonical headers:
+canonical headers and the ORCHIDEE mapping-reference kit:
 
 ```powershell
 $handoff = "data/site_handoff"
 & .\scripts\build_site.ps1 -EmitTemplates $handoff
 ```
 
-The command refuses to overwrite any existing template. Populate these six
-files with the protected local data; do not commit them. `$handoff` may instead
-point to a protected directory outside the checkout.
+The command refuses to overwrite any existing generated file. Populate the six
+top-level templates with the protected local data; do not commit them.
+`$handoff` may instead point to a protected directory outside the checkout.
+
+## Mapping targets supplied by ORCHIDEE
+
+ORCHIDEE cannot decide what a local Rennes or hospital label means. The site
+owns that interpretation and fills the mapping blocks. ORCHIDEE owns the target
+surface: it must show the exact canonical values and national references the
+site can map to.
+
+`-EmitTemplates` therefore creates:
+
+```text
+mapping_reference/
+  README.txt
+  supported_atb_norm.csv
+  recognized_bact_norm.csv
+  current_indicator_naturepvt_norm.csv
+  reference_code_ta.csv
+  reference_code_de.csv
+  allowed_denominator_profiles.csv
+```
+
+These files have four deliberately different roles:
+
+| Files | Meaning |
+| --- | --- |
+| `supported_atb_norm.csv`, `allowed_denominator_profiles.csv` | Closed values accepted by the current builder. |
+| `recognized_bact_norm.csv` | Canonical bacterium targets recognized by the bundled taxonomy, with their order, family and genus when known. It is not a bundle-wide allow-list. |
+| `current_indicator_naturepvt_norm.csv` | Sample-type targets selected by the current report. It is not a bundle-wide allow-list. |
+| `reference_code_ta.csv`, `reference_code_de.csv` | Complete national references. `included_in_spares_current` marks whether that TA or DE-domain component is selected today; actual unit eligibility requires both. `FALSE` means outside today's analysis, not invalid v3 activity. |
+
+The reference kit is not a seventh handoff block and is not returned to
+ORCHIDEE. For example, ORCHIDEE supplies `cefotaxime` as a supported target;
+the site decides whether local labels such as `CTX` or `CEFOTAX` mean
+`cefotaxime`.
 
 ORCHIDEE writes four internal files per materialized bundle after validation:
 
@@ -177,15 +211,21 @@ Required columns:
 | Column | Meaning |
 | --- | --- |
 | `bacteria_local` | Local bacterium label as it appears in `microbiology_observations`. |
-| `bact_norm` | ORCHIDEE bacterium name. |
+| `bact_norm` | Canonical ORCHIDEE bacterium token. |
 
 Example:
 
 ```csv
 bacteria_local,bact_norm
-Escherichia coli,Escherichia coli
-Klebsiella pneumoniae,Klebsiella pneumoniae
+Escherichia coli,escherichia_coli
+Klebsiella pneumoniae,klebsiella_pneumoniae
 ```
+
+Use `mapping_reference/recognized_bact_norm.csv` for the exact tokens
+recognized by the bundled taxonomy. The taxonomy columns explain which tokens
+also contribute to pooled indicators such as Enterobacterales. A different
+`bact_norm` may remain valid portable microbiology, but it does not
+automatically create a published indicator.
 
 ## Block 3: sample_type_mapping
 
@@ -210,6 +250,8 @@ Hemoculture,hemoculture
 classified reliably. Those rows remain available for global indicators, but
 cannot contribute to analyses that require a known sample type. The number of
 blank mappings should be reviewed during onboarding.
+`mapping_reference/current_indicator_naturepvt_norm.csv` lists the sample types
+selected by the current report; it is not a bundle-wide allow-list.
 
 ## Block 4: antibiotic_mapping
 
@@ -232,6 +274,8 @@ Cefotaxime,cefotaxime
 
 Only include antibiotic result rows that map to supported ORCHIDEE antibiotic
 columns. The builder fails if `atb_norm` is not one of those columns.
+The exact closed list is generated in
+`mapping_reference/supported_atb_norm.csv`.
 
 ## Block 5: unit_mapping
 
@@ -246,16 +290,22 @@ Required columns:
 | --- | --- |
 | `SEJUF` | Hospitalization UF. Must match the other handoff blocks. |
 | `CODE_TA` | TA code for the unit. |
-| `CODE_DE` | Local DE code for the unit. |
+| `CODE_DE` | National DE code for the unit. |
 | `de_domain_ref` | National DE domain corresponding to `CODE_DE`. |
 
 Expected grain: one row per `SEJUF`.
 
 ```csv
 SEJUF,CODE_TA,CODE_DE,de_domain_ref
-UF1234,03,D03,MÉDECINE
-UF5678,10,D07,URGENCES
+UF1234,03,102,MÉDECINE
+UF5678,10,211,URGENCES
 ```
+
+Use `mapping_reference/reference_code_ta.csv` and
+`mapping_reference/reference_code_de.csv` to translate the site's local
+structure. They contain the complete national references and identify the
+current `spares_current` perimeter without treating other mapped activity as
+invalid.
 
 ## Block 6: incidence_exposure_by_year_um_uf_ta_de_profile
 
@@ -289,6 +339,8 @@ annual total; do not provide a second independently computed annual table.
 `unit_mapping` must cover every `SEJUF` in this block. Its TA, DE and DE-domain
 values must agree exactly; strict validation rejects missing or contradictory
 cross-block mappings.
+The accepted profile/unit pair is generated in
+`mapping_reference/allowed_denominator_profiles.csv`.
 
 ## Build and validate the ORCHIDEE bundles
 
@@ -392,7 +444,8 @@ Read the first error message. The most common failures are:
 
 - a required column is missing;
 - a local bacterium, sample type or antibiotic has no mapping;
-- an antibiotic maps to an unsupported ORCHIDEE antibiotic column;
+- an antibiotic maps to a value absent from
+  `mapping_reference/supported_atb_norm.csv`;
 - all microbiology rows are marked outside `ratb_diagnostic_scope`;
 - `SEJUF` is duplicated in `unit_mapping`;
 - `DATEPRELEV` or `HEUREPRELEV` has an unsupported format;

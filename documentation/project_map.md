@@ -313,8 +313,9 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   vérifie les paquets et le contrat de colonnes des six blocs sans
         construire de bundle ; lit seulement les en-têtes délimités
 -   `scripts/emit_site_handoff_templates.R`
-    -   génère les six CSV vides depuis le même contrat exécutable et refuse
-        toute réécriture
+    -   génère les six CSV vides et le kit de références de mapping depuis les
+        contrats, la taxonomie, les réglages de publication et catalogues TA/DE
+        autoritaires ; refuse toute réécriture
 -   `scripts/build_external_bundle_from_site_inputs.R`
     -   CLI R positionnelle sous-jacente pour construire le bundle v3 depuis
         les six blocs, puis matérialiser séparément sa projection v2
