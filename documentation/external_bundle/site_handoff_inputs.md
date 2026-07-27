@@ -51,7 +51,23 @@ Accepted formats are `.rds`, `.csv`, `.tsv`, `.tab`, or `.txt`. CSV files can
 use commas or semicolons. Text files must be UTF-8.
 
 Before running ORCHIDEE commands on a fresh clone, restore the R environment
-from `renv.lock` as described in the main `README.md`.
+from `renv.lock`:
+
+```powershell
+& .\scripts\setup.ps1
+```
+
+If the six files do not exist yet, generate empty CSV templates with the
+canonical headers:
+
+```powershell
+$handoff = "data/site_handoff"
+& .\scripts\build_site.ps1 -EmitTemplates $handoff
+```
+
+The command refuses to overwrite any existing template. Populate these six
+files with the protected local data; do not commit them. `$handoff` may instead
+point to a protected directory outside the checkout.
 
 ORCHIDEE writes four internal files per materialized bundle after validation:
 
@@ -103,8 +119,10 @@ Required columns:
 | `sir_result` | Local S/I/R result. |
 | `ratb_diagnostic_scope` | TRUE if the row belongs to diagnostic RATB microbiology, FALSE for screening / non-diagnostic rows. Exclusion is applied per document occurrence — see the note under Block 1. |
 
-Accepted aliases for `ratb_diagnostic_scope` are `diagnostic_scope` and
-`is_diagnostic`, but `ratb_diagnostic_scope` is preferred.
+Exactly one diagnostic-scope column is required. Its accepted names are
+`ratb_diagnostic_scope`, `diagnostic_scope` and `is_diagnostic`; do not provide
+more than one of them in the same file. Use `ratb_diagnostic_scope` for new
+handoffs.
 
 Optional columns:
 
@@ -274,52 +292,76 @@ cross-block mappings.
 
 ## Build and validate the ORCHIDEE bundles
 
-From the repository root, build the durable v3 bundle and its current
-operational v2 projection in one command:
+From the repository root, first run the safe preflight:
 
 ```powershell
-& .\scripts\run_r.ps1 scripts/build_external_bundle_from_site_inputs.R `
-  inputs/microbiology_observations.csv `
-  inputs/bacteria_mapping.csv `
-  inputs/sample_type_mapping.csv `
-  inputs/antibiotic_mapping.csv `
-  inputs/unit_mapping.csv `
-  inputs/incidence_exposure_by_year_um_uf_ta_de_profile.csv `
-  outputs/site_bundle_v3 `
-  --contract=v3 `
-  --operational-v2-output=outputs/site_bundle_v2 `
-  --force
+$handoff = "data/site_handoff"
+& .\scripts\build_site.ps1 `
+  -MicrobiologyObservations `
+    (Join-Path $handoff "microbiology_observations.csv") `
+  -BacteriaMapping (Join-Path $handoff "bacteria_mapping.csv") `
+  -SampleTypeMapping (Join-Path $handoff "sample_type_mapping.csv") `
+  -AntibioticMapping (Join-Path $handoff "antibiotic_mapping.csv") `
+  -UnitMapping (Join-Path $handoff "unit_mapping.csv") `
+  -IncidenceExposure `
+    (Join-Path $handoff `
+      "incidence_exposure_by_year_um_uf_ta_de_profile.csv") `
+  -DryRun
 ```
 
-The builder validates bundle v3 first. It then applies the closed
+This reads only delimited-file headers; RDS inputs must be deserialized to
+inspect their columns. It does not create an output directory. If the result is
+`PASS`, rerun exactly the same command without `-DryRun` for a first build. If
+the preflight reports a completed existing output, choose another `-Output` or,
+after review, add `-Force` as instructed by its warning.
+
+Add `-Output "D:\ORCHIDEE\site_current"` when generated bundles must live in a
+protected external workspace. Use
+`Get-Help .\scripts\build_site.ps1 -Full` to see all supported knobs.
+
+The wrapper validates bundle v3 first. It then applies the closed
 `spares_current` context, materializes a separate strict bundle v2 and
-validates that output. It does not adopt v3 as a notebook runtime input.
+validates and smoke-tests that output. It does not adopt v3 as a notebook
+runtime input. `-Force` is only for an intentional repeat build over a complete
+output created by this same workflow; it is not part of the first-build command.
 
 ## Use the resulting bundle
 
-The command above creates two directories. Preserve `outputs/site_bundle_v3`
-as the complete validated bundle. Point the current ORCHIDEE runtime to
-`outputs/site_bundle_v2`:
+The default output layout is:
 
-```powershell
-$env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR = `
-  (Resolve-Path "outputs/site_bundle_v2").Path
-$env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR = `
-  (Join-Path (Get-Location) "outputs/site_runtime")
-
-& .\scripts\run_r.ps1 scripts/smoke_external_runtime_inputs.R `
-  $env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR `
-  --contract=v2 `
-  --strict-preferred
-
-& .\scripts\render_orchidee.ps1 -Target full `
-  -Bundle $env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR `
-  -Workspace $env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR
+```text
+outputs/site_current/
+  bundle_v3/
+    build_manifest.txt
+  bundle_v2_operational/
+    build_manifest.txt
+  runtime/                    # created only by a later render
 ```
 
-The smoke command checks that the four v2 files can build the shared RATB
-inputs. The `full` render then calculates the operational indicators and writes
-its caches and report exports under the selected private workspace.
+Each bundle directory also contains the four RDS files. The manifest is written
+last, after strict validation, canonical runtime smoke and publication; without
+it, treat that directory as incomplete. The two manifests must carry the same
+`build_id`; a mismatch means the pair did not come from one completed run. The
+manifest is builder metadata, not a fifth file required by the v2 or v3 runtime
+contract.
+
+The build already runs the v2 runtime smoke. Preserve `bundle_v3` as the
+complete validated bundle. To calculate indicators from the v2 bundle produced
+by this same build:
+
+```powershell
+$bundle = (Resolve-Path `
+  "outputs/site_current/bundle_v2_operational").Path
+$workspace = Join-Path (Get-Location) "outputs/site_current/runtime"
+
+& .\scripts\render_orchidee.ps1 -Target full `
+  -Bundle $bundle `
+  -Workspace $workspace
+```
+
+The wrapper prints this command with the exact resolved paths at the end of the
+build. The `full` render calculates the operational indicators and writes its
+caches and report exports under the selected private workspace.
 
 ### Explicit direct v2 path
 
@@ -337,12 +379,12 @@ command is:
   inputs/unit_mapping.csv `
   inputs/denominator_by_year.csv `
   outputs/site_bundle_v2 `
-  --contract=v2 `
-  --force
+  --contract=v2
 ```
 
 This path does not infer hospitalization-unit attribution and cannot recover
-v3 detail from an annual denominator. It is not the preferred onboarding path.
+v3 detail from an annual denominator. It is a maintainer-only comparison path,
+not the preferred onboarding path.
 
 ## If validation fails
 

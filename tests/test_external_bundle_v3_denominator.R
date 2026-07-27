@@ -216,6 +216,10 @@ cli_input_dir <- file.path(cli_root, "inputs")
 cli_v3_dir <- file.path(cli_root, "bundle_v3")
 cli_v2_dir <- file.path(cli_root, "bundle_v2")
 dir.create(cli_input_dir, recursive = TRUE)
+dir.create(cli_v3_dir)
+dir.create(cli_v2_dir)
+writeLines("preserve-v3", file.path(cli_v3_dir, "keep.txt"))
+writeLines("preserve-v2", file.path(cli_v2_dir, "keep.txt"))
 cli_blocks <- list(
   microbiology_observations = data.frame(
     PATID = "P1",
@@ -293,6 +297,126 @@ cli_v2_report <- validate_external_input_bundle(
 cli_v3_sir_wide <- readRDS(file.path(cli_v3_dir, "sir_wide.rds"))
 cli_v2_sir_wide <- readRDS(file.path(cli_v2_dir, "sir_wide.rds"))
 cli_v2_denominator <- readRDS(file.path(cli_v2_dir, "denominator_bundle.rds"))
+cli_v3_manifest_path <- file.path(cli_v3_dir, "build_manifest.txt")
+cli_v2_manifest_path <- file.path(cli_v2_dir, "build_manifest.txt")
+cli_v3_manifest <- readLines(cli_v3_manifest_path, warn = FALSE)
+cli_v2_manifest <- readLines(cli_v2_manifest_path, warn = FALSE)
+cli_v3_build_id <- sub(
+  "^build_id: ",
+  "",
+  grep("^build_id: ", cli_v3_manifest, value = TRUE)
+)
+cli_v2_build_id <- sub(
+  "^build_id: ",
+  "",
+  grep("^build_id: ", cli_v2_manifest, value = TRUE)
+)
+cli_published_paths <- c(
+  file.path(cli_v3_dir, c(
+    "sir_wide.rds",
+    "sir_wide_meta.rds",
+    "sample_scope_reference.rds",
+    "denominator_bundle.rds",
+    "build_manifest.txt"
+  )),
+  file.path(cli_v2_dir, c(
+    "sir_wide.rds",
+    "sir_wide_meta.rds",
+    "sample_scope_reference.rds",
+    "denominator_bundle.rds",
+    "build_manifest.txt"
+  ))
+)
+cli_published_md5_before_invalid_force <- tools::md5sum(cli_published_paths)
+
+cli_invalid_input_dir <- file.path(cli_root, "invalid_inputs")
+dir.create(cli_invalid_input_dir)
+cli_invalid_blocks <- cli_blocks
+cli_invalid_blocks$unit_mapping <- cli_invalid_blocks$unit_mapping[
+  cli_invalid_blocks$unit_mapping$SEJUF != "UF2",
+  ,
+  drop = FALSE
+]
+cli_invalid_block_paths <- file.path(
+  cli_invalid_input_dir,
+  paste0(names(cli_invalid_blocks), ".rds")
+)
+invisible(Map(saveRDS, cli_invalid_blocks, cli_invalid_block_paths))
+cli_invalid_v3_dir <- file.path(cli_root, "invalid_bundle_v3")
+cli_invalid_v2_dir <- file.path(cli_root, "invalid_bundle_v2")
+cli_invalid_output <- suppressWarnings(
+  system2(
+    rscript,
+    c(
+      "--no-save",
+      "--no-restore",
+      shQuote("scripts/build_external_bundle_from_site_inputs.R"),
+      shQuote(unname(cli_invalid_block_paths)),
+      shQuote(cli_invalid_v3_dir),
+      "--contract=v3",
+      shQuote(paste0("--operational-v2-output=", cli_invalid_v2_dir))
+    ),
+    stdout = TRUE,
+    stderr = TRUE
+  )
+)
+cli_invalid_status <- attr(cli_invalid_output, "status")
+if (is.null(cli_invalid_status)) cli_invalid_status <- 0L
+cli_invalid_force_output <- suppressWarnings(
+  system2(
+    rscript,
+    c(
+      "--no-save",
+      "--no-restore",
+      shQuote("scripts/build_external_bundle_from_site_inputs.R"),
+      shQuote(unname(cli_invalid_block_paths)),
+      shQuote(cli_v3_dir),
+      "--contract=v3",
+      shQuote(paste0("--operational-v2-output=", cli_v2_dir)),
+      "--force"
+    ),
+    stdout = TRUE,
+    stderr = TRUE
+  )
+)
+cli_invalid_force_status <- attr(cli_invalid_force_output, "status")
+if (is.null(cli_invalid_force_status)) cli_invalid_force_status <- 0L
+cli_published_md5_after_invalid_force <- tools::md5sum(cli_published_paths)
+cli_manifest_files_present <- all(file.exists(c(
+  cli_v3_manifest_path,
+  cli_v2_manifest_path
+)))
+cli_manifest_tmp_absent <- !any(file.exists(c(
+  paste0(cli_v3_manifest_path, ".tmp"),
+  paste0(cli_v2_manifest_path, ".tmp")
+)))
+cli_keep_files_preserved <- identical(
+  readLines(file.path(cli_v3_dir, "keep.txt"), warn = FALSE),
+  "preserve-v3"
+) && identical(
+  readLines(file.path(cli_v2_dir, "keep.txt"), warn = FALSE),
+  "preserve-v2"
+)
+cli_invalid_output_absent <- !dir.exists(cli_invalid_v3_dir) &&
+  !dir.exists(cli_invalid_v2_dir)
+cli_staging_paths <- list.files(
+  cli_root,
+  all.files = TRUE,
+  recursive = TRUE,
+  full.names = TRUE
+)
+cli_staging_paths <- cli_staging_paths[
+  grepl("-staging-", basename(cli_staging_paths), fixed = TRUE)
+]
+cli_lock_paths <- list.files(
+  cli_root,
+  all.files = TRUE,
+  recursive = TRUE,
+  full.names = TRUE
+)
+cli_lock_paths <- cli_lock_paths[
+  grepl(".site-build.lock", cli_lock_paths, fixed = TRUE)
+]
 cli_de_reference_path <- file.path(cli_input_dir, "de_reference.rds")
 saveRDS(
   data.frame(
@@ -348,6 +472,11 @@ cli_v2_path_normalized <- normalizePath(
   cli_v2_dir,
   winslash = "/",
   mustWork = TRUE
+)
+cli_runtime_path_normalized <- normalizePath(
+  file.path(dirname(cli_v2_path_normalized), "runtime"),
+  winslash = "/",
+  mustWork = FALSE
 )
 unlink(cli_root, recursive = TRUE)
 
@@ -436,24 +565,43 @@ stopifnot(
 # Why: protects the preferred six-block onboarding contract: one CLI run must
 # validate and retain v3, then materialize an independently validated v2
 # projection without changing microbiology rows, accepting a seventh block or
-# allowing two aliases of the same output directory. Its final message must
-# also point to the exact v2 directory and the R executable.
+# allowing two aliases of the same output directory. It publishes a manifest
+# last, preserves unrelated files and prints copyable repository commands.
 stopifnot(
   identical(cli_status, 0L),
   isTRUE(cli_v3_report$ok),
   isTRUE(cli_v2_report$ok),
   identical(cli_v3_sir_wide, cli_v2_sir_wide),
+  cli_manifest_files_present,
+  cli_manifest_tmp_absent,
+  "status: complete" %in% cli_v3_manifest,
+  "status: complete" %in% cli_v2_manifest,
+  "contract_version: v3" %in% cli_v3_manifest,
+  "contract_version: v2" %in% cli_v2_manifest,
+  "role: durable_v3" %in% cli_v3_manifest,
+  "role: operational_v2" %in% cli_v2_manifest,
+  "runtime_smoke: PASS" %in% cli_v3_manifest,
+  "runtime_smoke: PASS" %in% cli_v2_manifest,
+  length(cli_v3_build_id) == 1L,
+  identical(cli_v3_build_id, cli_v2_build_id),
+  cli_keep_files_preserved,
   any(grepl(
     cli_v2_path_normalized,
     cli_output,
     fixed = TRUE
   )),
+  any(grepl("$bundle =", cli_output, fixed = TRUE)),
   any(grepl(
-    normalizePath(rscript, winslash = "/", mustWork = TRUE),
+    paste0("  $workspace = '", cli_runtime_path_normalized, "'"),
     cli_output,
     fixed = TRUE
   )),
-  any(grepl("render_orchidee.ps1 -Target full", cli_output, fixed = TRUE)),
+  any(grepl(
+    "render_orchidee.ps1 -Target full -Bundle $bundle -Workspace $workspace",
+    cli_output,
+    fixed = TRUE
+  )),
+  !any(grepl("$env:", cli_output, fixed = TRUE)),
   !identical(cli_seventh_block_status, 0L),
   any(grepl(
     "do not pass a seventh de_reference block",
@@ -471,6 +619,25 @@ stopifnot(
       hospital_nights = c(100L, 75L)
     )
   )
+)
+
+# Why: a cross-artifact validation failure must never publish a new bundle or
+# alter an already completed bundle, even when --force was explicitly passed.
+stopifnot(
+  !identical(cli_invalid_status, 0L),
+  any(grepl(
+    "disagrees with sample scope TA/DE mapping",
+    cli_invalid_output,
+    fixed = TRUE
+  )),
+  cli_invalid_output_absent,
+  !identical(cli_invalid_force_status, 0L),
+  identical(
+    unname(cli_published_md5_before_invalid_force),
+    unname(cli_published_md5_after_invalid_force)
+  ),
+  length(cli_staging_paths) == 0L,
+  length(cli_lock_paths) == 0L
 )
 
 # Why: protects the canonical cross-artifact contract: strict v3 validation

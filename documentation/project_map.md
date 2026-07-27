@@ -305,13 +305,23 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
         expose seulement les trois objets runtime partagés aux notebooks
 -   `scripts/validate_external_bundle.R`
     -   validateur CLI autonome pour les bundles externes
+-   `scripts/build_site.ps1`
+    -   point d'entrée opérateur Rennes/autre site : six chemins nommés,
+        préflight `-DryRun`, bundle v3 conservé, projection v2 opérationnelle et
+        smoke automatique sous `outputs/site_current`
+-   `scripts/check_site_environment.R`
+    -   vérifie les paquets et le contrat de colonnes des six blocs sans
+        construire de bundle ; lit seulement les en-têtes délimités
+-   `scripts/emit_site_handoff_templates.R`
+    -   génère les six CSV vides depuis le même contrat exécutable et refuse
+        toute réécriture
 -   `scripts/build_external_bundle_from_site_inputs.R`
-    -   construit le bundle v3 préféré depuis les six blocs complets d'un site
-        externe, puis peut matérialiser séparément sa projection v2
+    -   CLI R positionnelle sous-jacente pour construire le bundle v3 depuis
+        les six blocs, puis matérialiser séparément sa projection v2
         `spares_current` avec `--operational-v2-output`
     -   dérive `sir_wide.rds`, `sir_wide_meta.rds`,
         `sample_scope_reference.rds` et `denominator_bundle.rds`, puis
-        lance la validation stricte
+        publie après validation stricte avec un manifest par bundle
 -   `scripts/build_rouen.ps1`
     -   point d'entrée opérateur Rouen : demande seulement les chemins BACT et
         PMSI, résout R, choisit le parcours v3 + projection v2 ratifié et utilise

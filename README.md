@@ -172,16 +172,50 @@ six blocs de handoff d'un autre site.
     six blocs ; commencer par
     `documentation/external_bundle/rouen_raw_handoff.md`.
 -   **Rennes ou un autre entrepôt** : fournir directement les six blocs décrits
-    dans `documentation/external_bundle/site_handoff_inputs.md`.
+    dans `documentation/external_bundle/site_handoff_inputs.md` à
+    `scripts/build_site.ps1`.
 
 ## Rennes / autre entrepôt : commencer ici
 
-La page à lire en premier est :
+Si les six fichiers n'existent pas encore, générer leurs en-têtes :
 
-`documentation/external_bundle/site_handoff_inputs.md`
+```powershell
+$handoff = "data/site_handoff"
+& .\scripts\build_site.ps1 -EmitTemplates $handoff
+```
 
-Elle décrit les fichiers élémentaires attendus d'un site externe. C'est la
-source de vérité pour l'onboarding Rennes.
+Une fois les fichiers remplis, commencer par le préflight ci-dessous. Il
+contrôle les chemins, R, les paquets et les colonnes sans construire de bundle :
+
+```powershell
+$handoff = "data/site_handoff"
+& .\scripts\build_site.ps1 `
+  -MicrobiologyObservations `
+    (Join-Path $handoff "microbiology_observations.csv") `
+  -BacteriaMapping (Join-Path $handoff "bacteria_mapping.csv") `
+  -SampleTypeMapping (Join-Path $handoff "sample_type_mapping.csv") `
+  -AntibioticMapping (Join-Path $handoff "antibiotic_mapping.csv") `
+  -UnitMapping (Join-Path $handoff "unit_mapping.csv") `
+  -IncidenceExposure `
+    (Join-Path $handoff `
+      "incidence_exposure_by_year_um_uf_ta_de_profile.csv") `
+  -DryRun
+```
+
+Pour une première construction, après `PASS`, relancer exactement la même
+commande sans `-DryRun`. Si le préflight signale un output complet existant,
+suivre son message : choisir un autre `-Output` ou, après revue, ajouter
+`-Force`.
+
+`documentation/external_bundle/site_handoff_inputs.md` décrit les colonnes et
+les erreurs possibles ; c'est la source de vérité pour les six entrées.
+
+Pour placer les résultats dans un espace protégé externe, ajouter
+`-Output "D:\ORCHIDEE\site_current"`. Toutes les options sont visibles avec :
+
+```powershell
+Get-Help .\scripts\build_site.ps1 -Full
+```
 
 En résumé, le site prépare exactement six blocs de handoff non versionnés :
 
@@ -207,12 +241,12 @@ ORCHIDEE dérive ensuite :
 Ces quatre fichiers sont construits par ORCHIDEE. Un site externe ne doit pas
 les construire à la main.
 
-Le script de construction depuis les blocs site est :
-
-`scripts/build_external_bundle_from_site_inputs.R`
-
-Le détail des colonnes, des valeurs attendues et de la commande complète est
-dans `documentation/external_bundle/site_handoff_inputs.md`.
+Le wrapper écrit par défaut le bundle v3 conservé sous
+`outputs/site_current/bundle_v3` et le bundle v2 opérationnel sous
+`outputs/site_current/bundle_v2_operational`. Chaque répertoire n'est utilisable
+qu'après apparition de son `build_manifest.txt`, avec le même `build_id` dans
+les deux manifests. Le wrapper affiche ensuite la commande de rendu avec ces
+chemins explicites.
 
 ## Rouen : des exports locaux au même handoff
 
