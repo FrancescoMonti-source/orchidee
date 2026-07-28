@@ -80,6 +80,6 @@ if (any(tolower(tools::file_ext(args)) == "rds")) {
 }
 cat(
   "PASS: required R packages and the six site-input column contracts ",
-  "are available; no bundle was built.\n",
+  "are available.\n",
   sep = ""
 )

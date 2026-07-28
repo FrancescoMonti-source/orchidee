@@ -136,6 +136,8 @@ Ce runbook ne la reproduit pas. Pour la maintenance, retenir les invariants
 suivants :
 
 -   `scripts/build_site.ps1` est l'unique point d'entrée opérateur ;
+-   `-RunExample` exécute le parcours complet sur les six CSV synthétiques
+    versionnés, sans données cliniques ;
 -   `-DryRun` vérifie les six chemins nommés, R, les paquets et les colonnes
     avant toute construction ;
 -   `-EmitTemplates` produit les six en-têtes et `mapping_reference/`, sans

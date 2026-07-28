@@ -30,9 +30,19 @@ Cette section sert uniquement d'orientation. La procédure opérateur maintenue,
 avec les colonnes, commandes et erreurs possibles, est
 [`documentation/external_bundle/site_handoff_inputs.md`](documentation/external_bundle/site_handoff_inputs.md).
 
-Après l'[installation R](#installation-r), si les six fichiers n'existent pas
-encore, générer leurs en-têtes et le kit de références pour les valeurs cibles
-ORCHIDEE :
+Après l'[installation R](#installation-r), vérifier d'abord le parcours complet
+avec les six fichiers synthétiques versionnés :
+
+```powershell
+& .\scripts\build_site.ps1 -RunExample
+```
+
+Un `PASS` prouve que l'environnement et le builder fonctionnent sans introduire
+de données cliniques. La sortie de démonstration reste sous
+`outputs/site_example/`.
+
+Si les six fichiers locaux n'existent pas encore, générer ensuite leurs
+en-têtes et le kit de références pour les valeurs cibles ORCHIDEE :
 
 ```powershell
 $handoff = "data/site_handoff"
@@ -241,6 +251,9 @@ Pour brancher un autre entrepôt, commencer par
 -   `scripts/`
     -   setup R et points d'entrée CLI : runner R commun, builders,
         validateurs, smoke test et wrapper de rendu ;
+-   `examples/`
+    -   jeux de données entièrement synthétiques et versionnés pour vérifier
+        les parcours opérateur avant d'introduire des données locales ;
 -   `renv/`
     -   infrastructure d'activation versionnée ; la bibliothèque restaurée sous
         `renv/library/` reste locale et ignorée par Git ;

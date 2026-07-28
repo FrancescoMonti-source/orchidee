@@ -27,7 +27,8 @@ For Rennes or another hospital HDW team, start with:
 That document answers the practical first question: which files should the
 site prepare, with which columns? Its template command also emits the
 ORCHIDEE mapping targets and TA/DE references needed to populate them without
-guessing canonical values.
+guessing canonical values. Before local data are introduced, its synthetic
+example runs the same complete builder and smoke path.
 
 For a Rouen operator starting from the automatic BACT export and the PMSI object
 already produced by `redsan`, start with:

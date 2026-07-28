@@ -171,6 +171,20 @@ expected_headers <- vapply(
   function(block_spec) paste(block_spec$template_columns, collapse = ","),
   character(1)
 )
+example_input_dir <- normalizePath(
+  "examples/site_handoff_minimal",
+  winslash = "/",
+  mustWork = TRUE
+)
+example_input_paths <- file.path(
+  example_input_dir,
+  paste0(expected_blocks, ".csv")
+)
+example_headers <- vapply(
+  example_input_paths,
+  function(path) readLines(path, n = 1L, warn = FALSE),
+  character(1)
+)
 template_second_run <- run_r_script(
   "scripts/emit_site_handoff_templates.R",
   template_dir
@@ -290,6 +304,33 @@ if (identical(.Platform$OS.type, "windows")) {
     list(status = status, output = output)
   }
 
+  run_example_wrapper <- function(output_path, force = FALSE) {
+    wrapper_args <- c(
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      shQuote(normalizePath(
+        "scripts/build_site.ps1",
+        winslash = "\\",
+        mustWork = TRUE
+      )),
+      "-RunExample",
+      "-Output",
+      shQuote(output_path)
+    )
+    if (force) wrapper_args <- c(wrapper_args, "-Force")
+    output <- suppressWarnings(system2(
+      powershell,
+      wrapper_args,
+      stdout = TRUE,
+      stderr = TRUE
+    ))
+    status <- attr(output, "status")
+    if (is.null(status)) status <- 0L
+    list(status = status, output = output)
+  }
+
   wrapper_dry_run <- run_site_wrapper()
   wrapper_unnecessary_force_run <- run_site_wrapper(
     output_path = file.path(test_root, "unnecessary_force_output"),
@@ -302,63 +343,12 @@ if (identical(.Platform$OS.type, "windows")) {
     output_path = normalizePath(".", winslash = "\\", mustWork = TRUE)
   )
 
-  build_input_dir <- file.path(test_root, "populated inputs")
-  dir.create(build_input_dir)
-  build_blocks <- list(
-    microbiology_observations = data.frame(
-      PATID = "P1",
-      EVTID = "E1",
-      ELTID = "L1",
-      DATEPRELEV = as.Date("2024-01-15"),
-      HEUREPRELEV = "09:00",
-      SEJUF = "UF1",
-      bacteria_local = "E. coli local",
-      sample_type_local = "Urine local",
-      antibiotic_local = "Cefotaxime local",
-      sir_result = "S",
-      ratb_diagnostic_scope = TRUE,
-      stringsAsFactors = FALSE
-    ),
-    bacteria_mapping = data.frame(
-      bacteria_local = "E. coli local",
-      bact_norm = "escherichia_coli",
-      stringsAsFactors = FALSE
-    ),
-    sample_type_mapping = data.frame(
-      sample_type_local = "Urine local",
-      naturepvt_norm = "urines",
-      stringsAsFactors = FALSE
-    ),
-    antibiotic_mapping = data.frame(
-      antibiotic_local = "Cefotaxime local",
-      atb_norm = "cefotaxime",
-      stringsAsFactors = FALSE
-    ),
-    unit_mapping = data.frame(
-      SEJUF = "UF1",
-      CODE_TA = "03",
-      CODE_DE = "102",
-      de_domain_ref = "MÉDECINE",
-      stringsAsFactors = FALSE
-    ),
-    incidence_exposure_by_year_um_uf_ta_de_profile = data.frame(
-      calendar_year = 2024L,
-      SEJUM = "UM1",
-      SEJUF = "UF1",
-      CODE_TA = "03",
-      CODE_DE = "102",
-      de_domain_ref = "MÉDECINE",
-      denominator_profile_id = "midnight_presence",
-      exposure_value = 100,
-      exposure_unit = "patient_days",
-      stringsAsFactors = FALSE
-    )
+  build_input_paths <- example_input_paths
+  build_blocks <- lapply(
+    build_input_paths,
+    orchidee_handoff_read_table
   )
-  build_input_paths <- file.path(
-    build_input_dir,
-    paste0(names(build_blocks), ".rds")
-  )
-  invisible(Map(saveRDS, build_blocks, build_input_paths))
+  names(build_blocks) <- expected_blocks
 
   unsupported_atb_input_dir <- file.path(
     test_root,
@@ -387,11 +377,7 @@ if (identical(.Platform$OS.type, "windows")) {
     test_root,
     "site_build_output $with'apostrophe"
   )
-  wrapper_build_run <- run_site_wrapper(
-    input_paths = build_input_paths,
-    output_path = build_output_dir,
-    dry_run = FALSE
-  )
+  wrapper_build_run <- run_example_wrapper(build_output_dir)
   valid_bundle_dir <- file.path(
     build_output_dir,
     "bundle_v2_operational"
@@ -501,9 +487,10 @@ if (
 }
 
 # Why: protects the executable onboarding boundary. A site owns exactly six
-# named blocks, generated templates and mapping references share executable
-# sources, help teaches the repository runner, and DryRun must reject a swapped
-# mapping without publishing anything.
+# named blocks, the public synthetic example and generated templates share
+# executable sources, mapping references expose their authoritative targets,
+# help teaches the repository runner, and DryRun must reject a swapped mapping
+# without publishing anything.
 stopifnot(
   identical(names(spec), expected_blocks),
   all(vapply(
@@ -572,6 +559,8 @@ stopifnot(
     fixed = TRUE
   )),
   identical(unname(template_headers), unname(expected_headers)),
+  all(file.exists(example_input_paths)),
+  identical(unname(example_headers), unname(expected_headers)),
   !identical(template_second_run$status, 0L),
   any(grepl(
     "Refusing to overwrite existing site-input templates",
@@ -640,6 +629,11 @@ if (identical(.Platform$OS.type, "windows")) {
       fixed = TRUE
     )),
     identical(wrapper_build_run$status, 0L),
+    any(grepl(
+      "Mode: versioned synthetic site example",
+      wrapper_build_run$output,
+      fixed = TRUE
+    )),
     file.exists(file.path(
       build_output_dir,
       "bundle_v3",
