@@ -67,9 +67,12 @@ Before working on protected local data, check this installation:
 
 This uses only files under `examples/site_handoff_minimal/`, runs the same v3
 build, v2 projection, strict validation and runtime smoke as a real handoff,
-and writes under `outputs/site_smoke_test/` by default. A `PASS` separates a
-working ORCHIDEE installation from later problems in local extraction or
-mapping. On a deliberate repeat, follow the collision message and use
+and writes under `outputs/site_smoke_test/` by default. A failure points at the
+installation. A `PASS` rules the installation out as the sole explanation, but on
+one synthetic observation it exercises no deduplication, screening exclusion,
+phenotype, resistance or perimeter filtering, so it cannot by itself place a
+later problem in local extraction or mapping. On a deliberate repeat, follow the
+collision message and use
 `-Force`, or select another `-Output`.
 
 The fixture is a single synthetic observation. It exists to prove the
@@ -165,7 +168,7 @@ Required columns:
 | --- | --- |
 | `PATID` | Patient identifier. |
 | `ELTID` | Sample / microbiology event identifier. |
-| `DATEPRELEV` | Sample date. Use `YYYY-MM-DD` or `DD/MM/YYYY` in text files. |
+| `DATEPRELEV` | Sample date. Use `YYYY-MM-DD` or `DD/MM/YYYY` in text files; `YYYY/MM/DD` also works, and a trailing time of day is ignored. Each value is read on its own, so the column may mix these forms, but anything else after the date is refused rather than guessed at. |
 | `SEJUF` | Hospitalization UF active at sampling. ORCHIDEE uses it to apply the RATB TA/DE perimeter. |
 | `bacteria_local` | Local bacterium label. |
 | `sample_type_local` | Local sample-type label. |
@@ -424,14 +427,22 @@ in full in `finding_values.csv`, so one pass is enough however many labels are
 involved.
 
 The report is written to a `diagnostics` subdirectory of `-Output` when you
-pass one, otherwise to `outputs\site_diagnostics`; `-Report` overrides both. It
-contains aggregate counts and your own local vocabulary only; it never writes
-patient identifiers. Exit status 2 means the diagnostics could not run or
-publish — a technical problem, not a verdict on your blocks. The new report is
-composed in full before the previous one is replaced, so a run that fails while
-composing it leaves the earlier report in place; should the replacement itself
-fail part way, the run still exits 2 and names the files it could not write,
-rather than leaving a mixed report that reads as current.
+pass one, otherwise to `outputs\site_diagnostics`; `-Report` overrides both.
+Beyond the six input paths it records for provenance, it contains aggregate
+counts and your own local vocabulary only; it never writes patient identifiers.
+
+Exit status 2 means the diagnostics could not produce a verdict — a technical
+problem, not a statement about your blocks. It covers failures before R starts
+too, such as an unusable `-Report` directory, so status 1 always means blocking
+findings and nothing else.
+
+The new report is composed in full before the previous one is replaced, so a run
+that fails while composing it leaves the earlier report in place. Replacing the
+files is not a single atomic step, so a complete report is marked by
+`report_manifest.txt`, which lists the files it is made of. The manifest is
+removed before anything else is touched and written last: a report directory
+without it was interrupted, whatever the files beside it look like, and the run
+exits 2 naming what it could not write.
 
 `-Diagnose` answers one question: do the six blocks satisfy the handoff
 contract? It does not predict which indicators the report will publish.

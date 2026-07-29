@@ -59,10 +59,12 @@ overwritten.
 
 .PARAMETER RunSmokeTest
 Check this installation by running the complete site workflow on the versioned
-synthetic six-block fixture. A PASS separates a working ORCHIDEE installation
-from later problems in local extraction or mapping; it is not onboarding
-material and teaches nothing about your own data. Run it before -Diagnose. The
-default output is outputs\site_smoke_test.
+synthetic six-block fixture. A failure points at the installation; a PASS rules
+it out as the sole explanation without proving anything about your own data,
+because one synthetic observation exercises no deduplication, screening
+exclusion, phenotype, resistance or perimeter filtering. It is not onboarding
+material. Run it before -Diagnose. The default output is
+outputs\site_smoke_test.
 
 .EXAMPLE
 & .\scripts\build_site.ps1 `
@@ -252,7 +254,31 @@ function Assert-SafeTemplateDirectory {
   return $resolved
 }
 
-$rScript = Resolve-OrchideeRScript -RepoRoot $RepoRoot
+# -Diagnose has its own exit-status contract: 1 means blocking findings in the
+# six blocks, 2 means no verdict could be produced. Everything that can fail
+# before R runs -- resolving R, the six input paths, the report directory -- has
+# to honour it, or a caller reads a setup mistake as a problem with the site's
+# data.
+$isDiagnose = $PSCmdlet.ParameterSetName -eq 'Diagnose'
+
+function Exit-OrchideeDiagnoseSetupFailure {
+  param([string]$Message)
+
+  Write-Host ''
+  Write-Host (
+    "The diagnostics could not start: $Message" + ' This is not a verdict on ' +
+    'the six blocks, and no report was written.'
+  )
+  exit 2
+}
+
+try {
+  $rScript = Resolve-OrchideeRScript -RepoRoot $RepoRoot
+}
+catch {
+  if (-not $isDiagnose) { throw }
+  Exit-OrchideeDiagnoseSetupFailure -Message $_.Exception.Message
+}
 
 if ($PSCmdlet.ParameterSetName -eq 'Templates') {
   $templatePath = Resolve-OrchideeRepoPath `
@@ -320,32 +346,44 @@ $inputDefinitions = @(
     Value = $IncidenceExposure
   }
 )
-$inputPaths = @(
-  $inputDefinitions | ForEach-Object {
-    Resolve-OrchideeInputFile `
-      -RepoRoot $RepoRoot `
-      -Path $_.Value `
-      -Label $_.Name
-  }
-)
-if ($PSCmdlet.ParameterSetName -eq 'Diagnose') {
+try {
+  $inputPaths = @(
+    $inputDefinitions | ForEach-Object {
+      Resolve-OrchideeInputFile `
+        -RepoRoot $RepoRoot `
+        -Path $_.Value `
+        -Label $_.Name
+    }
+  )
+}
+catch {
+  if (-not $isDiagnose) { throw }
+  Exit-OrchideeDiagnoseSetupFailure -Message $_.Exception.Message
+}
+
+if ($isDiagnose) {
   # -Output is accepted here so that the documented workflow really is the same
   # command line with -DryRun swapped for -Diagnose. The report then sits
   # beside the build it precedes.
-  $reportRoot = if (-not [string]::IsNullOrWhiteSpace($Report)) {
-    Resolve-OrchideeRepoPath -RepoRoot $RepoRoot -Path $Report
-  } elseif (-not [string]::IsNullOrWhiteSpace($Output)) {
-    Join-Path (
-      Resolve-OrchideeRepoPath -RepoRoot $RepoRoot -Path $Output
-    ) 'diagnostics'
-  } else {
-    Join-Path $RepoRoot 'outputs\site_diagnostics'
+  try {
+    $reportRoot = if (-not [string]::IsNullOrWhiteSpace($Report)) {
+      Resolve-OrchideeRepoPath -RepoRoot $RepoRoot -Path $Report
+    } elseif (-not [string]::IsNullOrWhiteSpace($Output)) {
+      Join-Path (
+        Resolve-OrchideeRepoPath -RepoRoot $RepoRoot -Path $Output
+      ) 'diagnostics'
+    } else {
+      Join-Path $RepoRoot 'outputs\site_diagnostics'
+    }
+    $reportRoot = Assert-OrchideeSafeOutputDirectory `
+      -RepoRoot $RepoRoot `
+      -OutputPath $reportRoot `
+      -InputPaths $inputPaths `
+      -InputLabel 'Site handoff inputs'
   }
-  $reportRoot = Assert-OrchideeSafeOutputDirectory `
-    -RepoRoot $RepoRoot `
-    -OutputPath $reportRoot `
-    -InputPaths $inputPaths `
-    -InputLabel 'Site handoff inputs'
+  catch {
+    Exit-OrchideeDiagnoseSetupFailure -Message $_.Exception.Message
+  }
 
   for ($index = 0; $index -lt $inputDefinitions.Count; $index++) {
     Write-Host "$($inputDefinitions[$index].Name): $($inputPaths[$index])"

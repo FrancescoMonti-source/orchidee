@@ -3,8 +3,11 @@
 These six CSV files contain no patient-derived data. They are the versioned
 fixture behind `build_site.ps1 -RunSmokeTest`, which answers one binary
 question: can this clone, with this R and these packages, run the v3 builder,
-the v2 projection, strict validation and the runtime smoke? If it can, every
-later problem belongs to local extraction or mapping.
+the v2 projection, strict validation and the runtime smoke? A failure points at
+the installation. A success rules the installation out as the sole explanation,
+but it proves nothing about the data shapes the fixture never exercises, so it
+cannot place a later problem in local extraction or mapping on its own. Use
+`-Diagnose` for that.
 
 From the repository root, run:
 

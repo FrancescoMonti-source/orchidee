@@ -535,53 +535,115 @@ orchidee_handoff_ascii_lower <- function(x) {
   tolower(x)
 }
 
-orchidee_handoff_parse_date <- function(x, col_name = "DATEPRELEV") {
-  if (inherits(x, "Date")) {
-    return(x)
-  }
-  if (is.factor(x)) x <- as.character(x)
-  if (is.numeric(x)) {
-    out <- as.Date(x, origin = "1970-01-01")
-  } else {
-    x_chr <- orchidee_handoff_trim_or_na(x)
-    out <- as.Date(x_chr)
-    bad <- is.na(out) & !is.na(x_chr)
-    if (any(bad)) {
-      out[bad] <- as.Date(x_chr[bad], format = "%d/%m/%Y")
-    }
-  }
-  bad <- is.na(out)
-  if (any(bad)) {
-    stop(col_name, " must contain non-missing dates.", call. = FALSE)
-  }
-  out
+# Each accepted text form is matched against an anchored shape before it is
+# parsed. The shapes are disjoint -- a four-digit leading group means the year
+# comes first -- so a value is read the same way whatever its neighbours look
+# like. This replaces as.Date(x) with no format, which derived one format for
+# the whole column from R's tryFormats and made the documented DD/MM/YYYY
+# silently wrong: strptime ignores trailing characters, so %Y/%m/%d matched
+# "12/03/2024" as year 12 month 03 day 20 without an NA, and the %d/%m/%Y branch
+# that was meant to handle it was never reached. A uniformly French column built
+# a bundle dated in year 12 rather than failing.
+orchidee_handoff_date_shapes <- function() {
+  # A trailing time of day is allowed and ignored: an HDW export commonly carries
+  # a timestamp in the date column, the time of day belongs to HEUREPRELEV, and
+  # dropping it is unambiguous. Anything else after the date is not.
+  time_of_day <- "([ T][0-9]{1,2}:[0-9]{2}(:[0-9]{2})?)?"
+  list(
+    list(
+      pattern = paste0("^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}", time_of_day, "$"),
+      format = "%Y-%m-%d"
+    ),
+    list(
+      pattern = paste0("^[0-9]{4}/[0-9]{1,2}/[0-9]{1,2}", time_of_day, "$"),
+      format = "%Y/%m/%d"
+    ),
+    list(
+      pattern = paste0("^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}", time_of_day, "$"),
+      format = "%d/%m/%Y"
+    )
+  )
 }
 
-orchidee_handoff_parse_time <- function(x, col_name = "HEUREPRELEV") {
-  if (inherits(x, "difftime")) {
-    return(x)
-  }
-  if (missing(x) || is.null(x)) {
-    return(as.difftime(rep(NA_real_, 0L), units = "secs"))
+# Returns the parsed values alongside the elements that could not be read, so a
+# caller reporting on a column does not have to stop at the first bad value.
+orchidee_handoff_parse_date_values <- function(x) {
+  if (inherits(x, "Date")) {
+    return(list(values = x, bad = is.na(x)))
   }
   if (is.factor(x)) x <- as.character(x)
   if (is.numeric(x)) {
-    return(as.difftime(x, units = "secs"))
+    values <- as.Date(x, origin = "1970-01-01")
+    return(list(values = values, bad = is.na(values)))
+  }
+  x_chr <- orchidee_handoff_trim_or_na(x)
+  values <- rep(as.Date(NA), length(x_chr))
+  for (shape in orchidee_handoff_date_shapes()) {
+    pending <- is.na(values) & !is.na(x_chr) & grepl(shape$pattern, x_chr)
+    if (!any(pending)) {
+      next
+    }
+    values[pending] <- suppressWarnings(
+      as.Date(x_chr[pending], format = shape$format)
+    )
+  }
+  list(values = values, bad = is.na(values))
+}
+
+orchidee_handoff_parse_date <- function(x, col_name = "DATEPRELEV") {
+  parsed <- orchidee_handoff_parse_date_values(x)
+  if (any(parsed$bad)) {
+    stop(col_name, " must contain non-missing dates.", call. = FALSE)
+  }
+  parsed$values
+}
+
+# Times are anchored for the same reason as dates: strptime ignores trailing
+# characters, so an unanchored "%H:%M:%S" accepted "09:15:00 (approx)" as 09:15
+# and dropped the rest without a word. The accepted forms are the two the
+# contract documents.
+orchidee_handoff_parse_time_values <- function(x) {
+  if (inherits(x, "difftime")) {
+    return(list(values = x, bad = rep(FALSE, length(x))))
+  }
+  if (missing(x) || is.null(x)) {
+    return(list(
+      values = as.difftime(rep(NA_real_, 0L), units = "secs"),
+      bad = logical(0)
+    ))
+  }
+  if (is.factor(x)) x <- as.character(x)
+  if (is.numeric(x)) {
+    return(list(
+      values = as.difftime(x, units = "secs"),
+      bad = rep(FALSE, length(x))
+    ))
   }
 
   x_chr <- orchidee_handoff_trim_or_na(x)
-  out <- as.difftime(rep(NA_real_, length(x_chr)), units = "secs")
+  values <- as.difftime(rep(NA_real_, length(x_chr)), units = "secs")
   has_value <- !is.na(x_chr)
-  hh_mm <- has_value & grepl("^[0-9]{1,2}:[0-9]{2}$", x_chr)
-  x_chr[hh_mm] <- paste0(x_chr[hh_mm], ":00")
-  has_value <- !is.na(x_chr)
-  parsed <- suppressWarnings(as.difftime(x_chr[has_value], format = "%H:%M:%S"))
-  out[has_value] <- parsed
-  bad <- has_value & is.na(out)
-  if (any(bad)) {
+  padded <- x_chr
+  hh_mm <- has_value & grepl("^[0-9]{1,2}:[0-9]{2}$", padded)
+  padded[hh_mm] <- paste0(padded[hh_mm], ":00")
+  # Fractional seconds are allowed and ignored for the same reason as a trailing
+  # time of day on a date: unambiguous, and previously accepted.
+  parseable <- has_value &
+    grepl("^[0-9]{1,2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?$", padded)
+  if (any(parseable)) {
+    values[parseable] <- suppressWarnings(
+      as.difftime(padded[parseable], format = "%H:%M:%S")
+    )
+  }
+  list(values = values, bad = has_value & is.na(values))
+}
+
+orchidee_handoff_parse_time <- function(x, col_name = "HEUREPRELEV") {
+  parsed <- orchidee_handoff_parse_time_values(x)
+  if (any(parsed$bad)) {
     stop(col_name, " must use HH:MM or HH:MM:SS when provided.", call. = FALSE)
   }
-  out
+  parsed$values
 }
 
 orchidee_handoff_normalize_sir <- function(x) {

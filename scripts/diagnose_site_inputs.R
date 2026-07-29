@@ -62,8 +62,9 @@ if (length(args) != 7L || any(args %in% c("-h", "--help"))) {
     "without BLOCKING findings means the operator build completes: bundle v3,\n",
     "its spares_current projection to operational v2, and strict validation of\n",
     "both.\n\n",
-    "The report contains aggregate counts and local vocabulary only. It never\n",
-    "writes patient identifiers.\n",
+    "Beyond the six input paths it records for provenance, the report contains\n",
+    "aggregate counts and local vocabulary only. It never writes patient\n",
+    "identifiers.\n",
     sep = ""
   )
   quit(status = if (length(args) == 0L || any(args %in% c("-h", "--help"))) {
@@ -231,68 +232,24 @@ parse_integerish <- function(x) {
   list(values = values, bad = bad, raw = raw)
 }
 
-parse_dates <- function(x) {
-  if (inherits(x, "Date")) {
-    return(list(values = x, bad = is.na(x), raw = as.character(x)))
-  }
+raw_text_of <- function(x) {
   if (is.factor(x)) x <- as.character(x)
-  if (is.numeric(x)) {
-    values <- as.Date(x, origin = "1970-01-01")
-    return(list(values = values, bad = is.na(values), raw = as.character(x)))
-  }
-  raw <- orchidee_handoff_trim_or_na(x)
-  values <- rep(as.Date(NA), length(raw))
-  for (format in c("%Y-%m-%d", "%Y/%m/%d", "%d/%m/%Y")) {
-    pending <- is.na(values) & !is.na(raw)
-    if (!any(pending)) {
-      break
-    }
-    values[pending] <- suppressWarnings(as.Date(raw[pending], format = format))
-  }
-  list(values = values, bad = is.na(values), raw = raw)
+  if (is.character(x)) orchidee_handoff_trim_or_na(x) else as.character(x)
+}
+
+# Dates and times are parsed by the builder's own element-wise helpers, so the
+# report cannot describe a value the build would read differently. Only the raw
+# text for the message is added here.
+parse_dates <- function(x) {
+  parsed <- orchidee_handoff_parse_date_values(x)
+  list(values = parsed$values, bad = parsed$bad, raw = raw_text_of(x))
 }
 
 parse_times <- function(x) {
-  if (inherits(x, "difftime")) {
-    return(list(values = x, bad = rep(FALSE, length(x)), raw = as.character(x)))
-  }
-  if (is.factor(x)) x <- as.character(x)
-  if (is.numeric(x)) {
-    return(list(
-      values = as.difftime(x, units = "secs"),
-      bad = rep(FALSE, length(x)),
-      raw = as.character(x)
-    ))
-  }
-  raw <- orchidee_handoff_trim_or_na(x)
-  padded <- raw
-  hh_mm <- !is.na(padded) & grepl("^[0-9]{1,2}:[0-9]{2}$", padded)
-  padded[hh_mm] <- paste0(padded[hh_mm], ":00")
-  values <- as.difftime(rep(NA_real_, length(raw)), units = "secs")
-  has_value <- !is.na(padded)
-  if (any(has_value)) {
-    values[has_value] <- suppressWarnings(
-      as.difftime(padded[has_value], format = "%H:%M:%S")
-    )
-  }
-  list(values = values, bad = has_value & is.na(values), raw = raw)
+  parsed <- orchidee_handoff_parse_time_values(x)
+  list(values = parsed$values, bad = parsed$bad, raw = raw_text_of(x))
 }
 
-## The parsers above report every unreadable value independently, but they must
-## not own the verdict. The builder parses a column as a whole and infers one
-## date format for it, so a column whose values are each readable in isolation
-## can still be rejected. Asking the builder's own function is the only way to
-## agree with it without restating its internals here, which is what let a
-## column mixing two documented formats reach a PASS the build then refused.
-builder_column_rejection <- function(parse_fn, column, column_name) {
-  tryCatch(
-    {
-      parse_fn(column, col_name = column_name)
-      NULL
-    },
-    error = function(condition) conditionMessage(condition)
-  )
-}
 
 ## ---------------------------------------------------------------------------
 ## Read the six blocks once
@@ -762,24 +719,6 @@ if (!is.null(obs_in_scope)) {
       values = parsed_dates$raw[parsed_dates$bad]
     )
   }
-  date_column_rejection <- builder_column_rejection(
-    orchidee_handoff_parse_date,
-    obs_in_scope$DATEPRELEV,
-    "DATEPRELEV"
-  )
-  if (!is.null(date_column_rejection) && !any_true(parsed_dates$bad)) {
-    add_finding(
-      "BLOCKING",
-      "microbiology_observations",
-      "dateprelev_column_format",
-      paste0(
-        "Every DATEPRELEV value is readable on its own, but ORCHIDEE reads ",
-        "the column as a whole and derives a single format from it, so the ",
-        "build rejects it: ", date_column_rejection,
-        " Use one format for the whole column."
-      )
-    )
-  }
   sample_dates <- parsed_dates$values
 
   parsed_times <- if ("HEUREPRELEV" %in% names(obs_in_scope)) {
@@ -805,28 +744,6 @@ if (!is.null(obs_in_scope)) {
       ),
       n_rows = count_true(parsed_times$bad),
       values = parsed_times$raw[parsed_times$bad]
-    )
-  }
-  time_column_rejection <- if ("HEUREPRELEV" %in% names(obs_in_scope)) {
-    builder_column_rejection(
-      orchidee_handoff_parse_time,
-      obs_in_scope$HEUREPRELEV,
-      "HEUREPRELEV"
-    )
-  } else {
-    NULL
-  }
-  if (!is.null(time_column_rejection) && !any_true(parsed_times$bad)) {
-    add_finding(
-      "BLOCKING",
-      "microbiology_observations",
-      "heureprelev_column_format",
-      paste0(
-        "Every HEUREPRELEV value is readable on its own, but ORCHIDEE reads ",
-        "the column as a whole, so the build rejects it: ",
-        time_column_rejection,
-        " Use one format for the whole column."
-      )
     )
   }
   sample_times <- parsed_times$values
@@ -1830,7 +1747,9 @@ report_dir <- normalizePath(report_dir, winslash = "/", mustWork = TRUE)
 # Remove any artifact of a previous run first: a run that stops at the schema
 # writes fewer tables, and a stale one beside fresh findings would be read as
 # current.
+report_manifest_name <- "report_manifest.txt"
 report_artifacts <- c(
+  report_manifest_name,
   "site_input_diagnostics.txt",
   "findings.csv",
   "finding_values.csv",
@@ -1972,14 +1891,36 @@ for (file_name in names(optional_tables)) {
   staged_names <- c(staged_names, file_name)
 }
 
-# The complete report now exists, so replacing the previous one is safe. Renames
-# within one directory are cheap, but the set of them is not a single
-# transaction: if one fails the directory is left mixed, which must be a loud
-# technical failure rather than a report an operator could mistake for current.
+# The complete report now exists in staging, so replacing the previous one is
+# safe to start. The set of renames is not a single transaction, though, and a
+# half-replaced directory carries ordinary file names with nothing to say it is
+# incomplete. The manifest closes that: it names the files a complete report is
+# made of, it is removed before anything else is touched, and it is written
+# last. A report directory without it was interrupted, whatever its contents
+# look like.
+manifest_lines <- c(
+  "ORCHIDEE site input diagnostics report manifest",
+  paste0("generated_at_utc: ", format(Sys.time(), tz = "UTC", usetz = TRUE)),
+  "",
+  "A complete report consists of the files listed below. If this manifest is",
+  "absent from a report directory, the run that wrote it was interrupted and",
+  "the files beside it must not be read as a current verdict.",
+  "",
+  staged_names
+)
+manifest_connection <- file(
+  file.path(staging_dir, report_manifest_name),
+  open = "wt",
+  encoding = "UTF-8"
+)
+writeLines(manifest_lines, con = manifest_connection)
+close(manifest_connection)
+
+unlink(file.path(report_dir, report_manifest_name), force = TRUE)
 unlink(existing_artifacts, force = TRUE)
 written_files <- character()
 publication_failures <- character()
-for (file_name in staged_names) {
+for (file_name in c(staged_names, report_manifest_name)) {
   target_path <- file.path(report_dir, file_name)
   renamed <- suppressWarnings(
     file.rename(file.path(staging_dir, file_name), target_path)
@@ -1992,10 +1933,13 @@ for (file_name in staged_names) {
 }
 unlink(staging_dir, recursive = TRUE, force = TRUE)
 if (length(publication_failures) > 0L) {
+  # The manifest is renamed last, so it is absent whenever an earlier file
+  # failed; if the manifest itself failed, remove it for the same reason.
+  unlink(file.path(report_dir, report_manifest_name), force = TRUE)
   message(
     "The diagnostics report could not be published in full; ", report_dir,
-    " now holds an incomplete report. Missing: ",
-    paste(publication_failures, collapse = ", "),
+    " now holds an incomplete report and no ", report_manifest_name,
+    ". Missing: ", paste(publication_failures, collapse = ", "),
     ". Rerun once the directory is writable."
   )
   quit(status = 2L, runLast = FALSE)

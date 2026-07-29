@@ -38,9 +38,12 @@ faisant tourner le parcours complet sur la fixture synthétique versionnée :
 ```
 
 Un `PASS` prouve que l'environnement et le builder fonctionnent sans introduire
-de données cliniques : tout problème ultérieur appartient donc à l'extraction
-ou au mapping local. Ce n'est pas du matériel d'onboarding et cela n'apprend
-rien sur les données du site. La sortie reste sous `outputs/site_smoke_test/`.
+de données cliniques. Il écarte l'installation comme seule explication, mais sur
+une observation synthétique il n'exerce ni déduplication, ni exclusion de
+screening, ni phénotype, ni résistance, ni filtrage de périmètre : il ne suffit
+donc pas à situer un problème ultérieur dans l'extraction ou le mapping local.
+Ce n'est pas du matériel d'onboarding et cela n'apprend rien sur les données du
+site. La sortie reste sous `outputs/site_smoke_test/`.
 
 Si les six fichiers locaux n'existent pas encore, générer ensuite leurs
 en-têtes et le kit de références pour les valeurs cibles ORCHIDEE :

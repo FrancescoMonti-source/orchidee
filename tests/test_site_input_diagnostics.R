@@ -128,6 +128,22 @@ assert_pass_implies_buildable <- function(result) {
   invisible(NULL)
 }
 
+# A completable build is not the same as a correct one. Where a fixture exists to
+# pin how a value is read, the assertion has to reach into the bundle the
+# invariant built and look at what was stored.
+bundle_sample_dates <- function(result) {
+  sir_wide_path <- file.path(
+    test_root,
+    paste0(result$label, "_bundle"),
+    "bundle_v3",
+    "sir_wide.rds"
+  )
+  if (!file.exists(sir_wide_path)) {
+    return(NULL)
+  }
+  sort(as.character(readRDS(sir_wide_path)$DATEPRELEV))
+}
+
 ## Baseline blocks -----------------------------------------------------------
 
 clean_blocks <- list(
@@ -483,15 +499,35 @@ independent_date_result <- run_case(
   with_blocks(microbiology_observations = independent_date_observations)
 )
 
-# Reporting each value on its own is not enough to agree with the builder: it
-# derives one date format from the whole column, so a column mixing the two
-# documented forms is rejected even though every value is readable alone. The
-# order matters to the builder, hence the DD/MM/YYYY value first.
+# The documented DD/MM/YYYY form has to reach the bundle as the date it denotes.
+# Deriving one format from the whole column, as as.Date() does, matched
+# "12/03/2024" against %Y/%m/%d as year 12 and never reached the %d/%m/%Y
+# branch, so a uniformly French column built a bundle dated in year 12 while
+# both -Diagnose and the build exited 0. A PASS that only proves the build
+# completes cannot see that, hence the assertions on the stored values.
+french_date_observations <- clean_blocks$microbiology_observations
+french_date_observations$DATEPRELEV <- c("12/03/2024", "02/04/2024")
+french_date_result <- run_case(
+  "french_date_format",
+  with_blocks(microbiology_observations = french_date_observations)
+)
+
+# Anchored shapes are disjoint, so each value is read the same way whatever its
+# neighbours look like and a column mixing the documented forms is fine.
 mixed_date_observations <- clean_blocks$microbiology_observations
 mixed_date_observations$DATEPRELEV <- c("12/03/2024", "2024-03-13")
 mixed_date_result <- run_case(
   "mixed_date_formats",
   with_blocks(microbiology_observations = mixed_date_observations)
+)
+
+# Trailing characters are the same defect on times: strptime ignores them, so an
+# unanchored %H:%M:%S read "09:15:00 (approx)" as 09:15 and dropped the rest.
+trailing_time_observations <- clean_blocks$microbiology_observations
+trailing_time_observations$HEUREPRELEV <- c("09:15:00 (approx)", "10:00")
+trailing_time_result <- run_case(
+  "trailing_time_characters",
+  with_blocks(microbiology_observations = trailing_time_observations)
 )
 
 # Only bacteria_local is required to resolve: bact_norm belongs to the row
@@ -600,12 +636,13 @@ wrapper_technical_report <- NULL
 wrapper_preserved_before <- NULL
 wrapper_preserved_after <- NULL
 wrapper_technical_staging <- NULL
+wrapper_unsafe_report <- NULL
 if (identical(.Platform$OS.type, "windows")) {
   powershell <- Sys.which("powershell.exe")
   if (!nzchar(powershell)) {
     stop("Windows PowerShell 5.1 is required for the site wrapper test.")
   }
-  run_wrapper_diagnose <- function(inputs, output) {
+  run_wrapper_diagnose <- function(inputs, output = NULL, report = NULL) {
     wrapper_args <- c(
       "-NoProfile",
       "-ExecutionPolicy",
@@ -620,7 +657,8 @@ if (identical(.Platform$OS.type, "windows")) {
       "-AntibioticMapping", shQuote(inputs[[4L]]),
       "-UnitMapping", shQuote(inputs[[5L]]),
       "-IncidenceExposure", shQuote(inputs[[6L]]),
-      "-Output", shQuote(output),
+      if (is.null(output)) character() else c("-Output", shQuote(output)),
+      if (is.null(report)) character() else c("-Report", shQuote(report)),
       "-Diagnose"
     )
     lines <- suppressWarnings(system2(
@@ -679,6 +717,15 @@ if (identical(.Platform$OS.type, "windows")) {
   )
   wrapper_technical_staging <- dir.exists(
     file.path(wrapper_technical_report, ".orchidee_diagnostics_staging")
+  )
+
+  # A setup mistake before R even starts is a technical failure too. The
+  # repository root is refused as an output directory, and that refusal used to
+  # leave the wrapper at 1 -- the code a caller reads as blocking findings in
+  # the site's own blocks.
+  wrapper_unsafe_report <- run_wrapper_diagnose(
+    technical_inputs,
+    report = normalizePath(".", winslash = "\\", mustWork = TRUE)
   )
 }
 
@@ -742,6 +789,7 @@ all_results <- list(
   missing_bacteria_label_result, marker_lookalike_result, overflow_result,
   many_unmapped_uf_result, blank_target_collision_result,
   independent_exposure_result, independent_date_result, mixed_date_result,
+  french_date_result, trailing_time_result,
   reused_pass, reused_schema_failure
 )
 invisible(lapply(all_results, assert_pass_implies_buildable))
@@ -1019,22 +1067,35 @@ stopifnot(
     "BLOCKING"
   ),
 
-  # A column the builder rejects as a whole must block even when no single value
-  # is unreadable, otherwise -Diagnose passes a handoff the build refuses.
-  identical(mixed_date_result$status, 1L),
+  # The documented French form reaches the bundle as the date it denotes. A
+  # completable build was never enough here: the corrupt reading also built.
+  identical(french_date_result$status, 0L),
+  identical(
+    bundle_sample_dates(french_date_result),
+    c("2024-03-12", "2024-04-02")
+  ),
+
+  # Anchored shapes are disjoint, so a column mixing the documented forms is
+  # read value by value and each one keeps its own meaning.
+  identical(mixed_date_result$status, 0L),
+  identical(
+    bundle_sample_dates(mixed_date_result),
+    c("2024-03-12", "2024-03-13")
+  ),
+
+  # The clean fixture pins the ISO form through the same assertion.
+  identical(bundle_sample_dates(clean_result), c("2024-03-12", "2024-04-02")),
+
+  # Trailing characters on a time are reported rather than silently dropped.
+  identical(trailing_time_result$status, 1L),
   identical(
     severity_of(
-      mixed_date_result,
+      trailing_time_result,
       "microbiology_observations",
-      "dateprelev_column_format"
+      "heureprelev_format"
     ),
     "BLOCKING"
   ),
-  is.na(severity_of(
-    mixed_date_result,
-    "microbiology_observations",
-    "dateprelev_format"
-  )),
 
   # Coverage counts are reported per label in rows and document occurrences.
   identical(unmapped_bacteria$local_label, "Staphylococcus aureus"),
@@ -1066,6 +1127,21 @@ stopifnot(
   isTRUE(stale_before),
   identical(reused_schema_failure$status, 1L),
   isFALSE(stale_after),
+
+  # A complete report is marked as one, and the marker lists exactly the files
+  # published beside it. Without that, a half-replaced directory carries
+  # ordinary names with nothing to say it was interrupted.
+  file.exists(file.path(clean_result$report_dir, "report_manifest.txt")),
+  identical(
+    sort(setdiff(list.files(clean_result$report_dir), "report_manifest.txt")),
+    sort(intersect(
+      readLines(
+        file.path(clean_result$report_dir, "report_manifest.txt"),
+        warn = FALSE
+      ),
+      list.files(clean_result$report_dir)
+    ))
+  ),
 
   # The report carries aggregate counts and local vocabulary, never patients.
   !any(vapply(
@@ -1112,7 +1188,16 @@ if (identical(.Platform$OS.type, "windows")) {
     length(wrapper_preserved_names) >= 3L,
     identical(wrapper_preserved_before, wrapper_preserved_after),
     isFALSE(wrapper_technical_staging),
-    !dir.exists(file.path(dirname(wrapper_technical_report), "bundle_v3"))
+    !dir.exists(file.path(dirname(wrapper_technical_report), "bundle_v3")),
+
+    # A setup failure before R starts honours the same contract. Status 1 has to
+    # mean blocking findings and nothing else.
+    identical(wrapper_unsafe_report$status, 2L),
+    any(grepl(
+      "The diagnostics could not start",
+      wrapper_unsafe_report$output,
+      fixed = TRUE
+    ))
   )
 }
 
