@@ -547,8 +547,14 @@ orchidee_handoff_ascii_lower <- function(x) {
 orchidee_handoff_date_shapes <- function() {
   # A trailing time of day is allowed and ignored: an HDW export commonly carries
   # a timestamp in the date column, the time of day belongs to HEUREPRELEV, and
-  # dropping it is unambiguous. Anything else after the date is not.
-  time_of_day <- "([ T][0-9]{1,2}:[0-9]{2}(:[0-9]{2})?)?"
+  # dropping it is unambiguous. Anything else after the date is not. Nothing
+  # downstream validates this suffix -- as.Date() ignores it whole -- so the
+  # hour, minute and second ranges are checked here rather than merely counted,
+  # otherwise "2024-03-12 25:99:99" would be accepted as a date.
+  time_of_day <- paste0(
+    "([ T]([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?",
+    "(\\.[0-9]+)?)?"
+  )
   list(
     list(
       pattern = paste0("^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}", time_of_day, "$"),

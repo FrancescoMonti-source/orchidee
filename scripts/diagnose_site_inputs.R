@@ -1916,11 +1916,26 @@ manifest_connection <- file(
 writeLines(manifest_lines, con = manifest_connection)
 close(manifest_connection)
 
-unlink(file.path(report_dir, report_manifest_name), force = TRUE)
-unlink(existing_artifacts, force = TRUE)
+# The previous manifest goes first, and its removal is verified rather than
+# assumed: unlink() reports nothing useful when the file is held open, and a
+# surviving manifest would certify the artifacts replaced after it. Until it is
+# gone nothing else is touched, so the previous report stays whole.
+manifest_target <- file.path(report_dir, report_manifest_name)
+unlink(manifest_target, force = TRUE)
+if (file.exists(manifest_target)) {
+  unlink(staging_dir, recursive = TRUE, force = TRUE)
+  message(
+    "The manifest of the previous report cannot be removed: ", manifest_target,
+    ". Close whatever holds it open, or choose another report directory. ",
+    "The previous report was left untouched."
+  )
+  quit(status = 2L, runLast = FALSE)
+}
+
+unlink(setdiff(existing_artifacts, manifest_target), force = TRUE)
 written_files <- character()
 publication_failures <- character()
-for (file_name in c(staged_names, report_manifest_name)) {
+for (file_name in staged_names) {
   target_path <- file.path(report_dir, file_name)
   renamed <- suppressWarnings(
     file.rename(file.path(staging_dir, file_name), target_path)
@@ -1931,11 +1946,8 @@ for (file_name in c(staged_names, report_manifest_name)) {
     publication_failures <- c(publication_failures, file_name)
   }
 }
-unlink(staging_dir, recursive = TRUE, force = TRUE)
 if (length(publication_failures) > 0L) {
-  # The manifest is renamed last, so it is absent whenever an earlier file
-  # failed; if the manifest itself failed, remove it for the same reason.
-  unlink(file.path(report_dir, report_manifest_name), force = TRUE)
+  unlink(staging_dir, recursive = TRUE, force = TRUE)
   message(
     "The diagnostics report could not be published in full; ", report_dir,
     " now holds an incomplete report and no ", report_manifest_name,
@@ -1944,6 +1956,21 @@ if (length(publication_failures) > 0L) {
   )
   quit(status = 2L, runLast = FALSE)
 }
+
+# Only now, with every artifact in place, may the directory be marked complete.
+manifest_published <- suppressWarnings(
+  file.rename(file.path(staging_dir, report_manifest_name), manifest_target)
+)
+unlink(staging_dir, recursive = TRUE, force = TRUE)
+if (!isTRUE(manifest_published)) {
+  message(
+    "The diagnostics report was written to ", report_dir,
+    " but could not be marked complete: ", report_manifest_name,
+    " could not be published. Treat the report as incomplete and rerun."
+  )
+  quit(status = 2L, runLast = FALSE)
+}
+written_files <- c(written_files, manifest_target)
 
 cat(paste(report_lines, collapse = "\n"), "\n", sep = "")
 cat("Report files:\n")

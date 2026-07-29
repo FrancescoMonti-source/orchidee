@@ -521,6 +521,19 @@ mixed_date_result <- run_case(
   with_blocks(microbiology_observations = mixed_date_observations)
 )
 
+# A timestamp suffix is tolerated on a date, but nothing downstream validates it:
+# as.Date() ignores the suffix whole, so accepting it on shape alone would let
+# "2024-03-12 25:99:99" through as a date while the contract promises to refuse
+# what it cannot interpret.
+impossible_time_observations <- clean_blocks$microbiology_observations
+impossible_time_observations$DATEPRELEV <- c(
+  "2024-03-12 25:99:99", "2024-04-02 10:00:00"
+)
+impossible_time_result <- run_case(
+  "impossible_timestamp_suffix",
+  with_blocks(microbiology_observations = impossible_time_observations)
+)
+
 # Trailing characters are the same defect on times: strptime ignores them, so an
 # unanchored %H:%M:%S read "09:15:00 (approx)" as 09:15 and dropped the rest.
 trailing_time_observations <- clean_blocks$microbiology_observations
@@ -747,6 +760,38 @@ reused_schema_failure <- run_case(
 )
 stale_after <- file.exists(file.path(shared_report_dir, "label_coverage.csv"))
 
+## Manifest ordering ---------------------------------------------------------
+##
+## A manifest that survives its own removal would certify the artifacts replaced
+## after it, so the run must stop before touching any of them. The writability
+## preflight cannot cover this: a handle taken after it passes still blocks
+## removal. A read handle reproduces exactly that -- it satisfies the preflight's
+## append check and prevents the unlink -- so this is the post-preflight case,
+## not a second test of the preflight.
+manifest_report_dir <- file.path(test_root, "manifest_report")
+manifest_pass <- run_case(
+  "manifest_pass",
+  clean_blocks,
+  report_dir = manifest_report_dir
+)
+manifest_path <- file.path(manifest_report_dir, "report_manifest.txt")
+manifest_before <- tools::md5sum(
+  list.files(manifest_report_dir, full.names = TRUE)
+)
+manifest_handle <- file(manifest_path, open = "rb")
+manifest_blocked <- run_case(
+  "manifest_blocked",
+  clean_blocks,
+  report_dir = manifest_report_dir
+)
+close(manifest_handle)
+manifest_after <- tools::md5sum(
+  list.files(manifest_report_dir, full.names = TRUE)
+)
+manifest_blocked_staging <- dir.exists(
+  file.path(manifest_report_dir, ".orchidee_diagnostics_staging")
+)
+
 ## Derived report content ----------------------------------------------------
 
 label_coverage <- read_report_table(broken_result$report_dir, "label_coverage.csv")
@@ -759,14 +804,18 @@ unmapped_bacteria <- label_coverage[
 
 patient_identifiers <- unique(broken_blocks$microbiology_observations$PATID)
 patient_identifiers <- patient_identifiers[!is.na(patient_identifiers)]
+# Every published file, not just the summary: the coverage tables and the value
+# lists carry local vocabulary, and the claim is about the report as a whole.
 report_text <- paste(
-  readLines(
-    file.path(broken_result$report_dir, "site_input_diagnostics.txt"),
+  unlist(lapply(
+    list.files(broken_result$report_dir, full.names = TRUE),
+    readLines,
     warn = FALSE,
     encoding = "UTF-8"
-  ),
+  )),
   collapse = "\n"
 )
+report_files_scanned <- list.files(broken_result$report_dir)
 
 expected_broken_blocking <- sort(c(
   "bacteria_mapping/unmapped_local_labels",
@@ -789,8 +838,8 @@ all_results <- list(
   missing_bacteria_label_result, marker_lookalike_result, overflow_result,
   many_unmapped_uf_result, blank_target_collision_result,
   independent_exposure_result, independent_date_result, mixed_date_result,
-  french_date_result, trailing_time_result,
-  reused_pass, reused_schema_failure
+  french_date_result, trailing_time_result, impossible_time_result,
+  reused_pass, reused_schema_failure, manifest_pass
 )
 invisible(lapply(all_results, assert_pass_implies_buildable))
 
@@ -1086,6 +1135,17 @@ stopifnot(
   # The clean fixture pins the ISO form through the same assertion.
   identical(bundle_sample_dates(clean_result), c("2024-03-12", "2024-04-02")),
 
+  # A tolerated timestamp suffix is still validated, not counted.
+  identical(impossible_time_result$status, 1L),
+  identical(
+    severity_of(
+      impossible_time_result,
+      "microbiology_observations",
+      "dateprelev_format"
+    ),
+    "BLOCKING"
+  ),
+
   # Trailing characters on a time are reported rather than silently dropped.
   identical(trailing_time_result$status, 1L),
   identical(
@@ -1131,6 +1191,21 @@ stopifnot(
   # A complete report is marked as one, and the marker lists exactly the files
   # published beside it. Without that, a half-replaced directory carries
   # ordinary names with nothing to say it was interrupted.
+  # A manifest that cannot be removed stops the run before a single artifact is
+  # replaced, so the previous report stays whole and its manifest keeps telling
+  # the truth about it.
+  identical(manifest_pass$status, 0L),
+  identical(manifest_blocked$status, 2L),
+  file.exists(manifest_path),
+  identical(manifest_before, manifest_after),
+  isFALSE(manifest_blocked_staging),
+  any(grepl(
+    "manifest of the previous report cannot be removed",
+    manifest_blocked$output,
+    fixed = TRUE
+  )),
+  !any(grepl("PASS:", manifest_blocked$output, fixed = TRUE)),
+
   file.exists(file.path(clean_result$report_dir, "report_manifest.txt")),
   identical(
     sort(setdiff(list.files(clean_result$report_dir), "report_manifest.txt")),
@@ -1143,7 +1218,11 @@ stopifnot(
     ))
   ),
 
-  # The report carries aggregate counts and local vocabulary, never patients.
+  # The report carries aggregate counts and local vocabulary, never patients --
+  # asserted over every file it publishes, the manifest included.
+  "report_manifest.txt" %in% report_files_scanned,
+  "finding_values.csv" %in% report_files_scanned,
+  length(report_files_scanned) >= 5L,
   !any(vapply(
     patient_identifiers,
     function(identifier) grepl(identifier, report_text, fixed = TRUE),

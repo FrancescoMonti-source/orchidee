@@ -168,7 +168,7 @@ Required columns:
 | --- | --- |
 | `PATID` | Patient identifier. |
 | `ELTID` | Sample / microbiology event identifier. |
-| `DATEPRELEV` | Sample date. Use `YYYY-MM-DD` or `DD/MM/YYYY` in text files; `YYYY/MM/DD` also works, and a trailing time of day is ignored. Each value is read on its own, so the column may mix these forms, but anything else after the date is refused rather than guessed at. |
+| `DATEPRELEV` | Sample date. Use `YYYY-MM-DD` or `DD/MM/YYYY` in text files; `YYYY/MM/DD` also works, and a trailing time of day is ignored provided it is a real time — the time of day belongs in `HEUREPRELEV`. Each value is read on its own, so the column may mix these forms, but anything else after the date is refused rather than guessed at. |
 | `SEJUF` | Hospitalization UF active at sampling. ORCHIDEE uses it to apply the RATB TA/DE perimeter. |
 | `bacteria_local` | Local bacterium label. |
 | `sample_type_local` | Local sample-type label. |
@@ -439,10 +439,15 @@ findings and nothing else.
 The new report is composed in full before the previous one is replaced, so a run
 that fails while composing it leaves the earlier report in place. Replacing the
 files is not a single atomic step, so a complete report is marked by
-`report_manifest.txt`, which lists the files it is made of. The manifest is
-removed before anything else is touched and written last: a report directory
+`report_manifest.txt`, which lists the files it is made of. A report directory
 without it was interrupted, whatever the files beside it look like, and the run
 exits 2 naming what it could not write.
+
+The order matters and is enforced: the previous manifest is deleted first and its
+removal is verified, because a manifest that survived would certify the files
+replaced after it. If it cannot be removed, nothing else is touched and the
+previous report stays whole. The new manifest is renamed into place only after
+every other artifact is published.
 
 `-Diagnose` answers one question: do the six blocks satisfy the handoff
 contract? It does not predict which indicators the report will publish.
