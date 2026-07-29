@@ -27,8 +27,8 @@ Profiled incidence exposure at year + UM + UF + TA + DE grain.
 
 .PARAMETER Output
 Dedicated output root. Defaults to outputs\site_current for local inputs and
-outputs\site_example with -RunExample. A destination inside the checkout must
-be below outputs\.
+outputs\site_smoke_test with -RunSmokeTest. A destination inside the checkout
+must be below outputs\.
 
 .PARAMETER Force
 Replace a complete output from this same site v3 plus operational-v2 workflow.
@@ -55,10 +55,12 @@ Create the six empty v3 handoff CSV templates and the ORCHIDEE mapping-reference
 kit in a new or unused directory. Existing generated files are never
 overwritten.
 
-.PARAMETER RunExample
-Build the versioned synthetic six-block example. This proves that the complete
-site workflow works before protected local data are introduced. The default
-output is outputs\site_example.
+.PARAMETER RunSmokeTest
+Check this installation by running the complete site workflow on the versioned
+synthetic six-block fixture. A PASS separates a working ORCHIDEE installation
+from later problems in local extraction or mapping; it is not onboarding
+material and teaches nothing about your own data. Run it before -Diagnose. The
+default output is outputs\site_smoke_test.
 
 .EXAMPLE
 & .\scripts\build_site.ps1 `
@@ -86,7 +88,7 @@ output is outputs\site_example.
 & .\scripts\build_site.ps1 -EmitTemplates "data\site_handoff"
 
 .EXAMPLE
-& .\scripts\build_site.ps1 -RunExample
+& .\scripts\build_site.ps1 -RunSmokeTest
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Build')]
@@ -116,11 +118,11 @@ param(
   [string]$IncidenceExposure,
 
   [Parameter(ParameterSetName = 'Build')]
-  [Parameter(ParameterSetName = 'Example')]
+  [Parameter(ParameterSetName = 'SmokeTest')]
   [string]$Output,
 
   [Parameter(ParameterSetName = 'Build')]
-  [Parameter(ParameterSetName = 'Example')]
+  [Parameter(ParameterSetName = 'SmokeTest')]
   [switch]$Force,
 
   [Parameter(ParameterSetName = 'Build')]
@@ -135,8 +137,8 @@ param(
   [Parameter(Mandatory, ParameterSetName = 'Templates')]
   [string]$EmitTemplates,
 
-  [Parameter(Mandatory, ParameterSetName = 'Example')]
-  [switch]$RunExample
+  [Parameter(Mandatory, ParameterSetName = 'SmokeTest')]
+  [switch]$RunSmokeTest
 )
 
 Set-StrictMode -Version Latest
@@ -273,20 +275,20 @@ if ($PSCmdlet.ParameterSetName -eq 'Templates') {
   return
 }
 
-$isExample = $PSCmdlet.ParameterSetName -eq 'Example'
-if ($isExample) {
-  $exampleRoot = Join-Path $RepoRoot 'examples\site_handoff_minimal'
+$isSmokeTest = $PSCmdlet.ParameterSetName -eq 'SmokeTest'
+if ($isSmokeTest) {
+  $fixtureRoot = Join-Path $RepoRoot 'examples\site_handoff_minimal'
   $MicrobiologyObservations = Join-Path `
-    $exampleRoot `
+    $fixtureRoot `
     'microbiology_observations.csv'
-  $BacteriaMapping = Join-Path $exampleRoot 'bacteria_mapping.csv'
-  $SampleTypeMapping = Join-Path $exampleRoot 'sample_type_mapping.csv'
-  $AntibioticMapping = Join-Path $exampleRoot 'antibiotic_mapping.csv'
-  $UnitMapping = Join-Path $exampleRoot 'unit_mapping.csv'
+  $BacteriaMapping = Join-Path $fixtureRoot 'bacteria_mapping.csv'
+  $SampleTypeMapping = Join-Path $fixtureRoot 'sample_type_mapping.csv'
+  $AntibioticMapping = Join-Path $fixtureRoot 'antibiotic_mapping.csv'
+  $UnitMapping = Join-Path $fixtureRoot 'unit_mapping.csv'
   $IncidenceExposure = Join-Path `
-    $exampleRoot `
+    $fixtureRoot `
     'incidence_exposure_by_year_um_uf_ta_de_profile.csv'
-  Write-Host 'Mode: versioned synthetic site example'
+  Write-Host 'Mode: installation smoke test on the versioned synthetic fixture'
 }
 
 $inputDefinitions = @(
@@ -366,8 +368,8 @@ if ($PSCmdlet.ParameterSetName -eq 'Diagnose') {
 }
 
 $outputRoot = if ([string]::IsNullOrWhiteSpace($Output)) {
-  if ($isExample) {
-    Join-Path $RepoRoot 'outputs\site_example'
+  if ($isSmokeTest) {
+    Join-Path $RepoRoot 'outputs\site_smoke_test'
   } else {
     Join-Path $RepoRoot 'outputs\site_current'
   }

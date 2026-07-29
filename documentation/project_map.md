@@ -310,8 +310,9 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
         préflight `-DryRun`, diagnostic agrégé `-Diagnose`, bundle v3 conservé,
         projection v2 opérationnelle et smoke automatique sous
         `outputs/site_current`
-    -   `-RunExample` exécute ce même parcours sur les six CSV synthétiques
-        versionnés sous `examples/site_handoff_minimal/`
+    -   `-RunSmokeTest` exécute ce même parcours sur la fixture synthétique
+        versionnée sous `examples/site_handoff_minimal/` ; c'est le self-test
+        d'installation, à garder minimal
 -   `scripts/check_site_environment.R`
     -   vérifie les paquets et le contrat de colonnes des six blocs sans
         construire de bundle ; lit seulement les en-têtes délimités

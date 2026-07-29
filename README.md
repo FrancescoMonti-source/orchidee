@@ -30,16 +30,17 @@ Cette section sert uniquement d'orientation. La procédure opérateur maintenue,
 avec les colonnes, commandes et erreurs possibles, est
 [`documentation/external_bundle/site_handoff_inputs.md`](documentation/external_bundle/site_handoff_inputs.md).
 
-Après l'[installation R](#installation-r), vérifier d'abord le parcours complet
-avec les six fichiers synthétiques versionnés :
+Après l'[installation R](#installation-r), vérifier d'abord l'installation en
+faisant tourner le parcours complet sur la fixture synthétique versionnée :
 
 ```powershell
-& .\scripts\build_site.ps1 -RunExample
+& .\scripts\build_site.ps1 -RunSmokeTest
 ```
 
 Un `PASS` prouve que l'environnement et le builder fonctionnent sans introduire
-de données cliniques. La sortie de démonstration reste sous
-`outputs/site_example/`.
+de données cliniques : tout problème ultérieur appartient donc à l'extraction
+ou au mapping local. Ce n'est pas du matériel d'onboarding et cela n'apprend
+rien sur les données du site. La sortie reste sous `outputs/site_smoke_test/`.
 
 Si les six fichiers locaux n'existent pas encore, générer ensuite leurs
 en-têtes et le kit de références pour les valeurs cibles ORCHIDEE :

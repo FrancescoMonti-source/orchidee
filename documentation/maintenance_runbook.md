@@ -136,8 +136,10 @@ Ce runbook ne la reproduit pas. Pour la maintenance, retenir les invariants
 suivants :
 
 -   `scripts/build_site.ps1` est l'unique point d'entrée opérateur ;
--   `-RunExample` exécute le parcours complet sur les six CSV synthétiques
-    versionnés, sans données cliniques ;
+-   `-RunSmokeTest` vérifie l'installation en exécutant le parcours complet sur
+    la fixture synthétique versionnée, sans données cliniques ; c'est un
+    self-test, pas du matériel d'onboarding, et il ne doit pas être enrichi pour
+    imiter un site réel ;
 -   `-DryRun` vérifie les six chemins nommés, R, les paquets et les colonnes
     avant toute construction ; il reste volontairement économique et ne lit pas
     le contenu ;

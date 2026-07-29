@@ -315,7 +315,7 @@ if (identical(.Platform$OS.type, "windows")) {
         winslash = "\\",
         mustWork = TRUE
       )),
-      "-RunExample",
+      "-RunSmokeTest",
       "-Output",
       shQuote(output_path)
     )
@@ -630,7 +630,7 @@ if (identical(.Platform$OS.type, "windows")) {
     )),
     identical(wrapper_build_run$status, 0L),
     any(grepl(
-      "Mode: versioned synthetic site example",
+      "Mode: installation smoke test on the versioned synthetic fixture",
       wrapper_build_run$output,
       fixed = TRUE
     )),
