@@ -7,12 +7,14 @@
 ## every finding instead of stopping at the first one, and classifies each
 ## finding as BLOCKING, WARNING or INFO.
 ##
-## Soundness rule: a run without BLOCKING findings must mean the site build and
-## strict v3 validation can complete. Every check below therefore mirrors a
-## rule the builder or the v3 contract actually enforces, and any check added
-## here must keep that invariant, which
-## `tests/test_site_input_diagnostics.R` asserts by building each passing
-## fixture for real.
+## Soundness rule: a run without BLOCKING findings must mean the operator
+## build completes, that is the whole path build_site.ps1 runs -- bundle v3,
+## the closed spares_current projection to operational v2, and strict
+## validation of both. Every check below therefore mirrors a rule the builder,
+## the v3 contract or that projection actually enforces, and any check added
+## here must keep the invariant, which
+## `tests/test_site_input_diagnostics.R` asserts by running that same build on
+## each passing fixture.
 ##
 ## It deliberately stays inside the handoff contract. It does not load the
 ## indicator specification, the taxonomy or the publication contract, and it
@@ -54,9 +56,12 @@ if (length(args) != 7L || any(args %in% c("-h", "--help"))) {
     ".{rds,csv,tsv,tab,txt}> `\n",
     "    <report_dir>\n\n",
     "Reads the six blocks once and writes an aggregated report classified as\n",
-    "BLOCKING, WARNING and INFO. Exit status is 1 when at least one BLOCKING\n",
-    "finding remains, otherwise 0. A run without BLOCKING findings means the\n",
-    "site build and strict v3 validation can complete.\n\n",
+    "BLOCKING, WARNING and INFO. Exit status is 0 when no BLOCKING finding\n",
+    "remains, 1 when at least one does, and 2 when the diagnostics could not\n",
+    "run or publish their report, which is not a verdict on the blocks. A run\n",
+    "without BLOCKING findings means the operator build completes: bundle v3,\n",
+    "its spares_current projection to operational v2, and strict validation of\n",
+    "both.\n\n",
     "The report contains aggregate counts and local vocabulary only. It never\n",
     "writes patient identifiers.\n",
     sep = ""
@@ -67,6 +72,27 @@ if (length(args) != 7L || any(args %in% c("-h", "--help"))) {
     1L
   })
 }
+
+# Exit status is part of the interface: 1 means the blocks carry blocking
+# findings, 2 means the diagnostics could not run or publish. An operator
+# wrapper must not report a technical failure as a data verdict.
+options(error = function() {
+  message(
+    "Site input diagnostics stopped before publishing a report. ",
+    "This is a technical failure, not a verdict on the six blocks."
+  )
+  # A run that fails while composing the report leaves its staging directory
+  # behind; the previous report is still in place and must stay the only one an
+  # operator can find.
+  if (exists("staging_dir", envir = globalenv(), inherits = FALSE)) {
+    unlink(
+      get("staging_dir", envir = globalenv(), inherits = FALSE),
+      recursive = TRUE,
+      force = TRUE
+    )
+  }
+  quit(status = 2L, runLast = FALSE)
+})
 
 suppressPackageStartupMessages(library(dplyr))
 source("R/bootstrap.R")
@@ -169,6 +195,102 @@ format_values <- function(x, limit = 10L) {
     } else {
       ""
     }
+  )
+}
+
+## ---------------------------------------------------------------------------
+## Element-wise parsing
+## ---------------------------------------------------------------------------
+##
+## The builder stops on the first unparseable value in a column. Reporting one
+## bad value must not blind the run to independent problems on the other rows,
+## so these mirror the builder's accepted forms per element and return the
+## valid values alongside the offending ones.
+
+parse_integerish <- function(x) {
+  if (is.factor(x)) x <- as.character(x)
+  raw <- as.character(x)
+  if (is.numeric(x)) {
+    bad <- is.na(x) | !is.finite(x) |
+      abs(x - round(x)) >= sqrt(.Machine$double.eps)
+    values <- rep(NA_integer_, length(x))
+    values[!bad] <- suppressWarnings(as.integer(x[!bad]))
+  } else if (is.character(x)) {
+    trimmed <- orchidee_handoff_trim_or_na(x)
+    raw <- trimmed
+    bad <- is.na(trimmed) | !grepl("^-?[0-9]+$", trimmed)
+    values <- rep(NA_integer_, length(trimmed))
+    values[!bad] <- suppressWarnings(as.integer(trimmed[!bad]))
+  } else {
+    bad <- rep(TRUE, length(x))
+    values <- rep(NA_integer_, length(x))
+  }
+  # A value outside the integer range converts to NA; the builder stores that
+  # missing value and fails later, so treat it as unusable here too.
+  bad <- bad | is.na(values)
+  list(values = values, bad = bad, raw = raw)
+}
+
+parse_dates <- function(x) {
+  if (inherits(x, "Date")) {
+    return(list(values = x, bad = is.na(x), raw = as.character(x)))
+  }
+  if (is.factor(x)) x <- as.character(x)
+  if (is.numeric(x)) {
+    values <- as.Date(x, origin = "1970-01-01")
+    return(list(values = values, bad = is.na(values), raw = as.character(x)))
+  }
+  raw <- orchidee_handoff_trim_or_na(x)
+  values <- rep(as.Date(NA), length(raw))
+  for (format in c("%Y-%m-%d", "%Y/%m/%d", "%d/%m/%Y")) {
+    pending <- is.na(values) & !is.na(raw)
+    if (!any(pending)) {
+      break
+    }
+    values[pending] <- suppressWarnings(as.Date(raw[pending], format = format))
+  }
+  list(values = values, bad = is.na(values), raw = raw)
+}
+
+parse_times <- function(x) {
+  if (inherits(x, "difftime")) {
+    return(list(values = x, bad = rep(FALSE, length(x)), raw = as.character(x)))
+  }
+  if (is.factor(x)) x <- as.character(x)
+  if (is.numeric(x)) {
+    return(list(
+      values = as.difftime(x, units = "secs"),
+      bad = rep(FALSE, length(x)),
+      raw = as.character(x)
+    ))
+  }
+  raw <- orchidee_handoff_trim_or_na(x)
+  padded <- raw
+  hh_mm <- !is.na(padded) & grepl("^[0-9]{1,2}:[0-9]{2}$", padded)
+  padded[hh_mm] <- paste0(padded[hh_mm], ":00")
+  values <- as.difftime(rep(NA_real_, length(raw)), units = "secs")
+  has_value <- !is.na(padded)
+  if (any(has_value)) {
+    values[has_value] <- suppressWarnings(
+      as.difftime(padded[has_value], format = "%H:%M:%S")
+    )
+  }
+  list(values = values, bad = has_value & is.na(values), raw = raw)
+}
+
+## The parsers above report every unreadable value independently, but they must
+## not own the verdict. The builder parses a column as a whole and infers one
+## date format for it, so a column whose values are each readable in isolation
+## can still be rejected. Asking the builder's own function is the only way to
+## agree with it without restating its internals here, which is what let a
+## column mixing two documented formats reach a PASS the build then refused.
+builder_column_rejection <- function(parse_fn, column, column_name) {
+  tryCatch(
+    {
+      parse_fn(column, col_name = column_name)
+      NULL
+    },
+    error = function(condition) conditionMessage(condition)
   )
 }
 
@@ -623,35 +745,91 @@ if (!is.null(obs_in_scope)) {
     )
   }
 
-  sample_dates <- tryCatch(
-    orchidee_handoff_parse_date(obs_in_scope$DATEPRELEV),
-    error = function(e) {
-      add_finding(
-        "BLOCKING",
-        "microbiology_observations",
-        "dateprelev_format",
-        conditionMessage(e)
-      )
-      NULL
-    }
+  parsed_dates <- parse_dates(obs_in_scope$DATEPRELEV)
+  if (any_true(parsed_dates$bad)) {
+    add_finding(
+      "BLOCKING",
+      "microbiology_observations",
+      "dateprelev_format",
+      paste0(
+        count_true(parsed_dates$bad),
+        " rows have a DATEPRELEV value ORCHIDEE cannot read. Use YYYY-MM-DD ",
+        "or DD/MM/YYYY: ",
+        format_values(parsed_dates$raw[parsed_dates$bad]),
+        "."
+      ),
+      n_rows = count_true(parsed_dates$bad),
+      values = parsed_dates$raw[parsed_dates$bad]
+    )
+  }
+  date_column_rejection <- builder_column_rejection(
+    orchidee_handoff_parse_date,
+    obs_in_scope$DATEPRELEV,
+    "DATEPRELEV"
   )
+  if (!is.null(date_column_rejection) && !any_true(parsed_dates$bad)) {
+    add_finding(
+      "BLOCKING",
+      "microbiology_observations",
+      "dateprelev_column_format",
+      paste0(
+        "Every DATEPRELEV value is readable on its own, but ORCHIDEE reads ",
+        "the column as a whole and derives a single format from it, so the ",
+        "build rejects it: ", date_column_rejection,
+        " Use one format for the whole column."
+      )
+    )
+  }
+  sample_dates <- parsed_dates$values
 
-  sample_times <- if ("HEUREPRELEV" %in% names(obs_in_scope)) {
-    tryCatch(
-      orchidee_handoff_parse_time(obs_in_scope$HEUREPRELEV),
-      error = function(e) {
-        add_finding(
-          "BLOCKING",
-          "microbiology_observations",
-          "heureprelev_format",
-          conditionMessage(e)
-        )
-        NULL
-      }
+  parsed_times <- if ("HEUREPRELEV" %in% names(obs_in_scope)) {
+    parse_times(obs_in_scope$HEUREPRELEV)
+  } else {
+    list(
+      values = as.difftime(rep(NA_real_, nrow(obs_in_scope)), units = "secs"),
+      bad = rep(FALSE, nrow(obs_in_scope)),
+      raw = rep(NA_character_, nrow(obs_in_scope))
+    )
+  }
+  if (any_true(parsed_times$bad)) {
+    add_finding(
+      "BLOCKING",
+      "microbiology_observations",
+      "heureprelev_format",
+      paste0(
+        count_true(parsed_times$bad),
+        " rows have a HEUREPRELEV value ORCHIDEE cannot read. Use HH:MM or ",
+        "HH:MM:SS: ",
+        format_values(parsed_times$raw[parsed_times$bad]),
+        "."
+      ),
+      n_rows = count_true(parsed_times$bad),
+      values = parsed_times$raw[parsed_times$bad]
+    )
+  }
+  time_column_rejection <- if ("HEUREPRELEV" %in% names(obs_in_scope)) {
+    builder_column_rejection(
+      orchidee_handoff_parse_time,
+      obs_in_scope$HEUREPRELEV,
+      "HEUREPRELEV"
     )
   } else {
-    as.difftime(rep(NA_real_, nrow(obs_in_scope)), units = "secs")
+    NULL
   }
+  if (!is.null(time_column_rejection) && !any_true(parsed_times$bad)) {
+    add_finding(
+      "BLOCKING",
+      "microbiology_observations",
+      "heureprelev_column_format",
+      paste0(
+        "Every HEUREPRELEV value is readable on its own, but ORCHIDEE reads ",
+        "the column as a whole, so the build rejects it: ",
+        time_column_rejection,
+        " Use one format for the whole column."
+      )
+    )
+  }
+  sample_times <- parsed_times$values
 
   normalized_sir <- orchidee_handoff_normalize_sir(obs_in_scope$sir_result)
   raw_sir <- orchidee_handoff_trim_or_na(obs_in_scope$sir_result)
@@ -731,7 +909,7 @@ if (!is.null(obs_in_scope)) {
   # Resolution state is carried as a separate logical vector, never encoded in
   # the value itself: a site is free to use any string, including one that
   # looks like an internal marker, and no check may be fooled by it.
-  mapped_unresolved <- list()
+  mapped_unmatched <- list()
   mapped_local <- list()
   for (dimension in names(mapping_dimensions)) {
     definition <- mapping_dimensions[[dimension]]
@@ -739,30 +917,40 @@ if (!is.null(obs_in_scope)) {
       obs_in_scope[[definition$local_column]]
     )
     mapping <- prepared_mappings[[dimension]]
+    match_idx <- if (is.null(mapping)) {
+      rep(NA_integer_, length(local_values))
+    } else {
+      match(local_values, mapping$local_key)
+    }
     canonical <- if (is.null(mapping)) {
       rep(NA_character_, length(local_values))
     } else {
-      mapping$canonical_value[match(local_values, mapping$local_key)]
+      mapping$canonical_value[match_idx]
     }
-    unresolved <- is.na(canonical) & !is.na(local_values)
+    # Only a label with no mapping row at all is unmatched. A label mapped to a
+    # blank target is resolved: the builder carries the blank through, and two
+    # different local labels mapped to blank collapse onto the same canonical
+    # value. Treating those as distinct would hide a real row-grain conflict.
+    mapped_unmatched[[definition$canonical_column]] <-
+      is.na(match_idx) & !is.na(local_values)
     mapped_values[[definition$canonical_column]] <- canonical
-    mapped_unresolved[[definition$canonical_column]] <- unresolved
     mapped_local[[definition$canonical_column]] <- local_values
   }
   mapped_values$naturepvt_norm <- orchidee_handoff_ascii_lower(
     mapped_values$naturepvt_norm
   )
 
-  # An unmapped label is already BLOCKING, but the row-grain check should still
+  # An unmatched label is already BLOCKING, but the row-grain check should still
   # run on every other row. Standing in the local label keeps rows sharing an
-  # unmapped label together, and the resolution state travels as a separate
-  # leading marker so a canonical value can never be mistaken for one.
+  # unmatched label together, and the match state travels as a separate leading
+  # marker so a canonical value can never be mistaken for one.
   row_grain_value <- function(canonical_column) {
     values <- mapped_values[[canonical_column]]
-    unresolved <- mapped_unresolved[[canonical_column]]
-    values[unresolved] <- mapped_local[[canonical_column]][unresolved]
-    out <- paste(ifelse(unresolved, "u", "m"), values, sep = "\r")
-    # A missing value must stay missing so the row-grain check still reports it.
+    unmatched <- mapped_unmatched[[canonical_column]]
+    values[unmatched] <- mapped_local[[canonical_column]][unmatched]
+    out <- paste(ifelse(unmatched, "u", "m"), values, sep = "\r")
+    # A missing value must stay missing so the row-grain check still reports
+    # it, and so blank targets collapse exactly as the builder collapses them.
     out[is.na(values)] <- NA_character_
     out
   }
@@ -812,7 +1000,10 @@ if (!is.null(obs_in_scope)) {
     sep = "__"
   )
 
-  if (!is.null(sample_dates)) {
+  # Rows with an unreadable date are already BLOCKING and cannot take part in a
+  # row key, but they must not stop the remaining rows from being checked.
+  gradable <- !parsed_dates$bad
+  if (any_true(gradable)) {
     row_key_frame <- data.frame(
       PATID = obs_in_scope$PATID,
       EVTID = obs_in_scope$EVTID,
@@ -822,15 +1013,15 @@ if (!is.null(obs_in_scope)) {
       naturepvt_norm = row_grain_value("naturepvt_norm"),
       bact_norm = row_grain_value("bact_norm"),
       stringsAsFactors = FALSE
-    )
+    )[gradable, , drop = FALSE]
     row_key <- do.call(
       paste,
       c(row_key_frame[contract$sir_wide$row_grain_key], sep = "\r")
     )
 
     conflict_columns <- list(
-      SEJUF = obs_in_scope$SEJUF,
-      HEUREPRELEV = if (is.null(sample_times)) NULL else as.numeric(sample_times)
+      SEJUF = obs_in_scope$SEJUF[gradable],
+      HEUREPRELEV = as.numeric(sample_times)[gradable]
     )
     for (attribute in names(conflict_columns)) {
       values <- conflict_columns[[attribute]]
@@ -865,7 +1056,7 @@ if (!is.null(obs_in_scope)) {
       column <- resolved_phenotype_columns[[status_name]]
       allowed <- contract$sir_wide$phenotype_status_allowed[[status_name]]
       collapsed <- tapply(
-        obs_in_scope[[column]],
+        obs_in_scope[[column]][gradable],
         row_key,
         function(group) collapse_phenotype_status(group)
       )
@@ -1086,7 +1277,7 @@ if (!is.null(obs_in_scope)) {
   }
 
   if (!is.null(prepared_mappings$antibiotic)) {
-    resolved_atb <- !mapped_unresolved$atb_norm & !is.na(mapped_values$atb_norm)
+    resolved_atb <- !mapped_unmatched$atb_norm & !is.na(mapped_values$atb_norm)
     used_atb <- unique(mapped_values$atb_norm[resolved_atb])
     unsupported_atb <- setdiff(
       used_atb,
@@ -1182,36 +1373,38 @@ if (block_ok[["incidence_exposure_by_year_um_uf_ta_de_profile"]]) {
   exposure <- blocks$incidence_exposure_by_year_um_uf_ta_de_profile
   exposure_block <- "incidence_exposure_by_year_um_uf_ta_de_profile"
 
-  # The builder requires integer-like years and exposures. Reproducing that
-  # here keeps a fractional exposure_value from passing the diagnostics and
-  # then stopping the build.
-  integerish_or_null <- function(values, column) {
-    tryCatch(
-      orchidee_handoff_integerish_vector(
-        values,
-        paste0(exposure_block, "$", column)
-      ),
-      error = function(e) {
-        add_finding(
-          "BLOCKING",
-          exposure_block,
-          "non_integer_value",
-          conditionMessage(e)
-        )
-        NULL
-      }
-    )
+  # The builder requires integer-like years and exposures. Parsing per element
+  # keeps one bad value from blanking the whole column and hiding an
+  # independent problem, such as a negative exposure on another row.
+  parsed_columns <- list(
+    calendar_year = parse_integerish(exposure$calendar_year),
+    exposure_value = parse_integerish(exposure$exposure_value)
+  )
+  for (column in names(parsed_columns)) {
+    parsed <- parsed_columns[[column]]
+    # An empty value is a missing required value, reported below as such.
+    non_integer <- parsed$bad & !is.na(parsed$raw)
+    if (any_true(non_integer)) {
+      add_finding(
+        "BLOCKING",
+        exposure_block,
+        "non_integer_value",
+        paste0(
+          count_true(non_integer),
+          " rows have a ",
+          column,
+          " value that is not an integer: ",
+          format_values(parsed$raw[non_integer]),
+          "."
+        ),
+        n_rows = count_true(non_integer),
+        values = parsed$raw[non_integer]
+      )
+    }
   }
 
-  calendar_year <- integerish_or_null(exposure$calendar_year, "calendar_year")
-  exposure_value <- integerish_or_null(exposure$exposure_value, "exposure_value")
-
   exposure_norm <- data.frame(
-    calendar_year = if (is.null(calendar_year)) {
-      rep(NA_integer_, nrow(exposure))
-    } else {
-      calendar_year
-    },
+    calendar_year = parsed_columns$calendar_year$values,
     SEJUM = orchidee_handoff_trim_or_na(exposure$SEJUM),
     SEJUF = orchidee_handoff_trim_or_na(exposure$SEJUF),
     CODE_TA = ratb_normalize_code_ta(exposure$CODE_TA),
@@ -1222,11 +1415,7 @@ if (block_ok[["incidence_exposure_by_year_um_uf_ta_de_profile"]]) {
     denominator_profile_id = orchidee_handoff_trim_or_na(
       exposure$denominator_profile_id
     ),
-    exposure_value = if (is.null(exposure_value)) {
-      rep(NA_integer_, nrow(exposure))
-    } else {
-      exposure_value
-    },
+    exposure_value = parsed_columns$exposure_value$values,
     exposure_unit = orchidee_handoff_trim_or_na(exposure$exposure_unit),
     stringsAsFactors = FALSE
   )
@@ -1235,11 +1424,9 @@ if (block_ok[["incidence_exposure_by_year_um_uf_ta_de_profile"]]) {
     missing_values <- is.na(exposure_norm[[column]])
     # A non-integer value is already reported; do not report it twice as a
     # missing one.
-    if (
-      column %in% c("calendar_year", "exposure_value") &&
-        is.null(if (column == "calendar_year") calendar_year else exposure_value)
-    ) {
-      next
+    parsed <- parsed_columns[[column]]
+    if (!is.null(parsed)) {
+      missing_values <- missing_values & is.na(parsed$raw)
     }
     if (any_true(missing_values)) {
       add_finding(
@@ -1652,17 +1839,44 @@ report_artifacts <- c(
   "year_coverage.csv"
 )
 stale_artifacts <- file.path(report_dir, report_artifacts)
-unlink(stale_artifacts, force = TRUE)
-still_present <- stale_artifacts[file.exists(stale_artifacts)]
-if (length(still_present) > 0L) {
-  # Publishing beside a table this run did not write would present stale
-  # coverage as current. Stop instead of producing a mixed report.
-  stop(
-    "Could not remove report artifacts from a previous run: ",
-    paste(basename(still_present), collapse = ", "),
-    ". Close whatever holds them open, or choose another report directory.",
-    call. = FALSE
+existing_artifacts <- stale_artifacts[file.exists(stale_artifacts)]
+
+# Publishing beside a table this run did not write would present stale coverage
+# as current, but destroying half of the previous report before discovering the
+# problem is worse. Check every artifact is writable first and leave the
+# directory untouched when one is not.
+locked_artifacts <- existing_artifacts[!vapply(
+  existing_artifacts,
+  function(path) {
+    connection <- tryCatch(file(path, open = "ab"), error = function(e) NULL)
+    if (is.null(connection)) {
+      return(FALSE)
+    }
+    close(connection)
+    TRUE
+  },
+  logical(1)
+)]
+if (length(locked_artifacts) > 0L) {
+  message(
+    "Report artifacts from a previous run cannot be replaced: ",
+    paste(basename(locked_artifacts), collapse = ", "),
+    ". Close whatever holds them open, or choose another report directory. ",
+    "The previous report was left untouched."
   )
+  quit(status = 2L, runLast = FALSE)
+}
+
+# The previous report is deleted only once the complete new one exists in
+# staging, so a failure while composing it cannot leave the directory empty.
+staging_dir <- file.path(report_dir, ".orchidee_diagnostics_staging")
+unlink(staging_dir, recursive = TRUE, force = TRUE)
+if (!dir.create(staging_dir, recursive = TRUE, showWarnings = FALSE)) {
+  message(
+    "Could not create the diagnostics staging directory: ", staging_dir,
+    ". The previous report was left untouched."
+  )
+  quit(status = 2L, runLast = FALSE)
 }
 
 report_lines <- c(
@@ -1726,19 +1940,18 @@ for (severity in c("BLOCKING", "WARNING", "INFO")) {
   report_lines <- c(report_lines, "")
 }
 
-report_path <- file.path(report_dir, "site_input_diagnostics.txt")
-findings_path <- file.path(report_dir, "findings.csv")
-report_connection <- file(report_path, open = "wt", encoding = "UTF-8")
+staged_report <- file.path(staging_dir, "site_input_diagnostics.txt")
+report_connection <- file(staged_report, open = "wt", encoding = "UTF-8")
 writeLines(report_lines, con = report_connection)
 close(report_connection)
 utils::write.csv(
   all_findings,
-  findings_path,
+  file.path(staging_dir, "findings.csv"),
   row.names = FALSE,
   fileEncoding = "UTF-8"
 )
 
-written_files <- c(report_path, findings_path)
+staged_names <- c("site_input_diagnostics.txt", "findings.csv")
 optional_tables <- list(
   finding_values.csv = collected_finding_values(),
   label_coverage.csv = label_coverage,
@@ -1750,14 +1963,42 @@ for (file_name in names(optional_tables)) {
   if (is.null(table)) {
     next
   }
-  table_path <- file.path(report_dir, file_name)
   utils::write.csv(
     table,
-    table_path,
+    file.path(staging_dir, file_name),
     row.names = FALSE,
     fileEncoding = "UTF-8"
   )
-  written_files <- c(written_files, table_path)
+  staged_names <- c(staged_names, file_name)
+}
+
+# The complete report now exists, so replacing the previous one is safe. Renames
+# within one directory are cheap, but the set of them is not a single
+# transaction: if one fails the directory is left mixed, which must be a loud
+# technical failure rather than a report an operator could mistake for current.
+unlink(existing_artifacts, force = TRUE)
+written_files <- character()
+publication_failures <- character()
+for (file_name in staged_names) {
+  target_path <- file.path(report_dir, file_name)
+  renamed <- suppressWarnings(
+    file.rename(file.path(staging_dir, file_name), target_path)
+  )
+  if (isTRUE(renamed)) {
+    written_files <- c(written_files, target_path)
+  } else {
+    publication_failures <- c(publication_failures, file_name)
+  }
+}
+unlink(staging_dir, recursive = TRUE, force = TRUE)
+if (length(publication_failures) > 0L) {
+  message(
+    "The diagnostics report could not be published in full; ", report_dir,
+    " now holds an incomplete report. Missing: ",
+    paste(publication_failures, collapse = ", "),
+    ". Rerun once the directory is writable."
+  )
+  quit(status = 2L, runLast = FALSE)
 }
 
 cat(paste(report_lines, collapse = "\n"), "\n", sep = "")

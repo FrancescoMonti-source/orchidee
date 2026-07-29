@@ -394,25 +394,105 @@ missing_sejuf_result <- run_case(
   )
 )
 
-# One document carrying two labels must count as one occurrence, not two.
+# One document carrying two distinct labels must count as one occurrence, not
+# two. Both rows share PATID + EVTID + ELTID and differ only by antibiotic, so
+# the antibiotic dimension really does see two labels in one occurrence.
+multi_label_observations <- clean_blocks$microbiology_observations[
+  c(1L, 1L), ,
+  drop = FALSE
+]
+multi_label_observations$antibiotic_local <- c("Cefotaxime", "Ciprofloxacine")
+multi_label_observations$sir_result <- c("S", "R")
 multi_label_result <- run_case(
   "multi_label_document",
   with_blocks(
     antibiotic_mapping = data.frame(
-      antibiotic_local = c("Cefotaxime", "Amoxicilline"),
-      atb_norm = c("cefotaxime", "amoxicilline"),
+      antibiotic_local = c("Cefotaxime", "Ciprofloxacine"),
+      atb_norm = c("cefotaxime", "ciprofloxacine"),
       stringsAsFactors = FALSE
     ),
-    microbiology_observations = clean_blocks$microbiology_observations[
-      c(1L, 1L), ,
-      drop = FALSE
-    ]
+    microbiology_observations = multi_label_observations
   )
 )
-multi_label_result$findings$n_document_occurrences[
+multi_label_mapped <- multi_label_result$findings[
   multi_label_result$findings$block == "antibiotic_mapping" &
-    multi_label_result$findings$check == "mapped_local_labels"
-] -> multi_label_occurrences
+    multi_label_result$findings$check == "mapped_local_labels", ,
+  drop = FALSE
+]
+multi_label_coverage <- read_report_table(
+  multi_label_result$report_dir,
+  "label_coverage.csv"
+)
+multi_label_antibiotics <- sort(multi_label_coverage$local_label[
+  multi_label_coverage$dimension == "antibiotic"
+])
+
+# Two local sample types mapped to a blank target collapse onto the same
+# canonical value, exactly as the builder collapses them, so the row grain must
+# see the conflict rather than keeping the rows apart.
+blank_target_collision_observations <- clean_blocks$microbiology_observations[
+  c(1L, 1L), ,
+  drop = FALSE
+]
+blank_target_collision_observations$sample_type_local <- c("Pus", "Liquide")
+blank_target_collision_observations$HEUREPRELEV <- c("09:15", "11:45")
+blank_target_collision_result <- run_case(
+  "blank_target_collision",
+  with_blocks(
+    sample_type_mapping = data.frame(
+      sample_type_local = c("Urine", "Pus", "Liquide"),
+      naturepvt_norm = c("urines", NA_character_, NA_character_),
+      stringsAsFactors = FALSE
+    ),
+    microbiology_observations = blank_target_collision_observations
+  )
+)
+
+# One unreadable value must not blank a whole column and hide an independent
+# problem on another row.
+independent_exposure_result <- run_case(
+  "independent_exposure_problems",
+  with_blocks(
+    incidence_exposure_by_year_um_uf_ta_de_profile = data.frame(
+      calendar_year = c(2024L, 2024L),
+      SEJUM = c("UMDIAG1", "UMDIAG2"),
+      SEJUF = c("UFDIAG1", "UFDIAG1"),
+      CODE_TA = c("03", "03"),
+      CODE_DE = c("102", "102"),
+      de_domain_ref = c("MÉDECINE", "MÉDECINE"),
+      denominator_profile_id = rep("midnight_presence", 2L),
+      exposure_value = c("1.5", "-1"),
+      exposure_unit = rep("patient_days", 2L),
+      stringsAsFactors = FALSE
+    )
+  )
+)
+
+# The same holds upstream: an unreadable date must not suppress a row-grain
+# conflict on the rows that parse.
+independent_date_observations <- clean_blocks$microbiology_observations[
+  c(1L, 1L, 1L), ,
+  drop = FALSE
+]
+independent_date_observations$DATEPRELEV <- c(
+  "not-a-date", "2024-03-12", "2024-03-12"
+)
+independent_date_observations$SEJUF <- c("UFDIAG1", "UFDIAG1", "UFDIAG2")
+independent_date_result <- run_case(
+  "independent_date_problems",
+  with_blocks(microbiology_observations = independent_date_observations)
+)
+
+# Reporting each value on its own is not enough to agree with the builder: it
+# derives one date format from the whole column, so a column mixing the two
+# documented forms is rejected even though every value is readable alone. The
+# order matters to the builder, hence the DD/MM/YYYY value first.
+mixed_date_observations <- clean_blocks$microbiology_observations
+mixed_date_observations$DATEPRELEV <- c("12/03/2024", "2024-03-13")
+mixed_date_result <- run_case(
+  "mixed_date_formats",
+  with_blocks(microbiology_observations = mixed_date_observations)
+)
 
 # Only bacteria_local is required to resolve: bact_norm belongs to the row
 # grain. A missing sample type or antibiotic costs analytic value, not the
@@ -507,6 +587,101 @@ many_unmapped_uf_listed <- sort(many_unmapped_uf_values$value[
     many_unmapped_uf_values$check == "exposure_uf_not_covered"
 ])
 
+## Public operator wrapper ---------------------------------------------------
+##
+## The R CLI is an implementation detail; sites reach -Diagnose through
+## build_site.ps1, including the -Output form the operator procedure documents.
+
+wrapper_diagnose <- NULL
+wrapper_diagnose_report <- NULL
+wrapper_clean <- NULL
+wrapper_technical <- NULL
+wrapper_technical_report <- NULL
+wrapper_preserved_before <- NULL
+wrapper_preserved_after <- NULL
+wrapper_technical_staging <- NULL
+if (identical(.Platform$OS.type, "windows")) {
+  powershell <- Sys.which("powershell.exe")
+  if (!nzchar(powershell)) {
+    stop("Windows PowerShell 5.1 is required for the site wrapper test.")
+  }
+  run_wrapper_diagnose <- function(inputs, output) {
+    wrapper_args <- c(
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      shQuote(
+        normalizePath("scripts/build_site.ps1", winslash = "\\", mustWork = TRUE)
+      ),
+      "-MicrobiologyObservations", shQuote(inputs[[1L]]),
+      "-BacteriaMapping", shQuote(inputs[[2L]]),
+      "-SampleTypeMapping", shQuote(inputs[[3L]]),
+      "-AntibioticMapping", shQuote(inputs[[4L]]),
+      "-UnitMapping", shQuote(inputs[[5L]]),
+      "-IncidenceExposure", shQuote(inputs[[6L]]),
+      "-Output", shQuote(output),
+      "-Diagnose"
+    )
+    lines <- suppressWarnings(system2(
+      powershell,
+      wrapper_args,
+      stdout = TRUE,
+      stderr = TRUE
+    ))
+    status <- attr(lines, "status")
+    if (is.null(status)) status <- 0L
+    list(status = status, output = lines)
+  }
+
+  wrapper_inputs <- write_blocks(
+    file.path(test_root, "wrapper inputs"),
+    broken_blocks
+  )
+  wrapper_output <- file.path(test_root, "wrapper output")
+  wrapper_diagnose <- run_wrapper_diagnose(wrapper_inputs, wrapper_output)
+  wrapper_diagnose_report <- file.path(wrapper_output, "diagnostics")
+
+  # A report artifact that cannot be replaced is a technical failure, not a
+  # verdict on the blocks, so the wrapper must surface 2 rather than the code
+  # reserved for blocking findings. Standing a directory in the place of one
+  # artifact makes it unreplaceable deterministically, with no file locking and
+  # no dependence on the account running the test.
+  technical_inputs <- write_blocks(
+    file.path(test_root, "wrapper technical inputs"),
+    clean_blocks
+  )
+  wrapper_technical_output <- file.path(test_root, "wrapper technical output")
+  wrapper_clean <- run_wrapper_diagnose(
+    technical_inputs,
+    wrapper_technical_output
+  )
+  wrapper_technical_report <- file.path(
+    wrapper_technical_output,
+    "diagnostics"
+  )
+  wrapper_preserved_names <- setdiff(
+    list.files(wrapper_technical_report),
+    "findings.csv"
+  )
+  wrapper_preserved_before <- tools::md5sum(
+    file.path(wrapper_technical_report, wrapper_preserved_names)
+  )
+  blocked_artifact <- file.path(wrapper_technical_report, "findings.csv")
+  unlink(blocked_artifact, force = TRUE)
+  dir.create(blocked_artifact)
+  wrapper_technical <- run_wrapper_diagnose(
+    technical_inputs,
+    wrapper_technical_output
+  )
+  wrapper_preserved_after <- tools::md5sum(
+    file.path(wrapper_technical_report, wrapper_preserved_names)
+  )
+  wrapper_technical_staging <- dir.exists(
+    file.path(wrapper_technical_report, ".orchidee_diagnostics_staging")
+  )
+}
+
 ## Stale report artifacts ----------------------------------------------------
 
 shared_report_dir <- file.path(test_root, "shared_report")
@@ -565,7 +740,9 @@ all_results <- list(
   partial_schema_result, missing_sejuf_result, multi_label_result,
   missing_sample_type_label_result, missing_antibiotic_label_result,
   missing_bacteria_label_result, marker_lookalike_result, overflow_result,
-  many_unmapped_uf_result, reused_pass, reused_schema_failure
+  many_unmapped_uf_result, blank_target_collision_result,
+  independent_exposure_result, independent_date_result, mixed_date_result,
+  reused_pass, reused_schema_failure
 )
 invisible(lapply(all_results, assert_pass_implies_buildable))
 
@@ -785,8 +962,79 @@ stopifnot(
     fixed = TRUE
   )),
 
-  # Occurrence totals are distinct counts, not sums of per-label counts.
-  identical(multi_label_occurrences, 1L),
+  # Occurrence totals are distinct counts, not sums of per-label counts. The
+  # fixture really carries two distinct antibiotic labels in one occurrence, and
+  # it must pass, otherwise the invariant above skips it and the counts are
+  # asserted on a handoff nobody proved buildable.
+  identical(multi_label_result$status, 0L),
+  identical(multi_label_antibiotics, c("Cefotaxime", "Ciprofloxacine")),
+  identical(multi_label_mapped$n_rows, 2L),
+  identical(multi_label_mapped$n_document_occurrences, 1L),
+
+  # Two local labels mapped to a blank target collapse as the builder collapses
+  # them, so the row-grain conflict is visible instead of being hidden.
+  identical(blank_target_collision_result$status, 1L),
+  identical(
+    severity_of(
+      blank_target_collision_result,
+      "microbiology_observations",
+      "conflicting_row_grain_attribute"
+    ),
+    "BLOCKING"
+  ),
+
+  # One unreadable value does not hide an independent problem on another row.
+  identical(independent_exposure_result$status, 1L),
+  identical(
+    severity_of(
+      independent_exposure_result,
+      "incidence_exposure_by_year_um_uf_ta_de_profile",
+      "non_integer_value"
+    ),
+    "BLOCKING"
+  ),
+  identical(
+    severity_of(
+      independent_exposure_result,
+      "incidence_exposure_by_year_um_uf_ta_de_profile",
+      "negative_exposure_value"
+    ),
+    "BLOCKING"
+  ),
+  identical(independent_date_result$status, 1L),
+  identical(
+    severity_of(
+      independent_date_result,
+      "microbiology_observations",
+      "dateprelev_format"
+    ),
+    "BLOCKING"
+  ),
+  identical(
+    severity_of(
+      independent_date_result,
+      "microbiology_observations",
+      "conflicting_row_grain_attribute"
+    ),
+    "BLOCKING"
+  ),
+
+  # A column the builder rejects as a whole must block even when no single value
+  # is unreadable, otherwise -Diagnose passes a handoff the build refuses.
+  identical(mixed_date_result$status, 1L),
+  identical(
+    severity_of(
+      mixed_date_result,
+      "microbiology_observations",
+      "dateprelev_column_format"
+    ),
+    "BLOCKING"
+  ),
+  is.na(severity_of(
+    mixed_date_result,
+    "microbiology_observations",
+    "dateprelev_format"
+  )),
 
   # Coverage counts are reported per label in rows and document occurrences.
   identical(unmapped_bacteria$local_label, "Staphylococcus aureus"),
@@ -826,5 +1074,46 @@ stopifnot(
     logical(1)
   ))
 )
+
+if (identical(.Platform$OS.type, "windows")) {
+  wrapper_findings <- read_report_table(wrapper_diagnose_report, "findings.csv")
+  stopifnot(
+    # The public operator entry point reaches the diagnostics, reports the same
+    # verdict, and honours -Output as the documented workflow requires.
+    identical(wrapper_diagnose$status, 1L),
+    dir.exists(wrapper_diagnose_report),
+    !is.null(wrapper_findings),
+    sum(wrapper_findings$severity == "BLOCKING") ==
+      length(expected_broken_blocking),
+    any(grepl(
+      "Correct the blocking findings above",
+      wrapper_diagnose$output,
+      fixed = TRUE
+    )),
+    # -Diagnose never builds, so no bundle may appear beside the report.
+    !dir.exists(file.path(dirname(wrapper_diagnose_report), "bundle_v3")),
+
+    # A contract-satisfying handoff reaches PASS through the wrapper too.
+    identical(wrapper_clean$status, 0L),
+
+    # A run that cannot publish its report exits 2 through the wrapper, says so,
+    # and leaves the previous report exactly as it found it.
+    identical(wrapper_technical$status, 2L),
+    any(grepl(
+      "this is not a verdict on the six blocks",
+      wrapper_technical$output,
+      fixed = TRUE
+    )),
+    !any(grepl(
+      "Correct the blocking findings above",
+      wrapper_technical$output,
+      fixed = TRUE
+    )),
+    length(wrapper_preserved_names) >= 3L,
+    identical(wrapper_preserved_before, wrapper_preserved_after),
+    isFALSE(wrapper_technical_staging),
+    !dir.exists(file.path(dirname(wrapper_technical_report), "bundle_v3"))
+  )
+}
 
 cat("PASS: site input diagnostics\n")

@@ -144,15 +144,20 @@ suivants :
     avant toute construction ; il reste volontairement économique et ne lit pas
     le contenu ;
 -   `-Diagnose` lit les six blocs une seule fois et écrit un rapport agrégé
-    `BLOCKING` / `WARNING` / `INFO` sous `outputs/site_diagnostics` par défaut,
-    ou sous `-Report` ; son statut de sortie vaut 1 tant qu'il reste un
-    `BLOCKING`. Il ne couvre que le contrat de handoff et ne dit rien du
-    contrat de publication des indicateurs ;
--   invariant de solidité : un `PASS` de `-Diagnose` doit impliquer que la
-    construction et la validation stricte v3 aboutissent. Tout contrôle ajouté
-    doit donc refléter une règle réellement appliquée par le builder ou par le
-    contrat v3 ; `tests/test_site_input_diagnostics.R` le vérifie en
-    construisant pour de vrai chaque fixture acceptée ;
+    `BLOCKING` / `WARNING` / `INFO` dans un sous-répertoire `diagnostics` de
+    `-Output` si l'on en passe un, sinon sous `outputs/site_diagnostics` ;
+    `-Report` a priorité sur les deux. Son statut de sortie vaut 1 tant qu'il
+    reste un `BLOCKING`, et 2 lorsque le diagnostic n'a pas pu s'exécuter ou
+    publier son rapport, ce qui n'est pas un verdict sur les blocs. Il ne couvre
+    que le contrat de handoff et ne dit rien du contrat de publication des
+    indicateurs ;
+-   invariant de solidité : un `PASS` de `-Diagnose` doit impliquer que le
+    parcours opérateur complet aboutit, c'est-à-dire le bundle v3, sa projection
+    fermée `spares_current` vers le v2 opérationnel, et la validation stricte
+    des deux. Tout contrôle ajouté doit donc refléter une règle réellement
+    appliquée par le builder, par le contrat v3 ou par cette projection ;
+    `tests/test_site_input_diagnostics.R` le vérifie en exécutant ce même
+    parcours sur chaque fixture acceptée ;
 -   `-EmitTemplates` produit les six en-têtes et `mapping_reference/`, sans
     effectuer le mapping local ;
 -   le wrapper conserve v3, matérialise et smoke le v2 opérationnel, puis écrit

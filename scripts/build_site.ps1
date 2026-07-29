@@ -27,7 +27,8 @@ Profiled incidence exposure at year + UM + UF + TA + DE grain.
 
 .PARAMETER Output
 Dedicated output root. Defaults to outputs\site_current for local inputs and
-outputs\site_smoke_test with -RunSmokeTest. A destination inside the checkout
+outputs\site_smoke_test with -RunSmokeTest. With -Diagnose nothing is built and
+it only selects where the report is written. A destination inside the checkout
 must be below outputs\.
 
 .PARAMETER Force
@@ -47,8 +48,9 @@ answers only whether the six blocks satisfy the handoff contract; it makes no
 claim about which indicators would be published. No bundle is built.
 
 .PARAMETER Report
-Directory for the -Diagnose report. Defaults to outputs\site_diagnostics. A
-destination inside the checkout must be below outputs\.
+Directory for the -Diagnose report. Defaults to a diagnostics subdirectory of
+-Output when that is given, otherwise outputs\site_diagnostics. A destination
+inside the checkout must be below outputs\.
 
 .PARAMETER EmitTemplates
 Create the six empty v3 handoff CSV templates and the ORCHIDEE mapping-reference
@@ -119,6 +121,7 @@ param(
 
   [Parameter(ParameterSetName = 'Build')]
   [Parameter(ParameterSetName = 'SmokeTest')]
+  [Parameter(ParameterSetName = 'Diagnose')]
   [string]$Output,
 
   [Parameter(ParameterSetName = 'Build')]
@@ -326,10 +329,17 @@ $inputPaths = @(
   }
 )
 if ($PSCmdlet.ParameterSetName -eq 'Diagnose') {
-  $reportRoot = if ([string]::IsNullOrWhiteSpace($Report)) {
-    Join-Path $RepoRoot 'outputs\site_diagnostics'
-  } else {
+  # -Output is accepted here so that the documented workflow really is the same
+  # command line with -DryRun swapped for -Diagnose. The report then sits
+  # beside the build it precedes.
+  $reportRoot = if (-not [string]::IsNullOrWhiteSpace($Report)) {
     Resolve-OrchideeRepoPath -RepoRoot $RepoRoot -Path $Report
+  } elseif (-not [string]::IsNullOrWhiteSpace($Output)) {
+    Join-Path (
+      Resolve-OrchideeRepoPath -RepoRoot $RepoRoot -Path $Output
+    ) 'diagnostics'
+  } else {
+    Join-Path $RepoRoot 'outputs\site_diagnostics'
   }
   $reportRoot = Assert-OrchideeSafeOutputDirectory `
     -RepoRoot $RepoRoot `
@@ -357,12 +367,30 @@ if ($PSCmdlet.ParameterSetName -eq 'Diagnose') {
     Write-Host ''
     Write-Host (
       'Correct the blocking findings above and rerun -Diagnose. No bundle was ' +
-      'built and no existing output was modified.'
+      'built.'
     )
     exit 1
   }
+  if ($diagnoseExit -eq 2) {
+    # Exit rather than throw: the documented interface promises 2 for a
+    # technical failure, and a throw would surface 1 to the caller, which is
+    # the code reserved for blocking findings in the blocks themselves.
+    Write-Host ''
+    Write-Host (
+      'The diagnostics could not run or publish their report; this is not a ' +
+      "verdict on the six blocks. See the message above. Report: $reportRoot"
+    )
+    exit 2
+  }
   if ($diagnoseExit -ne 0) {
-    throw "Site input diagnostics failed (exit $diagnoseExit)."
+    # Any other status is a technical failure too, so report it as one instead
+    # of collapsing it onto the blocking-findings code.
+    Write-Host ''
+    Write-Host (
+      "Site input diagnostics failed unexpectedly (exit $diagnoseExit); this " +
+      'is not a verdict on the six blocks.'
+    )
+    exit 2
   }
   return
 }

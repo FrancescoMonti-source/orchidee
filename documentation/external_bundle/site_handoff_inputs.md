@@ -419,18 +419,29 @@ report you can work through.
 
 Each mapping dimension is reported per local label with both `n_rows` and
 `n_document_occurrences`, so you can tell a label worth mapping from a
-negligible one. The report is written to `outputs\site_diagnostics` by default,
-or to the directory given by `-Report`. It contains aggregate counts and your
-own local vocabulary only; it never writes patient identifiers.
+negligible one. Values beyond the tenth are truncated in the summary but kept
+in full in `finding_values.csv`, so one pass is enough however many labels are
+involved.
+
+The report is written to a `diagnostics` subdirectory of `-Output` when you
+pass one, otherwise to `outputs\site_diagnostics`; `-Report` overrides both. It
+contains aggregate counts and your own local vocabulary only; it never writes
+patient identifiers. Exit status 2 means the diagnostics could not run or
+publish — a technical problem, not a verdict on your blocks. The new report is
+composed in full before the previous one is replaced, so a run that fails while
+composing it leaves the earlier report in place; should the replacement itself
+fail part way, the run still exits 2 and names the files it could not write,
+rather than leaving a mixed report that reads as current.
 
 `-Diagnose` answers one question: do the six blocks satisfy the handoff
 contract? It does not predict which indicators the report will publish.
 
 Exit status is 1 while any `BLOCKING` finding remains, so the command can gate a
-local script. A `PASS` is a promise: it means the build and strict v3
-validation complete on these blocks. Every check mirrors a rule the builder or
-the v3 contract actually enforces, and the test suite asserts the invariant by
-building each passing fixture for real.
+local script. A `PASS` is a promise: it means the build this procedure runs
+next completes on these blocks — bundle v3, its `spares_current` projection to
+operational v2, and strict validation of both. Every check mirrors a rule the
+builder, the v3 contract or that projection actually enforces, and the test
+suite asserts the invariant by running that same build on each passing fixture.
 
 When it reports `PASS`, rerun exactly the same command with neither `-DryRun`
 nor `-Diagnose` for a first build. If the preflight reports a
