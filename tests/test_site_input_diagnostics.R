@@ -94,8 +94,10 @@ blocking_checks <- function(result) {
   )[result$findings$severity == "BLOCKING"])
 }
 
-# The soundness invariant: whatever -Diagnose accepts, the real builder and
-# strict v3 validation must accept too.
+# The soundness invariant: whatever -Diagnose accepts, the operator path must
+# accept too. That path is the one build_site.ps1 runs -- v3 plus the
+# spares_current projection to operational v2 -- so the v3 build alone would
+# leave the projection and v2 validation untested.
 assert_pass_implies_buildable <- function(result) {
   if (!identical(result$status, 0L)) {
     return(invisible(NULL))
@@ -103,14 +105,23 @@ assert_pass_implies_buildable <- function(result) {
   bundle_dir <- file.path(test_root, paste0(result$label, "_bundle"))
   build <- run_script(
     "scripts/build_external_bundle_from_site_inputs.R",
-    c(result$input_paths, bundle_dir, "--contract=v3", "--no-next-steps")
+    c(
+      result$input_paths,
+      file.path(bundle_dir, "bundle_v3"),
+      "--contract=v3",
+      paste0(
+        "--operational-v2-output=",
+        file.path(bundle_dir, "bundle_v2_operational")
+      ),
+      "--no-next-steps"
+    )
   )
   if (!identical(build$status, 0L)) {
     stop(
-      "-Diagnose passed but the v3 build failed for fixture '",
+      "-Diagnose passed but the operator build failed for fixture '",
       result$label,
       "':\n",
-      paste(utils::tail(build$output, 15L), collapse = "\n"),
+      paste(utils::tail(build$output, 20L), collapse = "\n"),
       call. = FALSE
     )
   }
@@ -403,6 +414,99 @@ multi_label_result$findings$n_document_occurrences[
     multi_label_result$findings$check == "mapped_local_labels"
 ] -> multi_label_occurrences
 
+# Only bacteria_local is required to resolve: bact_norm belongs to the row
+# grain. A missing sample type or antibiotic costs analytic value, not the
+# build, so blocking them would reject handoffs the builder accepts.
+missing_sample_type_label_result <- run_case(
+  "missing_sample_type_label",
+  add_observation(
+    clean_blocks,
+    ELTID = "MDIAG003",
+    EVTID = "SDIAG003",
+    sample_type_local = NA_character_
+  )
+)
+missing_antibiotic_label_result <- run_case(
+  "missing_antibiotic_label",
+  add_observation(
+    clean_blocks,
+    ELTID = "MDIAG003",
+    EVTID = "SDIAG003",
+    antibiotic_local = NA_character_
+  )
+)
+missing_bacteria_label_result <- run_case(
+  "missing_bacteria_label",
+  add_observation(
+    clean_blocks,
+    ELTID = "MDIAG003",
+    EVTID = "SDIAG003",
+    bacteria_local = NA_character_
+  )
+)
+
+# Resolution state must not be inferred from the value: a site is free to use
+# a label that looks like an internal marker.
+marker_lookalike_result <- run_case(
+  "marker_lookalike_target",
+  with_blocks(
+    antibiotic_mapping = data.frame(
+      antibiotic_local = "Cefotaxime",
+      atb_norm = "<unmapped:fake>",
+      stringsAsFactors = FALSE
+    )
+  )
+)
+
+# The projection stores the annual denominator with as.integer(), so a year
+# beyond that range fails v2 validation after v3 succeeded.
+overflow_result <- run_case(
+  "annual_exposure_overflow",
+  with_blocks(
+    incidence_exposure_by_year_um_uf_ta_de_profile = data.frame(
+      calendar_year = c(2024L, 2024L),
+      SEJUM = c("UMDIAG1", "UMDIAG2"),
+      SEJUF = c("UFDIAG1", "UFDIAG1"),
+      CODE_TA = c("03", "03"),
+      CODE_DE = c("102", "102"),
+      de_domain_ref = c("MÉDECINE", "MÉDECINE"),
+      denominator_profile_id = rep("midnight_presence", 2L),
+      exposure_value = rep(.Machine$integer.max, 2L),
+      exposure_unit = rep("patient_days", 2L),
+      stringsAsFactors = FALSE
+    )
+  )
+)
+
+# More offending values than the summary shows: every one must still reach the
+# site, or the correct-and-rerun loop comes straight back.
+many_uf_exposure <- do.call(
+  rbind,
+  lapply(seq_len(11L), function(index) {
+    row <- clean_blocks$incidence_exposure_by_year_um_uf_ta_de_profile
+    row$SEJUM <- sprintf("UMEXTRA%02d", index)
+    row$SEJUF <- sprintf("UFEXTRA%02d", index)
+    row
+  })
+)
+many_unmapped_uf_result <- run_case(
+  "many_unmapped_uf",
+  with_blocks(
+    incidence_exposure_by_year_um_uf_ta_de_profile = rbind(
+      clean_blocks$incidence_exposure_by_year_um_uf_ta_de_profile,
+      many_uf_exposure
+    )
+  )
+)
+many_unmapped_uf_values <- read_report_table(
+  many_unmapped_uf_result$report_dir,
+  "finding_values.csv"
+)
+many_unmapped_uf_listed <- sort(many_unmapped_uf_values$value[
+  many_unmapped_uf_values$block == "unit_mapping" &
+    many_unmapped_uf_values$check == "exposure_uf_not_covered"
+])
+
 ## Stale report artifacts ----------------------------------------------------
 
 shared_report_dir <- file.path(test_root, "shared_report")
@@ -459,7 +563,9 @@ all_results <- list(
   phenotype_typo_result, phenotype_collapse_result, row_grain_result,
   unused_blank_result, incomplete_unit_result, screening_missing_patid_result,
   partial_schema_result, missing_sejuf_result, multi_label_result,
-  reused_pass, reused_schema_failure
+  missing_sample_type_label_result, missing_antibiotic_label_result,
+  missing_bacteria_label_result, marker_lookalike_result, overflow_result,
+  many_unmapped_uf_result, reused_pass, reused_schema_failure
 )
 invisible(lapply(all_results, assert_pass_implies_buildable))
 
@@ -615,6 +721,69 @@ stopifnot(
     severity_of(missing_sejuf_result, "microbiology_observations", "missing_sejuf"),
     "WARNING"
   ),
+
+  # Only a missing bacterium blocks; the other two dimensions cost analytic
+  # value, and the invariant above proves the builder accepts them.
+  identical(missing_sample_type_label_result$status, 0L),
+  identical(
+    severity_of(
+      missing_sample_type_label_result,
+      "microbiology_observations",
+      "missing_sample_type_local"
+    ),
+    "WARNING"
+  ),
+  identical(missing_antibiotic_label_result$status, 0L),
+  identical(
+    severity_of(
+      missing_antibiotic_label_result,
+      "microbiology_observations",
+      "missing_antibiotic_local"
+    ),
+    "WARNING"
+  ),
+  identical(missing_bacteria_label_result$status, 1L),
+  identical(
+    severity_of(
+      missing_bacteria_label_result,
+      "microbiology_observations",
+      "missing_bacteria_local"
+    ),
+    "BLOCKING"
+  ),
+
+  # A canonical target that looks like an internal marker is still a target.
+  identical(marker_lookalike_result$status, 1L),
+  identical(
+    severity_of(
+      marker_lookalike_result,
+      "antibiotic_mapping",
+      "unsupported_atb_norm"
+    ),
+    "BLOCKING"
+  ),
+
+  # An annual total the operational v2 denominator cannot hold is blocking,
+  # even though v3 alone would accept it.
+  identical(overflow_result$status, 1L),
+  identical(
+    severity_of(
+      overflow_result,
+      "incidence_exposure_by_year_um_uf_ta_de_profile",
+      "annual_exposure_overflow"
+    ),
+    "BLOCKING"
+  ),
+
+  # Values beyond the tenth are truncated in the summary but kept in full.
+  identical(many_unmapped_uf_result$status, 1L),
+  identical(length(many_unmapped_uf_listed), 11L),
+  identical(many_unmapped_uf_listed, sprintf("UFEXTRA%02d", 1:11)),
+  any(grepl(
+    "the complete list is in finding_values.csv",
+    many_unmapped_uf_result$output,
+    fixed = TRUE
+  )),
 
   # Occurrence totals are distinct counts, not sums of per-label counts.
   identical(multi_label_occurrences, 1L),

@@ -88,6 +88,7 @@ report_dir <- args[[7L]]
 ## ---------------------------------------------------------------------------
 
 findings <- list()
+finding_values <- list()
 
 add_finding <- function(
     severity,
@@ -95,7 +96,8 @@ add_finding <- function(
     check,
     detail,
     n_rows = NA_integer_,
-    n_document_occurrences = NA_integer_
+    n_document_occurrences = NA_integer_,
+    values = character()
   ) {
   findings[[length(findings) + 1L]] <<- data.frame(
     severity = severity,
@@ -106,7 +108,29 @@ add_finding <- function(
     n_document_occurrences = as.integer(n_document_occurrences),
     stringsAsFactors = FALSE
   )
+  # The summary text truncates long lists, so every value a finding refers to
+  # is also kept in full. A site with more unmapped labels than the summary
+  # shows must still be able to correct them all in one round.
+  values <- sort(unique(as.character(values)))
+  if (length(values) > 0L) {
+    finding_values[[length(finding_values) + 1L]] <<- data.frame(
+      severity = severity,
+      block = block,
+      check = check,
+      value = values,
+      stringsAsFactors = FALSE
+    )
+  }
   invisible(NULL)
+}
+
+collected_finding_values <- function() {
+  if (length(finding_values) == 0L) {
+    return(NULL)
+  }
+  out <- do.call(rbind, finding_values)
+  severity_rank <- match(out$severity, c("BLOCKING", "WARNING", "INFO"))
+  out[order(severity_rank, out$block, out$check, out$value), , drop = FALSE]
 }
 
 collected_findings <- function() {
@@ -137,7 +161,11 @@ format_values <- function(x, limit = 10L) {
   paste0(
     paste(shown, collapse = ", "),
     if (length(x) > limit) {
-      paste0(" (+", length(x) - limit, " more; see the report files)")
+      paste0(
+        " (+",
+        length(x) - limit,
+        " more; the complete list is in finding_values.csv)"
+      )
     } else {
       ""
     }
@@ -204,7 +232,8 @@ for (block_name in block_names) {
       "BLOCKING",
       block_name,
       "duplicate_columns",
-      paste0("Duplicate column names: ", format_values(duplicate_columns), ".")
+      paste0("Duplicate column names: ", format_values(duplicate_columns), "."),
+      values = duplicate_columns
     )
   }
 
@@ -215,7 +244,8 @@ for (block_name in block_names) {
       "BLOCKING",
       block_name,
       "missing_required_columns",
-      paste0("Missing required columns: ", format_values(missing_columns), ".")
+      paste0("Missing required columns: ", format_values(missing_columns), "."),
+      values = missing_columns
     )
   }
 
@@ -244,24 +274,42 @@ for (block_name in block_names) {
   block_ok[[block_name]] <- block_is_ok
 }
 
+# An empty local label is not blocking everywhere: the builder only requires a
+# resolved bacterium, because bact_norm belongs to the canonical row grain. An
+# empty sample type or antibiotic costs analytic value, not the build.
 mapping_dimensions <- list(
   bacteria = list(
     block = "bacteria_mapping",
     local_column = "bacteria_local",
     canonical_column = "bact_norm",
-    canonical_may_be_blank = FALSE
+    canonical_may_be_blank = FALSE,
+    missing_local_blocks = TRUE,
+    missing_local_consequence = paste0(
+      " bact_norm belongs to the ORCHIDEE row grain, so the build cannot ",
+      "place those rows."
+    )
   ),
   sample_type = list(
     block = "sample_type_mapping",
     local_column = "sample_type_local",
     canonical_column = "naturepvt_norm",
-    canonical_may_be_blank = TRUE
+    canonical_may_be_blank = TRUE,
+    missing_local_blocks = FALSE,
+    missing_local_consequence = paste0(
+      " Those rows still enter the build and remain available for global ",
+      "indicators, but cannot contribute to analyses that require a known ",
+      "sample type."
+    )
   ),
   antibiotic = list(
     block = "antibiotic_mapping",
     local_column = "antibiotic_local",
     canonical_column = "atb_norm",
-    canonical_may_be_blank = FALSE
+    canonical_may_be_blank = FALSE,
+    missing_local_blocks = FALSE,
+    missing_local_consequence = paste0(
+      " Those rows still enter the build but populate no antibiotic column."
+    )
   )
 )
 
@@ -314,7 +362,8 @@ for (dimension in names(mapping_dimensions)) {
         ". The builder rejects a missing target even on a row no observation ",
         "uses."
       ),
-      n_rows = count_true(is.na(values))
+      n_rows = count_true(is.na(values)),
+      values = keys[is.na(values)]
     )
   }
 
@@ -337,7 +386,8 @@ for (dimension in names(mapping_dimensions)) {
           " values: ",
           format_values(conflicting),
           "."
-        )
+        ),
+        values = conflicting
       )
     }
     if (length(conflicting) < length(duplicate_keys)) {
@@ -620,7 +670,8 @@ if (!is.null(obs_in_scope)) {
         format_values(raw_sir[unsupported_rows]),
         "."
       ),
-      n_rows = count_true(unsupported_rows)
+      n_rows = count_true(unsupported_rows),
+      values = raw_sir[unsupported_rows]
     )
   }
   if (any_true(is.na(normalized_sir))) {
@@ -669,13 +720,19 @@ if (!is.null(obs_in_scope)) {
           format_values(as.character(raw_status)[unsupported]),
           ". Accepted values are positive, negative, unknown and no_signal."
         ),
-        n_rows = count_true(unsupported)
+        n_rows = count_true(unsupported),
+        values = as.character(raw_status)[unsupported]
       )
     }
   }
 
   ## Canonical row grain ------------------------------------------------------
 
+  # Resolution state is carried as a separate logical vector, never encoded in
+  # the value itself: a site is free to use any string, including one that
+  # looks like an internal marker, and no check may be fooled by it.
+  mapped_unresolved <- list()
+  mapped_local <- list()
   for (dimension in names(mapping_dimensions)) {
     definition <- mapping_dimensions[[dimension]]
     local_values <- orchidee_handoff_trim_or_na(
@@ -687,20 +744,28 @@ if (!is.null(obs_in_scope)) {
     } else {
       mapping$canonical_value[match(local_values, mapping$local_key)]
     }
-    # An unmapped label is already BLOCKING. Standing in a distinct placeholder
-    # keeps the row-grain check meaningful for every other row without ever
-    # merging two labels that the builder would keep apart.
     unresolved <- is.na(canonical) & !is.na(local_values)
-    canonical[unresolved] <- paste0(
-      "<unmapped:",
-      local_values[unresolved],
-      ">"
-    )
     mapped_values[[definition$canonical_column]] <- canonical
+    mapped_unresolved[[definition$canonical_column]] <- unresolved
+    mapped_local[[definition$canonical_column]] <- local_values
   }
   mapped_values$naturepvt_norm <- orchidee_handoff_ascii_lower(
     mapped_values$naturepvt_norm
   )
+
+  # An unmapped label is already BLOCKING, but the row-grain check should still
+  # run on every other row. Standing in the local label keeps rows sharing an
+  # unmapped label together, and the resolution state travels as a separate
+  # leading marker so a canonical value can never be mistaken for one.
+  row_grain_value <- function(canonical_column) {
+    values <- mapped_values[[canonical_column]]
+    unresolved <- mapped_unresolved[[canonical_column]]
+    values[unresolved] <- mapped_local[[canonical_column]][unresolved]
+    out <- paste(ifelse(unresolved, "u", "m"), values, sep = "\r")
+    # A missing value must stay missing so the row-grain check still reports it.
+    out[is.na(values)] <- NA_character_
+    out
+  }
 
   souche_column <- intersect(
     c("souche_id", "isolate_local_id"),
@@ -754,8 +819,8 @@ if (!is.null(obs_in_scope)) {
       ELTID = obs_in_scope$ELTID,
       DATEPRELEV = as.character(sample_dates),
       souche_id = souche_id,
-      naturepvt_norm = mapped_values$naturepvt_norm,
-      bact_norm = mapped_values$bact_norm,
+      naturepvt_norm = row_grain_value("naturepvt_norm"),
+      bact_norm = row_grain_value("bact_norm"),
       stringsAsFactors = FALSE
     )
     row_key <- do.call(
@@ -819,7 +884,8 @@ if (!is.null(obs_in_scope)) {
             ". Accepted collapsed values are ",
             paste(allowed, collapse = ", "),
             "."
-          )
+          ),
+          values = collapsed[unsupported_collapse]
         )
       }
     }
@@ -917,23 +983,26 @@ if (!is.null(obs_in_scope)) {
           "."
         ),
         n_rows = count_true(unmapped_mask),
-        n_document_occurrences = occurrences_for(unmapped_mask)
+        n_document_occurrences = occurrences_for(unmapped_mask),
+        values = unmapped_labels
       )
     }
 
     missing_local_mask <- status == "missing_local_label"
     if (any_true(missing_local_mask)) {
       add_finding(
-        "BLOCKING",
+        if (definition$missing_local_blocks) "BLOCKING" else "WARNING",
         "microbiology_observations",
         paste0("missing_", definition$local_column),
         paste0(
           count_true(missing_local_mask),
           " rows have an empty ",
           definition$local_column,
-          " value."
+          " value.",
+          definition$missing_local_consequence
         ),
-        n_rows = count_true(missing_local_mask)
+        n_rows = count_true(missing_local_mask),
+        n_document_occurrences = occurrences_for(missing_local_mask)
       )
     }
 
@@ -961,7 +1030,8 @@ if (!is.null(obs_in_scope)) {
           consequence
         ),
         n_rows = count_true(blank_mask),
-        n_document_occurrences = occurrences_for(blank_mask)
+        n_document_occurrences = occurrences_for(blank_mask),
+        values = blank_labels
       )
     }
 
@@ -1016,11 +1086,10 @@ if (!is.null(obs_in_scope)) {
   }
 
   if (!is.null(prepared_mappings$antibiotic)) {
-    used_atb <- unique(mapped_values$atb_norm[
-      !startsWith(mapped_values$atb_norm, "<unmapped:")
-    ])
+    resolved_atb <- !mapped_unresolved$atb_norm & !is.na(mapped_values$atb_norm)
+    used_atb <- unique(mapped_values$atb_norm[resolved_atb])
     unsupported_atb <- setdiff(
-      used_atb[!is.na(used_atb)],
+      used_atb,
       contract$sir_wide$atb_cols
     )
     if (length(unsupported_atb) > 0L) {
@@ -1036,7 +1105,8 @@ if (!is.null(obs_in_scope)) {
           "mapping_reference/supported_atb_norm.csv by ",
           "build_site.ps1 -EmitTemplates."
         ),
-        n_rows = count_true(affected)
+        n_rows = count_true(affected),
+        values = unsupported_atb
       )
     }
   }
@@ -1084,7 +1154,8 @@ if (block_ok[["unit_mapping"]]) {
         "unit_mapping must contain one row per SEJUF; these are repeated: ",
         format_values(duplicate_sejuf),
         "."
-      )
+      ),
+      values = duplicate_sejuf
     )
   }
 
@@ -1286,7 +1357,8 @@ if (!is.null(unit) && !is.null(exposure_norm)) {
         format_values(unit_lookup$SEJUF[incomplete_used_by_exposure]),
         ". Strict v3 validation rejects an incomplete perimeter mapping."
       ),
-      n_rows = count_true(incomplete_used_by_exposure)
+      n_rows = count_true(incomplete_used_by_exposure),
+      values = unit_lookup$SEJUF[incomplete_used_by_exposure]
     )
   }
   if (any_true(incomplete_unit & !incomplete_used_by_exposure)) {
@@ -1325,7 +1397,8 @@ if (!is.null(unit) && !is.null(exposure_norm)) {
         format_values(uncovered_exposure_uf),
         ". unit_mapping must cover every SEJUF in the exposure block."
       ),
-      n_rows = count_true(affected)
+      n_rows = count_true(affected),
+      values = uncovered_exposure_uf
     )
   }
 
@@ -1347,7 +1420,8 @@ if (!is.null(unit) && !is.null(exposure_norm)) {
       n_rows = count_true(affected),
       n_document_occurrences = count_occurrences(
         document_key_in_scope[affected]
-      )
+      ),
+      values = uncovered_observed_uf
     )
   }
 
@@ -1377,7 +1451,8 @@ if (!is.null(unit) && !is.null(exposure_norm)) {
         format_values(exposure_norm$SEJUF[discordant]),
         ". The two blocks must agree exactly."
       ),
-      n_rows = count_true(discordant)
+      n_rows = count_true(discordant),
+      values = exposure_norm$SEJUF[discordant]
     )
   }
 
@@ -1479,6 +1554,29 @@ if (!is.null(unit) && !is.null(exposure_norm)) {
       )
     )
 
+    # The projection stores the annual total with as.integer(), so a year whose
+    # in-perimeter total exceeds the integer range would silently become NA and
+    # fail v2 validation after the diagnostics had passed.
+    overflow_years <- year_coverage$calendar_year[
+      year_coverage$exposure_in_spares_current > .Machine$integer.max
+    ]
+    if (length(overflow_years) > 0L) {
+      add_finding(
+        "BLOCKING",
+        exposure_block,
+        "annual_exposure_overflow",
+        paste0(
+          "These years total more in-perimeter exposure than the operational ",
+          "v2 denominator can hold (",
+          format(.Machine$integer.max, scientific = FALSE),
+          " patient-days): ",
+          paste(overflow_years, collapse = ", "),
+          ". The projection would store a missing hospital_nights value."
+        ),
+        values = as.character(overflow_years)
+      )
+    }
+
     empty_context_years <- year_coverage$calendar_year[
       year_coverage$exposure_in_spares_current == 0
     ]
@@ -1548,11 +1646,24 @@ report_dir <- normalizePath(report_dir, winslash = "/", mustWork = TRUE)
 report_artifacts <- c(
   "site_input_diagnostics.txt",
   "findings.csv",
+  "finding_values.csv",
   "label_coverage.csv",
   "unit_coverage.csv",
   "year_coverage.csv"
 )
-unlink(file.path(report_dir, report_artifacts), force = TRUE)
+stale_artifacts <- file.path(report_dir, report_artifacts)
+unlink(stale_artifacts, force = TRUE)
+still_present <- stale_artifacts[file.exists(stale_artifacts)]
+if (length(still_present) > 0L) {
+  # Publishing beside a table this run did not write would present stale
+  # coverage as current. Stop instead of producing a mixed report.
+  stop(
+    "Could not remove report artifacts from a previous run: ",
+    paste(basename(still_present), collapse = ", "),
+    ". Close whatever holds them open, or choose another report directory.",
+    call. = FALSE
+  )
+}
 
 report_lines <- c(
   "ORCHIDEE site input diagnostics",
@@ -1629,6 +1740,7 @@ utils::write.csv(
 
 written_files <- c(report_path, findings_path)
 optional_tables <- list(
+  finding_values.csv = collected_finding_values(),
   label_coverage.csv = label_coverage,
   unit_coverage.csv = unit_coverage,
   year_coverage.csv = year_coverage
