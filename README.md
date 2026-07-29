@@ -51,9 +51,15 @@ $handoff = "data/site_handoff"
 
 Le site remplit les six fichiers de premier niveau. `mapping_reference/`
 indique vers quelles valeurs ORCHIDEE mapper les libellés locaux ; ce
-sous-répertoire est un kit d'aide, pas un septième bloc à fournir. Suivre
-ensuite dans la procédure opérateur la commande nommée avec `-DryRun`, puis
-retirer uniquement `-DryRun` après le `PASS`.
+sous-répertoire est un kit d'aide, pas un septième bloc à fournir.
+
+Suivre ensuite dans la procédure opérateur la commande nommée avec `-DryRun`,
+qui vérifie seulement les chemins et les colonnes. Après ce `PASS`, relancer la
+même commande avec `-Diagnose` : elle lit les six blocs une seule fois et
+rapporte en un seul passage tous les problèmes de contrat, classés `BLOCKING`,
+`WARNING` et `INFO`, avec le nombre de lignes et d'occurrences documentaires
+concernées par libellé local. C'est l'étape qui évite d'enchaîner un rebuild
+par classe d'erreur. Retirer enfin `-DryRun` et `-Diagnose` pour construire.
 
 Toutes les options du point d'entrée sont visibles avec :
 

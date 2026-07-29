@@ -139,7 +139,13 @@ suivants :
 -   `-RunExample` exécute le parcours complet sur les six CSV synthétiques
     versionnés, sans données cliniques ;
 -   `-DryRun` vérifie les six chemins nommés, R, les paquets et les colonnes
-    avant toute construction ;
+    avant toute construction ; il reste volontairement économique et ne lit pas
+    le contenu ;
+-   `-Diagnose` lit les six blocs une seule fois et écrit un rapport agrégé
+    `BLOCKING` / `WARNING` / `INFO` sous `outputs/site_diagnostics` par défaut,
+    ou sous `-Report` ; son statut de sortie vaut 1 tant qu'il reste un
+    `BLOCKING`. Il ne couvre que le contrat de handoff et ne dit rien du
+    contrat de publication des indicateurs ;
 -   `-EmitTemplates` produit les six en-têtes et `mapping_reference/`, sans
     effectuer le mapping local ;
 -   le wrapper conserve v3, matérialise et smoke le v2 opérationnel, puis écrit

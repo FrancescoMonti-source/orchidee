@@ -378,10 +378,55 @@ $handoff = "data/site_handoff"
 ```
 
 This reads only delimited-file headers; RDS inputs must be deserialized to
-inspect their columns. It does not create an output directory. If the result is
-`PASS`, rerun exactly the same command without `-DryRun` for a first build. If
-the preflight reports a completed existing output, choose another `-Output` or,
-after review, add `-Force` as instructed by its warning.
+inspect their columns. It checks that the six files exist and carry the
+expected columns. It does not look at their content and does not create an
+output directory.
+
+Once `-DryRun` passes, replace `-DryRun` with `-Diagnose` in the same command:
+
+```powershell
+$handoff = "data/site_handoff"
+& .\scripts\build_site.ps1 `
+  -MicrobiologyObservations `
+    (Join-Path $handoff "microbiology_observations.csv") `
+  -BacteriaMapping (Join-Path $handoff "bacteria_mapping.csv") `
+  -SampleTypeMapping (Join-Path $handoff "sample_type_mapping.csv") `
+  -AntibioticMapping (Join-Path $handoff "antibiotic_mapping.csv") `
+  -UnitMapping (Join-Path $handoff "unit_mapping.csv") `
+  -IncidenceExposure `
+    (Join-Path $handoff `
+      "incidence_exposure_by_year_um_uf_ta_de_profile.csv") `
+  -Diagnose
+```
+
+`-Diagnose` reads the six blocks once and reports **every** contract problem in
+a single pass, classified as:
+
+| Level | Meaning |
+| --- | --- |
+| `BLOCKING` | The build cannot complete until this is corrected. |
+| `WARNING` | The build completes, but rows lose analytic value; review it. |
+| `INFO` | Counts that describe the handoff, including perimeter coverage. |
+
+This matters because the builder itself stops at the first problem and lists at
+most ten offending values. Correcting a real handoff through build failures
+alone takes one rebuild per problem class; `-Diagnose` collapses that into one
+report you can work through.
+
+Each mapping dimension is reported per local label with both `n_rows` and
+`n_document_occurrences`, so you can tell a label worth mapping from a
+negligible one. The report is written to `outputs\site_diagnostics` by default,
+or to the directory given by `-Report`. It contains aggregate counts and your
+own local vocabulary only; it never writes patient identifiers.
+
+`-Diagnose` answers one question: do the six blocks satisfy the handoff
+contract? It does not predict which indicators the report will publish.
+
+Exit status is 1 while any `BLOCKING` finding remains, so the command can gate a
+local script. When it reports `PASS`, rerun exactly the same command with
+neither `-DryRun` nor `-Diagnose` for a first build. If the preflight reports a
+completed existing output, choose another `-Output` or, after review, add
+`-Force` as instructed by its warning.
 
 Add `-Output "D:\ORCHIDEE\site_current"` when generated bundles must live in a
 protected external workspace. Use
@@ -456,7 +501,8 @@ not the preferred onboarding path.
 
 ## If validation fails
 
-Read the first error message. The most common failures are:
+Run `-Diagnose` first: it lists every problem at once, while the messages below
+appear one at a time. The most common failures are:
 
 - a required column is missing;
 - a local bacterium, sample type or antibiotic has no mapping;

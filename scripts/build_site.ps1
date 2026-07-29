@@ -39,6 +39,17 @@ Check paths, locked R, required packages and input columns without building or
 writing a bundle. Delimited inputs are read as headers; RDS inputs must be
 deserialized to inspect their columns.
 
+.PARAMETER Diagnose
+Read the six blocks once and write an aggregated report of every handoff
+contract problem, classified as BLOCKING, WARNING and INFO, instead of stopping
+at the first error. Use it after -DryRun passes and before a first build. It
+answers only whether the six blocks satisfy the handoff contract; it makes no
+claim about which indicators would be published. No bundle is built.
+
+.PARAMETER Report
+Directory for the -Diagnose report. Defaults to outputs\site_diagnostics. A
+destination inside the checkout must be below outputs\.
+
 .PARAMETER EmitTemplates
 Create the six empty v3 handoff CSV templates and the ORCHIDEE mapping-reference
 kit in a new or unused directory. Existing generated files are never
@@ -61,6 +72,17 @@ output is outputs\site_example.
   -DryRun
 
 .EXAMPLE
+& .\scripts\build_site.ps1 `
+  -MicrobiologyObservations "C:\handoff\microbiology_observations.csv" `
+  -BacteriaMapping "C:\handoff\bacteria_mapping.csv" `
+  -SampleTypeMapping "C:\handoff\sample_type_mapping.csv" `
+  -AntibioticMapping "C:\handoff\antibiotic_mapping.csv" `
+  -UnitMapping "C:\handoff\unit_mapping.csv" `
+  -IncidenceExposure `
+    "C:\handoff\incidence_exposure_by_year_um_uf_ta_de_profile.csv" `
+  -Diagnose
+
+.EXAMPLE
 & .\scripts\build_site.ps1 -EmitTemplates "data\site_handoff"
 
 .EXAMPLE
@@ -70,21 +92,27 @@ output is outputs\site_example.
 [CmdletBinding(DefaultParameterSetName = 'Build')]
 param(
   [Parameter(Mandatory, ParameterSetName = 'Build')]
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
   [string]$MicrobiologyObservations,
 
   [Parameter(Mandatory, ParameterSetName = 'Build')]
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
   [string]$BacteriaMapping,
 
   [Parameter(Mandatory, ParameterSetName = 'Build')]
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
   [string]$SampleTypeMapping,
 
   [Parameter(Mandatory, ParameterSetName = 'Build')]
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
   [string]$AntibioticMapping,
 
   [Parameter(Mandatory, ParameterSetName = 'Build')]
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
   [string]$UnitMapping,
 
   [Parameter(Mandatory, ParameterSetName = 'Build')]
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
   [string]$IncidenceExposure,
 
   [Parameter(ParameterSetName = 'Build')]
@@ -97,6 +125,12 @@ param(
 
   [Parameter(ParameterSetName = 'Build')]
   [switch]$DryRun,
+
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
+  [switch]$Diagnose,
+
+  [Parameter(ParameterSetName = 'Diagnose')]
+  [string]$Report,
 
   [Parameter(Mandatory, ParameterSetName = 'Templates')]
   [string]$EmitTemplates,
@@ -289,6 +323,48 @@ $inputPaths = @(
       -Label $_.Name
   }
 )
+if ($PSCmdlet.ParameterSetName -eq 'Diagnose') {
+  $reportRoot = if ([string]::IsNullOrWhiteSpace($Report)) {
+    Join-Path $RepoRoot 'outputs\site_diagnostics'
+  } else {
+    Resolve-OrchideeRepoPath -RepoRoot $RepoRoot -Path $Report
+  }
+  $reportRoot = Assert-OrchideeSafeOutputDirectory `
+    -RepoRoot $RepoRoot `
+    -OutputPath $reportRoot `
+    -InputPaths $inputPaths `
+    -InputLabel 'Site handoff inputs'
+
+  for ($index = 0; $index -lt $inputDefinitions.Count; $index++) {
+    Write-Host "$($inputDefinitions[$index].Name): $($inputPaths[$index])"
+  }
+  Write-Host "Report: $reportRoot"
+  Write-Host "R:      $rScript"
+
+  $diagnoser = Join-Path $RepoRoot 'scripts\diagnose_site_inputs.R'
+  Push-Location $RepoRoot
+  try {
+    & $rScript --no-save --no-restore $diagnoser @inputPaths $reportRoot
+    $diagnoseExit = $LASTEXITCODE
+  }
+  finally {
+    Pop-Location
+  }
+
+  if ($diagnoseExit -eq 1) {
+    Write-Host ''
+    Write-Host (
+      'Correct the blocking findings above and rerun -Diagnose. No bundle was ' +
+      'built and no existing output was modified.'
+    )
+    exit 1
+  }
+  if ($diagnoseExit -ne 0) {
+    throw "Site input diagnostics failed (exit $diagnoseExit)."
+  }
+  return
+}
+
 $outputRoot = if ([string]::IsNullOrWhiteSpace($Output)) {
   if ($isExample) {
     Join-Path $RepoRoot 'outputs\site_example'

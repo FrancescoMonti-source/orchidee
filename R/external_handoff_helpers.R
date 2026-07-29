@@ -680,6 +680,48 @@ orchidee_handoff_map_values <- function(
   mapped
 }
 
+# Screening exclusion follows the most specific usable document identity.
+# Complete PATID + ELTID groups use PATID + EVTID + ELTID. If any row in a
+# PATID + ELTID group lacks EVTID, that group conservatively falls back to
+# PATID + ELTID. ELTID alone is never propagated across patients. Rows without
+# a usable PATID + ELTID pair receive NA and never carry screening.
+orchidee_handoff_document_occurrence_key <- function(PATID, EVTID, ELTID) {
+  document_key <- rep(NA_character_, length(PATID))
+  usable <- !is.na(PATID) & !is.na(ELTID)
+  usable_rows <- which(usable)
+  if (length(usable_rows) == 0L) {
+    return(document_key)
+  }
+
+  patient_sample_key <- paste(
+    PATID[usable_rows],
+    ELTID[usable_rows],
+    sep = "\r"
+  )
+  fallback_to_patient_sample <- ave(
+    is.na(EVTID[usable_rows]),
+    patient_sample_key,
+    FUN = any
+  )
+  document_key[usable_rows] <- ifelse(
+    fallback_to_patient_sample,
+    paste(
+      "patient_sample",
+      PATID[usable_rows],
+      ELTID[usable_rows],
+      sep = "\r"
+    ),
+    paste(
+      "event_sample",
+      PATID[usable_rows],
+      EVTID[usable_rows],
+      ELTID[usable_rows],
+      sep = "\r"
+    )
+  )
+  document_key
+}
+
 orchidee_handoff_collapse_phenotype <- function(x, allowed, col_name) {
   orchidee_handoff_require_functions(c(
     "normalize_phenotype_status",
@@ -780,45 +822,19 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
   }
   obs$ELTID <- orchidee_handoff_trim_or_na(obs$ELTID)
 
-  # Screening exclusion follows the most specific usable document identity.
-  # Complete PATID + ELTID groups use PATID + EVTID + ELTID. If any row in a
-  # PATID + ELTID group lacks EVTID, that group conservatively falls back to
-  # PATID + ELTID. ELTID alone is never propagated across patients.
-  has_patient_sample <- !is.na(obs$PATID) & !is.na(obs$ELTID)
+  document_key <- orchidee_handoff_document_occurrence_key(
+    obs$PATID,
+    obs$EVTID,
+    obs$ELTID
+  )
   propagate_screening <- rep(FALSE, nrow(obs))
-  valid_scope_rows <- which(has_patient_sample)
-  if (length(valid_scope_rows) > 0L) {
-    patient_sample_key <- paste(
-      obs$PATID[valid_scope_rows],
-      obs$ELTID[valid_scope_rows],
-      sep = "\r"
-    )
-    fallback_to_patient_sample <- ave(
-      is.na(obs$EVTID[valid_scope_rows]),
-      patient_sample_key,
-      FUN = any
-    )
-    document_key <- ifelse(
-      fallback_to_patient_sample,
-      paste(
-        "patient_sample",
-        obs$PATID[valid_scope_rows],
-        obs$ELTID[valid_scope_rows],
-        sep = "\r"
-      ),
-      paste(
-        "event_sample",
-        obs$PATID[valid_scope_rows],
-        obs$EVTID[valid_scope_rows],
-        obs$ELTID[valid_scope_rows],
-        sep = "\r"
-      )
-    )
+  usable_key <- !is.na(document_key)
+  if (any(usable_key)) {
     screening_document_keys <- unique(
-      document_key[!diagnostic_scope[valid_scope_rows]]
+      document_key[usable_key & !diagnostic_scope]
     )
-    propagate_screening[valid_scope_rows] <-
-      document_key %in% screening_document_keys
+    propagate_screening[usable_key] <-
+      document_key[usable_key] %in% screening_document_keys
   }
 
   drop_mask <- (!diagnostic_scope) | propagate_screening
