@@ -427,8 +427,13 @@ own local vocabulary only; it never writes patient identifiers.
 contract? It does not predict which indicators the report will publish.
 
 Exit status is 1 while any `BLOCKING` finding remains, so the command can gate a
-local script. When it reports `PASS`, rerun exactly the same command with
-neither `-DryRun` nor `-Diagnose` for a first build. If the preflight reports a
+local script. A `PASS` is a promise: it means the build and strict v3
+validation complete on these blocks. Every check mirrors a rule the builder or
+the v3 contract actually enforces, and the test suite asserts the invariant by
+building each passing fixture for real.
+
+When it reports `PASS`, rerun exactly the same command with neither `-DryRun`
+nor `-Diagnose` for a first build. If the preflight reports a
 completed existing output, choose another `-Output` or, after review, add
 `-Force` as instructed by its warning.
 

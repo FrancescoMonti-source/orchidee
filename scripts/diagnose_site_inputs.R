@@ -7,6 +7,13 @@
 ## every finding instead of stopping at the first one, and classifies each
 ## finding as BLOCKING, WARNING or INFO.
 ##
+## Soundness rule: a run without BLOCKING findings must mean the site build and
+## strict v3 validation can complete. Every check below therefore mirrors a
+## rule the builder or the v3 contract actually enforces, and any check added
+## here must keep that invariant, which
+## `tests/test_site_input_diagnostics.R` asserts by building each passing
+## fixture for real.
+##
 ## It deliberately stays inside the handoff contract. It does not load the
 ## indicator specification, the taxonomy or the publication contract, and it
 ## therefore makes no claim about which indicators would be published.
@@ -48,7 +55,8 @@ if (length(args) != 7L || any(args %in% c("-h", "--help"))) {
     "    <report_dir>\n\n",
     "Reads the six blocks once and writes an aggregated report classified as\n",
     "BLOCKING, WARNING and INFO. Exit status is 1 when at least one BLOCKING\n",
-    "finding remains, otherwise 0.\n\n",
+    "finding remains, otherwise 0. A run without BLOCKING findings means the\n",
+    "site build and strict v3 validation can complete.\n\n",
     "The report contains aggregate counts and local vocabulary only. It never\n",
     "writes patient identifiers.\n",
     sep = ""
@@ -118,6 +126,11 @@ collected_findings <- function() {
   out[order(severity_rank, out$block, out$check), , drop = FALSE]
 }
 
+# NA must never decide a branch or silently drop a row from a count: an
+# unparseable value is a finding, not an absence of one.
+any_true <- function(x) isTRUE(any(x %in% TRUE))
+count_true <- function(x) sum(x %in% TRUE)
+
 format_values <- function(x, limit = 10L) {
   x <- sort(unique(as.character(x)))
   shown <- utils::head(x, limit)
@@ -136,7 +149,6 @@ format_values <- function(x, limit = 10L) {
 ## ---------------------------------------------------------------------------
 
 blocks <- list()
-read_failed <- FALSE
 for (block_name in block_names) {
   block <- tryCatch(
     orchidee_handoff_read_table(input_paths[[block_name]]),
@@ -147,7 +159,6 @@ for (block_name in block_names) {
         "unreadable_input",
         conditionMessage(e)
       )
-      read_failed <<- TRUE
       NULL
     }
   )
@@ -158,7 +169,6 @@ for (block_name in block_names) {
       "not_a_table",
       "The input did not contain a table."
     )
-    read_failed <- TRUE
     block <- NULL
   }
   blocks[[block_name]] <- block
@@ -167,82 +177,209 @@ for (block_name in block_names) {
 ## ---------------------------------------------------------------------------
 ## Column contract
 ## ---------------------------------------------------------------------------
+##
+## Validity is tracked per block so that a schema error in one block never
+## suppresses the content checks of the others.
 
-column_contract_ok <- !read_failed
-if (!read_failed) {
-  for (block_name in block_names) {
-    block <- blocks[[block_name]]
+block_ok <- stats::setNames(rep(FALSE, length(block_names)), block_names)
+for (block_name in block_names) {
+  block <- blocks[[block_name]]
+  if (is.null(block)) {
+    next
+  }
+
+  add_finding(
+    "INFO",
+    block_name,
+    "rows_read",
+    paste0(nrow(block), " rows, ", ncol(block), " columns."),
+    n_rows = nrow(block)
+  )
+
+  block_is_ok <- TRUE
+  duplicate_columns <- unique(names(block)[duplicated(names(block))])
+  if (length(duplicate_columns) > 0L) {
+    block_is_ok <- FALSE
     add_finding(
-      "INFO",
+      "BLOCKING",
       block_name,
-      "rows_read",
-      paste0(nrow(block), " rows, ", ncol(block), " columns."),
-      n_rows = nrow(block)
+      "duplicate_columns",
+      paste0("Duplicate column names: ", format_values(duplicate_columns), ".")
     )
+  }
 
-    duplicate_columns <- unique(names(block)[duplicated(names(block))])
-    if (length(duplicate_columns) > 0L) {
-      column_contract_ok <- FALSE
+  missing_columns <- setdiff(spec[[block_name]]$required_columns, names(block))
+  if (length(missing_columns) > 0L) {
+    block_is_ok <- FALSE
+    add_finding(
+      "BLOCKING",
+      block_name,
+      "missing_required_columns",
+      paste0("Missing required columns: ", format_values(missing_columns), ".")
+    )
+  }
+
+  for (one_of_name in names(spec[[block_name]]$required_one_of)) {
+    candidates <- spec[[block_name]]$required_one_of[[one_of_name]]
+    present <- intersect(candidates, names(block))
+    if (length(present) != 1L) {
+      block_is_ok <- FALSE
       add_finding(
         "BLOCKING",
         block_name,
-        "duplicate_columns",
+        "diagnostic_scope_column",
         paste0(
-          "Duplicate column names: ",
-          format_values(duplicate_columns),
+          "Exactly one ",
+          one_of_name,
+          " column is required; found ",
+          length(present),
+          " of: ",
+          paste(candidates, collapse = ", "),
           "."
         )
       )
-    }
-
-    missing_columns <- setdiff(spec[[block_name]]$required_columns, names(block))
-    if (length(missing_columns) > 0L) {
-      column_contract_ok <- FALSE
-      add_finding(
-        "BLOCKING",
-        block_name,
-        "missing_required_columns",
-        paste0(
-          "Missing required columns: ",
-          format_values(missing_columns),
-          "."
-        )
-      )
-    }
-
-    for (one_of_name in names(spec[[block_name]]$required_one_of)) {
-      candidates <- spec[[block_name]]$required_one_of[[one_of_name]]
-      present <- intersect(candidates, names(block))
-      if (length(present) != 1L) {
-        column_contract_ok <- FALSE
-        add_finding(
-          "BLOCKING",
-          block_name,
-          "diagnostic_scope_column",
-          paste0(
-            "Exactly one ",
-            one_of_name,
-            " column is required; found ",
-            length(present),
-            " of: ",
-            paste(candidates, collapse = ", "),
-            "."
-          )
-        )
-      }
     }
   }
+
+  block_ok[[block_name]] <- block_is_ok
+}
+
+mapping_dimensions <- list(
+  bacteria = list(
+    block = "bacteria_mapping",
+    local_column = "bacteria_local",
+    canonical_column = "bact_norm",
+    canonical_may_be_blank = FALSE
+  ),
+  sample_type = list(
+    block = "sample_type_mapping",
+    local_column = "sample_type_local",
+    canonical_column = "naturepvt_norm",
+    canonical_may_be_blank = TRUE
+  ),
+  antibiotic = list(
+    block = "antibiotic_mapping",
+    local_column = "antibiotic_local",
+    canonical_column = "atb_norm",
+    canonical_may_be_blank = FALSE
+  )
+)
+
+## ---------------------------------------------------------------------------
+## Mapping tables, independent of the observations
+## ---------------------------------------------------------------------------
+##
+## The builder validates a whole mapping table before joining it, so a blank
+## or conflicting target stops the build even on a row no observation uses.
+
+prepared_mappings <- list()
+for (dimension in names(mapping_dimensions)) {
+  definition <- mapping_dimensions[[dimension]]
+  if (!block_ok[[definition$block]]) {
+    next
+  }
+  mapping <- blocks[[definition$block]]
+  keys <- orchidee_handoff_trim_or_na(mapping[[definition$local_column]])
+  values <- orchidee_handoff_trim_or_na(mapping[[definition$canonical_column]])
+  keep <- !is.na(keys)
+  keys <- keys[keep]
+  values <- values[keep]
+
+  if (count_true(!keep) > 0L) {
+    add_finding(
+      "WARNING",
+      definition$block,
+      "blank_local_label",
+      paste0(
+        count_true(!keep),
+        " mapping rows have an empty ",
+        definition$local_column,
+        " and are ignored."
+      ),
+      n_rows = count_true(!keep)
+    )
+  }
+
+  if (!definition$canonical_may_be_blank && any_true(is.na(values))) {
+    add_finding(
+      "BLOCKING",
+      definition$block,
+      "missing_canonical_value",
+      paste0(
+        count_true(is.na(values)),
+        " mapping rows have an empty ",
+        definition$canonical_column,
+        ": ",
+        format_values(keys[is.na(values)]),
+        ". The builder rejects a missing target even on a row no observation ",
+        "uses."
+      ),
+      n_rows = count_true(is.na(values))
+    )
+  }
+
+  duplicate_keys <- unique(keys[duplicated(keys)])
+  if (length(duplicate_keys) > 0L) {
+    comparable <- ifelse(is.na(values), "<missing>", values)
+    conflicting <- duplicate_keys[vapply(
+      duplicate_keys,
+      function(key) length(unique(comparable[keys == key])) > 1L,
+      logical(1)
+    )]
+    if (length(conflicting) > 0L) {
+      add_finding(
+        "BLOCKING",
+        definition$block,
+        "conflicting_duplicate_keys",
+        paste0(
+          "These local labels appear more than once with different ",
+          definition$canonical_column,
+          " values: ",
+          format_values(conflicting),
+          "."
+        )
+      )
+    }
+    if (length(conflicting) < length(duplicate_keys)) {
+      add_finding(
+        "INFO",
+        definition$block,
+        "duplicate_keys",
+        paste0(
+          length(duplicate_keys) - length(conflicting),
+          " local labels are listed more than once with the same ",
+          definition$canonical_column,
+          " value."
+        )
+      )
+    }
+  }
+
+  prepared_mappings[[dimension]] <- data.frame(
+    local_key = keys,
+    canonical_value = values,
+    stringsAsFactors = FALSE
+  )[!duplicated(keys), , drop = FALSE]
 }
 
 ## ---------------------------------------------------------------------------
-## Content checks
+## Microbiology observations
 ## ---------------------------------------------------------------------------
 
 label_coverage <- NULL
 unit_coverage <- NULL
 year_coverage <- NULL
+obs_in_scope <- NULL
+document_key_in_scope <- character()
+sample_dates <- NULL
+mapped_values <- list()
 
-if (column_contract_ok) {
+count_occurrences <- function(keys) {
+  keys <- keys[!is.na(keys)]
+  length(unique(keys))
+}
+
+if (block_ok[["microbiology_observations"]]) {
   obs <- blocks$microbiology_observations
   diagnostic_candidates <-
     spec$microbiology_observations$required_one_of$diagnostic_scope
@@ -263,11 +400,6 @@ if (column_contract_ok) {
     obs$ELTID
   )
 
-  count_occurrences <- function(keys) {
-    keys <- keys[!is.na(keys)]
-    length(unique(keys))
-  }
-
   add_finding(
     "INFO",
     "microbiology_observations",
@@ -282,25 +414,10 @@ if (column_contract_ok) {
     n_document_occurrences = count_occurrences(document_key)
   )
 
-  unusable_key <- is.na(document_key)
-  if (any(unusable_key)) {
-    add_finding(
-      "BLOCKING",
-      "microbiology_observations",
-      "missing_document_identity",
-      paste0(
-        sum(unusable_key),
-        " rows have a missing PATID or ELTID and cannot be assigned to a ",
-        "document occurrence."
-      ),
-      n_rows = sum(unusable_key)
-    )
-  }
-
   if ("EVTID" %in% names(blocks$microbiology_observations)) {
-    usable <- !is.na(document_key)
-    fallback_rows <- usable & startsWith(document_key, "patient_sample")
-    if (any(fallback_rows)) {
+    fallback_rows <- !is.na(document_key) &
+      startsWith(document_key, "patient_sample")
+    if (any_true(fallback_rows)) {
       add_finding(
         "INFO",
         "microbiology_observations",
@@ -310,7 +427,7 @@ if (column_contract_ok) {
           " document occurrences fall back to PATID + ELTID because at least ",
           "one row of the group has no EVTID."
         ),
-        n_rows = sum(fallback_rows),
+        n_rows = count_true(fallback_rows),
         n_document_occurrences = count_occurrences(document_key[fallback_rows])
       )
     }
@@ -344,13 +461,10 @@ if (column_contract_ok) {
     }
   )
 
-  if (is.null(diagnostic_scope)) {
-    obs_in_scope <- obs[0, , drop = FALSE]
-    document_key_in_scope <- character()
-  } else {
+  if (!is.null(diagnostic_scope)) {
     usable_key <- !is.na(document_key)
     propagate_screening <- rep(FALSE, nrow(obs))
-    if (any(usable_key)) {
+    if (any_true(usable_key)) {
       screening_keys <- unique(document_key[usable_key & !diagnostic_scope])
       propagate_screening[usable_key] <-
         document_key[usable_key] %in% screening_keys
@@ -362,19 +476,19 @@ if (column_contract_ok) {
       "microbiology_observations",
       "diagnostic_scope_excluded",
       paste0(
-        sum(!diagnostic_scope),
+        count_true(!diagnostic_scope),
         " rows are flagged outside the diagnostic scope; excluding their whole ",
         "document occurrences removes ",
-        sum(drop_mask),
+        count_true(drop_mask),
         " rows (",
         count_occurrences(document_key[drop_mask]),
         " occurrences)."
       ),
-      n_rows = sum(drop_mask),
+      n_rows = count_true(drop_mask),
       n_document_occurrences = count_occurrences(document_key[drop_mask])
     )
 
-    collateral <- sum(drop_mask) - sum(!diagnostic_scope)
+    collateral <- count_true(drop_mask) - count_true(!diagnostic_scope)
     if (collateral > 0L) {
       add_finding(
         "WARNING",
@@ -403,6 +517,7 @@ if (column_contract_ok) {
           "The build cannot produce a bundle."
         )
       )
+      obs_in_scope <- NULL
     } else {
       add_finding(
         "INFO",
@@ -420,166 +535,328 @@ if (column_contract_ok) {
       )
     }
   }
+}
 
-  ## Dates, times and results -------------------------------------------------
+if (!is.null(obs_in_scope)) {
+  ## The builder drops screening rows before checking key identity, so this
+  ## check belongs to the surviving rows only.
+  unusable_key <- is.na(document_key_in_scope)
+  if (any_true(unusable_key)) {
+    add_finding(
+      "BLOCKING",
+      "microbiology_observations",
+      "missing_document_identity",
+      paste0(
+        count_true(unusable_key),
+        " rows entering the build have a missing PATID or ELTID."
+      ),
+      n_rows = count_true(unusable_key)
+    )
+  }
 
-  sample_dates <- NULL
-  if (nrow(obs_in_scope) > 0L) {
-    sample_dates <- tryCatch(
-      orchidee_handoff_parse_date(obs_in_scope$DATEPRELEV),
+  missing_sejuf <- is.na(obs_in_scope$SEJUF)
+  if (any_true(missing_sejuf)) {
+    add_finding(
+      "WARNING",
+      "microbiology_observations",
+      "missing_sejuf",
+      paste0(
+        count_true(missing_sejuf),
+        " rows entering the build have no SEJUF. They stay auditable but ",
+        "cannot receive a TA/DE perimeter and are excluded from the analytic ",
+        "scope."
+      ),
+      n_rows = count_true(missing_sejuf),
+      n_document_occurrences = count_occurrences(
+        document_key_in_scope[missing_sejuf]
+      )
+    )
+  }
+
+  sample_dates <- tryCatch(
+    orchidee_handoff_parse_date(obs_in_scope$DATEPRELEV),
+    error = function(e) {
+      add_finding(
+        "BLOCKING",
+        "microbiology_observations",
+        "dateprelev_format",
+        conditionMessage(e)
+      )
+      NULL
+    }
+  )
+
+  sample_times <- if ("HEUREPRELEV" %in% names(obs_in_scope)) {
+    tryCatch(
+      orchidee_handoff_parse_time(obs_in_scope$HEUREPRELEV),
       error = function(e) {
         add_finding(
           "BLOCKING",
           "microbiology_observations",
-          "dateprelev_format",
+          "heureprelev_format",
           conditionMessage(e)
         )
         NULL
       }
     )
+  } else {
+    as.difftime(rep(NA_real_, nrow(obs_in_scope)), units = "secs")
+  }
 
-    if ("HEUREPRELEV" %in% names(obs_in_scope)) {
-      invisible(tryCatch(
-        orchidee_handoff_parse_time(obs_in_scope$HEUREPRELEV),
-        error = function(e) {
-          add_finding(
-            "BLOCKING",
-            "microbiology_observations",
-            "heureprelev_format",
-            conditionMessage(e)
-          )
-          NULL
-        }
-      ))
-    }
-
-    normalized_sir <- orchidee_handoff_normalize_sir(obs_in_scope$sir_result)
-    raw_sir <- orchidee_handoff_trim_or_na(obs_in_scope$sir_result)
-    unsupported_sir <- setdiff(
-      unique(normalized_sir[!is.na(normalized_sir)]),
-      contract$sir_wide$allowed_atb_values
+  normalized_sir <- orchidee_handoff_normalize_sir(obs_in_scope$sir_result)
+  raw_sir <- orchidee_handoff_trim_or_na(obs_in_scope$sir_result)
+  unsupported_sir <- setdiff(
+    unique(normalized_sir[!is.na(normalized_sir)]),
+    contract$sir_wide$allowed_atb_values
+  )
+  if (length(unsupported_sir) > 0L) {
+    unsupported_rows <- normalized_sir %in% unsupported_sir
+    add_finding(
+      "BLOCKING",
+      "microbiology_observations",
+      "unsupported_sir_values",
+      paste0(
+        "sir_result contains values ORCHIDEE does not recognize: ",
+        format_values(raw_sir[unsupported_rows]),
+        "."
+      ),
+      n_rows = count_true(unsupported_rows)
     )
-    if (length(unsupported_sir) > 0L) {
-      unsupported_rows <- sum(normalized_sir %in% unsupported_sir)
+  }
+  if (any_true(is.na(normalized_sir))) {
+    add_finding(
+      "INFO",
+      "microbiology_observations",
+      "missing_sir_values",
+      paste0(
+        count_true(is.na(normalized_sir)),
+        " rows have an empty or non-interpretable S/I/R result and will not ",
+        "populate an antibiotic column."
+      ),
+      n_rows = count_true(is.na(normalized_sir))
+    )
+  }
+
+  ## Optional phenotype statuses ---------------------------------------------
+
+  phenotype_columns <- list(
+    blse_status_row = c("blse_status_row", "blse_status"),
+    carbapenemase_status_row = c(
+      "carbapenemase_status_row",
+      "carbapenemase_status"
+    )
+  )
+  resolved_phenotype_columns <- list()
+  for (status_name in names(phenotype_columns)) {
+    present <- intersect(phenotype_columns[[status_name]], names(obs_in_scope))
+    if (length(present) == 0L) {
+      next
+    }
+    column <- present[[1L]]
+    resolved_phenotype_columns[[status_name]] <- column
+    raw_status <- obs_in_scope[[column]]
+    normalized_status <- normalize_phenotype_status(raw_status)
+    unsupported <- is.na(normalized_status) &
+      !is.na(orchidee_handoff_trim_or_na(raw_status))
+    if (any_true(unsupported)) {
       add_finding(
         "BLOCKING",
         "microbiology_observations",
-        "unsupported_sir_values",
+        "unsupported_phenotype_status",
         paste0(
-          "sir_result contains values ORCHIDEE does not recognize: ",
-          format_values(raw_sir[normalized_sir %in% unsupported_sir]),
-          "."
+          column,
+          " contains values ORCHIDEE does not recognize: ",
+          format_values(as.character(raw_status)[unsupported]),
+          ". Accepted values are positive, negative, unknown and no_signal."
         ),
-        n_rows = unsupported_rows
+        n_rows = count_true(unsupported)
       )
-    }
-    missing_sir <- sum(is.na(normalized_sir))
-    if (missing_sir > 0L) {
-      add_finding(
-        "INFO",
-        "microbiology_observations",
-        "missing_sir_values",
-        paste0(
-          missing_sir,
-          " rows have an empty or non-interpretable S/I/R result and will not ",
-          "populate an antibiotic column."
-        ),
-        n_rows = missing_sir
-      )
-    }
-
-    souche_col <- intersect(
-      c("souche_id", "isolate_local_id"),
-      names(obs_in_scope)
-    )
-    if (length(souche_col) == 0L) {
-      add_finding(
-        "WARNING",
-        "microbiology_observations",
-        "isolate_identifier_absent",
-        paste0(
-          "No souche_id or isolate_local_id column. Two isolates of the same ",
-          "species in one sample would be merged into a single ORCHIDEE row."
-        )
-      )
-    } else {
-      derived <- is.na(orchidee_handoff_trim_or_na(
-        obs_in_scope[[souche_col[[1L]]]]
-      ))
-      if (any(derived)) {
-        add_finding(
-          "WARNING",
-          "microbiology_observations",
-          "isolate_identifier_missing",
-          paste0(
-            sum(derived),
-            " rows have no ",
-            souche_col[[1L]],
-            " value; ORCHIDEE derives one from sample type and bacterium, ",
-            "which merges distinct isolates of the same species."
-          ),
-          n_rows = sum(derived)
-        )
-      }
     }
   }
 
-  ## Mapping coverage --------------------------------------------------------
+  ## Canonical row grain ------------------------------------------------------
 
-  coverage_for_dimension <- function(
-      dimension,
-      local_column,
-      mapping_block,
-      local_key_column,
-      canonical_column,
-      canonical_may_be_blank
-    ) {
-    mapping <- blocks[[mapping_block]]
-    local_values <- orchidee_handoff_trim_or_na(obs_in_scope[[local_column]])
-    mapping_keys <- orchidee_handoff_trim_or_na(mapping[[local_key_column]])
-    mapping_values <- orchidee_handoff_trim_or_na(mapping[[canonical_column]])
+  for (dimension in names(mapping_dimensions)) {
+    definition <- mapping_dimensions[[dimension]]
+    local_values <- orchidee_handoff_trim_or_na(
+      obs_in_scope[[definition$local_column]]
+    )
+    mapping <- prepared_mappings[[dimension]]
+    canonical <- if (is.null(mapping)) {
+      rep(NA_character_, length(local_values))
+    } else {
+      mapping$canonical_value[match(local_values, mapping$local_key)]
+    }
+    # An unmapped label is already BLOCKING. Standing in a distinct placeholder
+    # keeps the row-grain check meaningful for every other row without ever
+    # merging two labels that the builder would keep apart.
+    unresolved <- is.na(canonical) & !is.na(local_values)
+    canonical[unresolved] <- paste0(
+      "<unmapped:",
+      local_values[unresolved],
+      ">"
+    )
+    mapped_values[[definition$canonical_column]] <- canonical
+  }
+  mapped_values$naturepvt_norm <- orchidee_handoff_ascii_lower(
+    mapped_values$naturepvt_norm
+  )
 
-    duplicate_keys <- unique(mapping_keys[
-      duplicated(mapping_keys) & !is.na(mapping_keys)
-    ])
-    if (length(duplicate_keys) > 0L) {
-      conflicting <- vapply(
-        duplicate_keys,
-        function(key) {
-          length(unique(mapping_values[mapping_keys %in% key])) > 1L
-        },
-        logical(1)
+  souche_column <- intersect(
+    c("souche_id", "isolate_local_id"),
+    names(obs_in_scope)
+  )
+  souche_id <- if (length(souche_column) == 0L) {
+    rep(NA_character_, nrow(obs_in_scope))
+  } else {
+    orchidee_handoff_trim_or_na(obs_in_scope[[souche_column[[1L]]]])
+  }
+  derived_souche <- is.na(souche_id)
+  if (length(souche_column) == 0L) {
+    add_finding(
+      "WARNING",
+      "microbiology_observations",
+      "isolate_identifier_absent",
+      paste0(
+        "No souche_id or isolate_local_id column. Two isolates of the same ",
+        "species in one sample would be merged into a single ORCHIDEE row."
       )
-      if (any(conflicting)) {
+    )
+  } else if (any_true(derived_souche)) {
+    add_finding(
+      "WARNING",
+      "microbiology_observations",
+      "isolate_identifier_missing",
+      paste0(
+        count_true(derived_souche),
+        " rows have no ",
+        souche_column[[1L]],
+        " value; ORCHIDEE derives one from sample type and bacterium, which ",
+        "merges distinct isolates of the same species."
+      ),
+      n_rows = count_true(derived_souche)
+    )
+  }
+  souche_id[derived_souche] <- paste(
+    "derived",
+    dplyr::coalesce(
+      mapped_values$naturepvt_norm[derived_souche],
+      "missing_sample_type"
+    ),
+    mapped_values$bact_norm[derived_souche],
+    sep = "__"
+  )
+
+  if (!is.null(sample_dates)) {
+    row_key_frame <- data.frame(
+      PATID = obs_in_scope$PATID,
+      EVTID = obs_in_scope$EVTID,
+      ELTID = obs_in_scope$ELTID,
+      DATEPRELEV = as.character(sample_dates),
+      souche_id = souche_id,
+      naturepvt_norm = mapped_values$naturepvt_norm,
+      bact_norm = mapped_values$bact_norm,
+      stringsAsFactors = FALSE
+    )
+    row_key <- do.call(
+      paste,
+      c(row_key_frame[contract$sir_wide$row_grain_key], sep = "\r")
+    )
+
+    conflict_columns <- list(
+      SEJUF = obs_in_scope$SEJUF,
+      HEUREPRELEV = if (is.null(sample_times)) NULL else as.numeric(sample_times)
+    )
+    for (attribute in names(conflict_columns)) {
+      values <- conflict_columns[[attribute]]
+      if (is.null(values)) {
+        next
+      }
+      conflicted <- tapply(
+        values,
+        row_key,
+        function(group) length(unique(group[!is.na(group)])) > 1L
+      )
+      if (any_true(conflicted)) {
         add_finding(
           "BLOCKING",
-          mapping_block,
-          "conflicting_duplicate_keys",
+          "microbiology_observations",
+          "conflicting_row_grain_attribute",
           paste0(
-            "These local labels appear more than once with different ",
-            canonical_column,
-            " values: ",
-            format_values(duplicate_keys[conflicting]),
-            "."
-          )
-        )
-      } else {
-        add_finding(
-          "INFO",
-          mapping_block,
-          "duplicate_keys",
-          paste0(
-            length(duplicate_keys),
-            " local labels are listed more than once with the same ",
-            canonical_column,
+            count_true(conflicted),
+            " ORCHIDEE row keys carry more than one ",
+            attribute,
+            " value. The row grain is ",
+            paste(contract$sir_wide$row_grain_key, collapse = " + "),
+            "; add souche_id to keep distinct isolates apart, or correct the ",
+            attribute,
             " value."
           )
         )
       }
     }
 
-    match_idx <- match(local_values, mapping_keys)
-    canonical <- mapping_values[match_idx]
+    for (status_name in names(resolved_phenotype_columns)) {
+      column <- resolved_phenotype_columns[[status_name]]
+      allowed <- contract$sir_wide$phenotype_status_allowed[[status_name]]
+      collapsed <- tapply(
+        obs_in_scope[[column]],
+        row_key,
+        function(group) collapse_phenotype_status(group)
+      )
+      unsupported_collapse <- !(collapsed %in% allowed)
+      if (any_true(unsupported_collapse)) {
+        add_finding(
+          "BLOCKING",
+          "microbiology_observations",
+          "unsupported_collapsed_phenotype",
+          paste0(
+            count_true(unsupported_collapse),
+            " ORCHIDEE row keys collapse ",
+            column,
+            " to a value the contract does not accept: ",
+            format_values(collapsed[unsupported_collapse]),
+            ". Accepted collapsed values are ",
+            paste(allowed, collapse = ", "),
+            "."
+          )
+        )
+      }
+    }
+
+    missing_key_columns <- names(row_key_frame)[vapply(
+      row_key_frame,
+      function(column) any_true(is.na(column)),
+      logical(1)
+    )]
+    missing_key_columns <- intersect(
+      missing_key_columns,
+      c("PATID", "ELTID", "DATEPRELEV", "souche_id", "bact_norm")
+    )
+    if (length(missing_key_columns) > 0L) {
+      add_finding(
+        "BLOCKING",
+        "microbiology_observations",
+        "missing_row_grain_value",
+        paste0(
+          "These fields must be present on every row entering the build: ",
+          paste(missing_key_columns, collapse = ", "),
+          "."
+        )
+      )
+    }
+  }
+
+  ## Mapping coverage ---------------------------------------------------------
+
+  coverage_for_dimension <- function(dimension) {
+    definition <- mapping_dimensions[[dimension]]
+    local_values <- orchidee_handoff_trim_or_na(
+      obs_in_scope[[definition$local_column]]
+    )
+    mapping <- prepared_mappings[[dimension]]
+    match_idx <- match(local_values, mapping$local_key)
+    canonical <- mapping$canonical_value[match_idx]
     status <- ifelse(
       is.na(local_values),
       "missing_local_label",
@@ -590,15 +867,14 @@ if (column_contract_ok) {
       )
     )
 
-    per_label <- data.frame(
+    summary_table <- data.frame(
       dimension = dimension,
       local_label = ifelse(is.na(local_values), "<missing>", local_values),
       canonical_value = ifelse(is.na(canonical), "", canonical),
       status = status,
       document_key = document_key_in_scope,
       stringsAsFactors = FALSE
-    )
-    summary_table <- per_label %>%
+    ) %>%
       dplyr::group_by(
         .data$dimension,
         .data$local_label,
@@ -619,50 +895,52 @@ if (column_contract_ok) {
       ) %>%
       as.data.frame()
 
-    unmapped <- summary_table[summary_table$status == "unmapped", , drop = FALSE]
-    if (nrow(unmapped) > 0L) {
+    # Totals count distinct occurrences over the matching rows. Summing the
+    # per-label counts would count a document once per label it carries.
+    occurrences_for <- function(mask) {
+      count_occurrences(document_key_in_scope[mask])
+    }
+
+    unmapped_mask <- status == "unmapped"
+    if (any_true(unmapped_mask)) {
+      unmapped_labels <- unique(local_values[unmapped_mask])
       add_finding(
         "BLOCKING",
-        mapping_block,
+        definition$block,
         "unmapped_local_labels",
         paste0(
-          nrow(unmapped),
+          length(unmapped_labels),
           " local labels present in microbiology_observations have no row in ",
-          mapping_block,
+          definition$block,
           ": ",
-          format_values(unmapped$local_label),
+          format_values(unmapped_labels),
           "."
         ),
-        n_rows = sum(unmapped$n_rows),
-        n_document_occurrences = sum(unmapped$n_document_occurrences)
+        n_rows = count_true(unmapped_mask),
+        n_document_occurrences = occurrences_for(unmapped_mask)
       )
     }
 
-    missing_local <- summary_table[
-      summary_table$status == "missing_local_label", ,
-      drop = FALSE
-    ]
-    if (nrow(missing_local) > 0L) {
+    missing_local_mask <- status == "missing_local_label"
+    if (any_true(missing_local_mask)) {
       add_finding(
         "BLOCKING",
         "microbiology_observations",
-        paste0("missing_", local_column),
+        paste0("missing_", definition$local_column),
         paste0(
-          sum(missing_local$n_rows),
+          count_true(missing_local_mask),
           " rows have an empty ",
-          local_column,
+          definition$local_column,
           " value."
         ),
-        n_rows = sum(missing_local$n_rows)
+        n_rows = count_true(missing_local_mask)
       )
     }
 
-    blank_canonical <- summary_table[
-      summary_table$status == "blank_canonical", ,
-      drop = FALSE
-    ]
-    if (nrow(blank_canonical) > 0L) {
-      consequence <- if (canonical_may_be_blank) {
+    blank_mask <- status == "blank_canonical"
+    if (any_true(blank_mask)) {
+      blank_labels <- unique(local_values[blank_mask])
+      consequence <- if (definition$canonical_may_be_blank) {
         paste0(
           ". Those rows stay available for global indicators but cannot ",
           "contribute to analyses that require a known sample type."
@@ -671,44 +949,44 @@ if (column_contract_ok) {
         ". The build requires a canonical value for every mapped label."
       }
       add_finding(
-        if (canonical_may_be_blank) "WARNING" else "BLOCKING",
-        mapping_block,
-        "blank_canonical_value",
+        if (definition$canonical_may_be_blank) "WARNING" else "BLOCKING",
+        definition$block,
+        "blank_canonical_value_in_use",
         paste0(
-          nrow(blank_canonical),
-          " local labels are listed with an empty ",
-          canonical_column,
+          length(blank_labels),
+          " local labels used by the observations are listed with an empty ",
+          definition$canonical_column,
           ": ",
-          format_values(blank_canonical$local_label),
+          format_values(blank_labels),
           consequence
         ),
-        n_rows = sum(blank_canonical$n_rows),
-        n_document_occurrences = sum(blank_canonical$n_document_occurrences)
+        n_rows = count_true(blank_mask),
+        n_document_occurrences = occurrences_for(blank_mask)
       )
     }
 
-    mapped <- summary_table[summary_table$status == "mapped", , drop = FALSE]
+    mapped_mask <- status == "mapped"
     add_finding(
       "INFO",
-      mapping_block,
+      definition$block,
       "mapped_local_labels",
       paste0(
-        nrow(mapped),
+        length(unique(local_values[mapped_mask])),
         " local labels are mapped, covering ",
-        sum(mapped$n_rows),
+        count_true(mapped_mask),
         " rows and ",
-        sum(mapped$n_document_occurrences),
+        occurrences_for(mapped_mask),
         " document occurrences."
       ),
-      n_rows = sum(mapped$n_rows),
-      n_document_occurrences = sum(mapped$n_document_occurrences)
+      n_rows = count_true(mapped_mask),
+      n_document_occurrences = occurrences_for(mapped_mask)
     )
 
-    unused <- setdiff(mapping_keys[!is.na(mapping_keys)], local_values)
+    unused <- setdiff(mapping$local_key, local_values)
     if (length(unused) > 0L) {
       add_finding(
         "INFO",
-        mapping_block,
+        definition$block,
         "unused_mapping_rows",
         paste0(
           length(unused),
@@ -718,45 +996,35 @@ if (column_contract_ok) {
       )
     }
 
-    summary_table[, setdiff(names(summary_table), "document_key"), drop = FALSE]
+    summary_table[
+      ,
+      setdiff(names(summary_table), "document_key"),
+      drop = FALSE
+    ]
   }
 
-  if (nrow(obs_in_scope) > 0L) {
-    label_coverage <- rbind(
-      coverage_for_dimension(
-        "bacteria",
-        "bacteria_local",
-        "bacteria_mapping",
-        "bacteria_local",
-        "bact_norm",
-        canonical_may_be_blank = FALSE
-      ),
-      coverage_for_dimension(
-        "sample_type",
-        "sample_type_local",
-        "sample_type_mapping",
-        "sample_type_local",
-        "naturepvt_norm",
-        canonical_may_be_blank = TRUE
-      ),
-      coverage_for_dimension(
-        "antibiotic",
-        "antibiotic_local",
-        "antibiotic_mapping",
-        "antibiotic_local",
-        "atb_norm",
-        canonical_may_be_blank = FALSE
-      )
-    )
+  coverage_tables <- lapply(
+    names(mapping_dimensions)[vapply(
+      names(mapping_dimensions),
+      function(dimension) !is.null(prepared_mappings[[dimension]]),
+      logical(1)
+    )],
+    coverage_for_dimension
+  )
+  if (length(coverage_tables) > 0L) {
+    label_coverage <- do.call(rbind, coverage_tables)
+  }
 
-    mapped_atb <- label_coverage$canonical_value[
-      label_coverage$dimension == "antibiotic" &
-        label_coverage$status == "mapped"
-    ]
-    unsupported_atb <- setdiff(unique(mapped_atb), contract$sir_wide$atb_cols)
+  if (!is.null(prepared_mappings$antibiotic)) {
+    used_atb <- unique(mapped_values$atb_norm[
+      !startsWith(mapped_values$atb_norm, "<unmapped:")
+    ])
+    unsupported_atb <- setdiff(
+      used_atb[!is.na(used_atb)],
+      contract$sir_wide$atb_cols
+    )
     if (length(unsupported_atb) > 0L) {
-      affected <- label_coverage$dimension == "antibiotic" &
-        label_coverage$canonical_value %in% unsupported_atb
+      affected <- mapped_values$atb_norm %in% unsupported_atb
       add_finding(
         "BLOCKING",
         "antibiotic_mapping",
@@ -768,13 +1036,20 @@ if (column_contract_ok) {
           "mapping_reference/supported_atb_norm.csv by ",
           "build_site.ps1 -EmitTemplates."
         ),
-        n_rows = sum(label_coverage$n_rows[affected])
+        n_rows = count_true(affected)
       )
     }
   }
+}
 
-  ## Unit mapping and TA/DE coherence ----------------------------------------
+## ---------------------------------------------------------------------------
+## Unit mapping
+## ---------------------------------------------------------------------------
 
+unit <- NULL
+context <- ratb_analysis_context_profile("spares_current")
+
+if (block_ok[["unit_mapping"]]) {
   unit_mapping <- blocks$unit_mapping
   unit <- data.frame(
     SEJUF = orchidee_handoff_trim_or_na(unit_mapping$SEJUF),
@@ -786,15 +1061,19 @@ if (column_contract_ok) {
     stringsAsFactors = FALSE
   )
 
-  if (any(is.na(unit$SEJUF))) {
+  if (any_true(is.na(unit$SEJUF))) {
     add_finding(
       "BLOCKING",
       "unit_mapping",
       "missing_sejuf",
-      paste0(sum(is.na(unit$SEJUF)), " rows have an empty SEJUF value."),
-      n_rows = sum(is.na(unit$SEJUF))
+      paste0(
+        count_true(is.na(unit$SEJUF)),
+        " rows have an empty SEJUF value."
+      ),
+      n_rows = count_true(is.na(unit$SEJUF))
     )
   }
+
   duplicate_sejuf <- unique(unit$SEJUF[duplicated(unit$SEJUF) & !is.na(unit$SEJUF)])
   if (length(duplicate_sejuf) > 0L) {
     add_finding(
@@ -808,6 +1087,7 @@ if (column_contract_ok) {
       )
     )
   }
+
   if (all(is.na(unit$de_domain_ref))) {
     add_finding(
       "BLOCKING",
@@ -817,15 +1097,50 @@ if (column_contract_ok) {
     )
   }
 
-  context <- ratb_analysis_context_profile("spares_current")
   unit$eligible <- unit$CODE_TA %in% context$eligible_ta_codes &
     unit$de_domain_ref %in% context$eligible_de_domains
+}
 
+## ---------------------------------------------------------------------------
+## Profiled incidence exposure
+## ---------------------------------------------------------------------------
+
+exposure_norm <- NULL
+
+if (block_ok[["incidence_exposure_by_year_um_uf_ta_de_profile"]]) {
   exposure <- blocks$incidence_exposure_by_year_um_uf_ta_de_profile
+  exposure_block <- "incidence_exposure_by_year_um_uf_ta_de_profile"
+
+  # The builder requires integer-like years and exposures. Reproducing that
+  # here keeps a fractional exposure_value from passing the diagnostics and
+  # then stopping the build.
+  integerish_or_null <- function(values, column) {
+    tryCatch(
+      orchidee_handoff_integerish_vector(
+        values,
+        paste0(exposure_block, "$", column)
+      ),
+      error = function(e) {
+        add_finding(
+          "BLOCKING",
+          exposure_block,
+          "non_integer_value",
+          conditionMessage(e)
+        )
+        NULL
+      }
+    )
+  }
+
+  calendar_year <- integerish_or_null(exposure$calendar_year, "calendar_year")
+  exposure_value <- integerish_or_null(exposure$exposure_value, "exposure_value")
+
   exposure_norm <- data.frame(
-    calendar_year = suppressWarnings(as.integer(
-      orchidee_handoff_trim_or_na(exposure$calendar_year)
-    )),
+    calendar_year = if (is.null(calendar_year)) {
+      rep(NA_integer_, nrow(exposure))
+    } else {
+      calendar_year
+    },
     SEJUM = orchidee_handoff_trim_or_na(exposure$SEJUM),
     SEJUF = orchidee_handoff_trim_or_na(exposure$SEJUF),
     CODE_TA = ratb_normalize_code_ta(exposure$CODE_TA),
@@ -836,41 +1151,52 @@ if (column_contract_ok) {
     denominator_profile_id = orchidee_handoff_trim_or_na(
       exposure$denominator_profile_id
     ),
-    exposure_value = suppressWarnings(as.numeric(
-      orchidee_handoff_trim_or_na(exposure$exposure_value)
-    )),
+    exposure_value = if (is.null(exposure_value)) {
+      rep(NA_integer_, nrow(exposure))
+    } else {
+      exposure_value
+    },
     exposure_unit = orchidee_handoff_trim_or_na(exposure$exposure_unit),
     stringsAsFactors = FALSE
   )
 
-  required_exposure_cols <-
-    spec$incidence_exposure_by_year_um_uf_ta_de_profile$required_columns
-  for (column in required_exposure_cols) {
-    n_missing <- sum(is.na(exposure_norm[[column]]))
-    if (n_missing > 0L) {
+  for (column in spec[[exposure_block]]$required_columns) {
+    missing_values <- is.na(exposure_norm[[column]])
+    # A non-integer value is already reported; do not report it twice as a
+    # missing one.
+    if (
+      column %in% c("calendar_year", "exposure_value") &&
+        is.null(if (column == "calendar_year") calendar_year else exposure_value)
+    ) {
+      next
+    }
+    if (any_true(missing_values)) {
       add_finding(
         "BLOCKING",
-        "incidence_exposure_by_year_um_uf_ta_de_profile",
+        exposure_block,
         "missing_required_value",
         paste0(
-          n_missing,
+          count_true(missing_values),
           " rows have a missing or non-interpretable ",
           column,
           " value; all nine columns are required and non-missing."
         ),
-        n_rows = n_missing
+        n_rows = count_true(missing_values)
       )
     }
   }
 
-  negative_exposure <- sum(exposure_norm$exposure_value < 0, na.rm = TRUE)
-  if (negative_exposure > 0L) {
+  negative_exposure <- exposure_norm$exposure_value < 0
+  if (any_true(negative_exposure)) {
     add_finding(
       "BLOCKING",
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
+      exposure_block,
       "negative_exposure_value",
-      paste0(negative_exposure, " rows have a negative exposure_value."),
-      n_rows = negative_exposure
+      paste0(
+        count_true(negative_exposure),
+        " rows have a negative exposure_value."
+      ),
+      n_rows = count_true(negative_exposure)
     )
   }
 
@@ -879,18 +1205,24 @@ if (column_contract_ok) {
     exposure_norm$denominator_profile_id,
     profiles$denominator_profile_id
   )
-  invalid_profile <- is.na(profile_match) &
-    !is.na(exposure_norm$denominator_profile_id)
-  invalid_unit <- !is.na(profile_match) &
+  invalid_pair <- is.na(profile_match) |
+    is.na(exposure_norm$exposure_unit) |
     exposure_norm$exposure_unit != profiles$exposure_unit[profile_match]
-  if (any(invalid_profile | invalid_unit)) {
+  invalid_pair <- invalid_pair %in% TRUE
+  # A row whose profile or unit is simply absent is already reported as a
+  # missing required value.
+  invalid_pair <- invalid_pair &
+    !is.na(exposure_norm$denominator_profile_id) &
+    !is.na(exposure_norm$exposure_unit)
+  if (any_true(invalid_pair)) {
     add_finding(
       "BLOCKING",
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
+      exposure_block,
       "unsupported_denominator_profile",
       paste0(
-        "Unsupported denominator_profile_id / exposure_unit pairs. Accepted ",
-        "pairs are: ",
+        count_true(invalid_pair),
+        " rows use an unsupported denominator_profile_id / exposure_unit ",
+        "pair. Accepted pairs are: ",
         paste(
           paste0(
             profiles$denominator_profile_id,
@@ -901,40 +1233,85 @@ if (column_contract_ok) {
         ),
         "."
       ),
-      n_rows = sum(invalid_profile | invalid_unit)
+      n_rows = count_true(invalid_pair)
     )
   }
 
-  grain_cols <- c(
+  grain_columns <- c(
     "calendar_year", "SEJUM", "SEJUF", "CODE_TA", "CODE_DE",
     "de_domain_ref", "denominator_profile_id"
   )
-  duplicated_grain <- duplicated(exposure_norm[grain_cols])
-  if (any(duplicated_grain)) {
+  duplicated_grain <- duplicated(exposure_norm[grain_columns])
+  if (any_true(duplicated_grain)) {
     add_finding(
       "BLOCKING",
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
+      exposure_block,
       "duplicate_grain_rows",
       paste0(
-        sum(duplicated_grain),
+        count_true(duplicated_grain),
         " rows repeat the expected grain ",
-        paste(grain_cols, collapse = " + "),
+        paste(grain_columns, collapse = " + "),
         ". Aggregate them before handoff."
       ),
-      n_rows = sum(duplicated_grain)
+      n_rows = count_true(duplicated_grain)
+    )
+  }
+}
+
+## ---------------------------------------------------------------------------
+## Cross-block coverage and perimeter
+## ---------------------------------------------------------------------------
+
+if (!is.null(unit) && !is.null(exposure_norm)) {
+  exposure_block <- "incidence_exposure_by_year_um_uf_ta_de_profile"
+  # A duplicated SEJUF is already BLOCKING. Join on its first row so the
+  # remaining checks stay one-to-one and their counts keep describing the
+  # exposure block rather than the duplication.
+  unit_lookup <- unit[!duplicated(unit$SEJUF) & !is.na(unit$SEJUF), , drop = FALSE]
+
+  incomplete_unit <- is.na(unit_lookup$CODE_TA) |
+    is.na(unit_lookup$CODE_DE) |
+    is.na(unit_lookup$de_domain_ref)
+  incomplete_used_by_exposure <- incomplete_unit &
+    unit_lookup$SEJUF %in% exposure_norm$SEJUF
+  if (any_true(incomplete_used_by_exposure)) {
+    add_finding(
+      "BLOCKING",
+      "unit_mapping",
+      "incomplete_ta_de_mapping",
+      paste0(
+        count_true(incomplete_used_by_exposure),
+        " units used by profiled exposure have an empty CODE_TA, CODE_DE or ",
+        "de_domain_ref: ",
+        format_values(unit_lookup$SEJUF[incomplete_used_by_exposure]),
+        ". Strict v3 validation rejects an incomplete perimeter mapping."
+      ),
+      n_rows = count_true(incomplete_used_by_exposure)
+    )
+  }
+  if (any_true(incomplete_unit & !incomplete_used_by_exposure)) {
+    add_finding(
+      "WARNING",
+      "unit_mapping",
+      "incomplete_ta_de_mapping_unused",
+      paste0(
+        count_true(incomplete_unit & !incomplete_used_by_exposure),
+        " units have an empty CODE_TA, CODE_DE or de_domain_ref but carry no ",
+        "profiled exposure. Their microbiology rows stay outside the analytic ",
+        "perimeter."
+      ),
+      n_rows = count_true(incomplete_unit & !incomplete_used_by_exposure)
     )
   }
 
-  ## Cross-block unit coverage ------------------------------------------------
-
   exposure_uf <- unique(exposure_norm$SEJUF[!is.na(exposure_norm$SEJUF)])
-  observed_uf <- if (nrow(obs_in_scope) > 0L) {
-    unique(obs_in_scope$SEJUF[!is.na(obs_in_scope$SEJUF)])
-  } else {
+  observed_uf <- if (is.null(obs_in_scope)) {
     character()
+  } else {
+    unique(obs_in_scope$SEJUF[!is.na(obs_in_scope$SEJUF)])
   }
 
-  uncovered_exposure_uf <- setdiff(exposure_uf, unit$SEJUF)
+  uncovered_exposure_uf <- setdiff(exposure_uf, unit_lookup$SEJUF)
   if (length(uncovered_exposure_uf) > 0L) {
     affected <- exposure_norm$SEJUF %in% uncovered_exposure_uf
     add_finding(
@@ -948,11 +1325,11 @@ if (column_contract_ok) {
         format_values(uncovered_exposure_uf),
         ". unit_mapping must cover every SEJUF in the exposure block."
       ),
-      n_rows = sum(affected)
+      n_rows = count_true(affected)
     )
   }
 
-  uncovered_observed_uf <- setdiff(observed_uf, unit$SEJUF)
+  uncovered_observed_uf <- setdiff(observed_uf, unit_lookup$SEJUF)
   if (length(uncovered_observed_uf) > 0L) {
     affected <- obs_in_scope$SEJUF %in% uncovered_observed_uf
     add_finding(
@@ -967,73 +1344,60 @@ if (column_contract_ok) {
         "ORCHIDEE never infers a mapping for them. This does not stop the ",
         "build."
       ),
-      n_rows = sum(affected),
-      n_document_occurrences = length(unique(
-        document_key_in_scope[affected & !is.na(document_key_in_scope)]
-      ))
+      n_rows = count_true(affected),
+      n_document_occurrences = count_occurrences(
+        document_key_in_scope[affected]
+      )
     )
   }
 
-  # A duplicated SEJUF is already reported as BLOCKING above. Join on its first
-  # row so the remaining cross-block checks stay one-to-one and their counts
-  # keep describing the exposure block rather than the duplication.
-  unit_lookup <- unit[!duplicated(unit$SEJUF), , drop = FALSE]
-  exposure_with_unit <- exposure_norm %>%
-    dplyr::left_join(
-      unit_lookup %>%
-        dplyr::select(
-          SEJUF,
-          unit_CODE_TA = "CODE_TA",
-          unit_CODE_DE = "CODE_DE",
-          unit_de_domain_ref = "de_domain_ref"
-        ),
-      by = "SEJUF"
-    )
-  discordant <- !is.na(exposure_with_unit$unit_CODE_TA) & (
-    exposure_with_unit$CODE_TA != exposure_with_unit$unit_CODE_TA |
-      exposure_with_unit$CODE_DE != exposure_with_unit$unit_CODE_DE |
-      exposure_with_unit$de_domain_ref != exposure_with_unit$unit_de_domain_ref
+  matched_unit <- match(exposure_norm$SEJUF, unit_lookup$SEJUF)
+  # The runtime treats an unresolved comparison as a disagreement, so an
+  # incomplete mapping must not read as agreement here either.
+  discordant <- !is.na(matched_unit) & !(
+    (exposure_norm$CODE_TA == unit_lookup$CODE_TA[matched_unit]) %in% TRUE &
+      (exposure_norm$CODE_DE == unit_lookup$CODE_DE[matched_unit]) %in% TRUE &
+      (
+        exposure_norm$de_domain_ref ==
+          unit_lookup$de_domain_ref[matched_unit]
+      ) %in% TRUE
   )
-  discordant[is.na(discordant)] <- FALSE
-  if (any(discordant)) {
+  # Rows whose unit mapping is incomplete are reported by that check instead.
+  discordant <- discordant &
+    !(exposure_norm$SEJUF %in% unit_lookup$SEJUF[incomplete_unit])
+  if (any_true(discordant)) {
     add_finding(
       "BLOCKING",
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
+      exposure_block,
       "ta_de_disagrees_with_unit_mapping",
       paste0(
-        sum(discordant),
+        count_true(discordant),
         " exposure rows carry CODE_TA, CODE_DE or de_domain_ref values that ",
         "differ from unit_mapping for the same SEJUF: ",
-        format_values(exposure_with_unit$SEJUF[discordant]),
+        format_values(exposure_norm$SEJUF[discordant]),
         ". The two blocks must agree exactly."
       ),
-      n_rows = sum(discordant)
+      n_rows = count_true(discordant)
     )
   }
 
-  unit_coverage <- unit_lookup %>%
-    dplyr::mutate(
-      in_exposure = .data$SEJUF %in% exposure_uf,
-      in_microbiology = .data$SEJUF %in% observed_uf,
-      included_in_spares_current = .data$eligible
-    ) %>%
-    dplyr::select(
-      "SEJUF",
-      "CODE_TA",
-      "CODE_DE",
-      "de_domain_ref",
-      "included_in_spares_current",
-      "in_exposure",
-      "in_microbiology"
-    ) %>%
-    as.data.frame()
+  unit_coverage <- data.frame(
+    SEJUF = unit_lookup$SEJUF,
+    CODE_TA = unit_lookup$CODE_TA,
+    CODE_DE = unit_lookup$CODE_DE,
+    de_domain_ref = unit_lookup$de_domain_ref,
+    included_in_spares_current = unit_lookup$eligible %in% TRUE,
+    in_exposure = unit_lookup$SEJUF %in% exposure_uf,
+    in_microbiology = unit_lookup$SEJUF %in% observed_uf,
+    stringsAsFactors = FALSE
+  )
 
   add_finding(
     "INFO",
     "unit_mapping",
     "perimeter_summary",
     paste0(
-      sum(unit_lookup$eligible, na.rm = TRUE),
+      count_true(unit_lookup$eligible),
       " of ",
       nrow(unit_lookup),
       " distinct mapped units fall inside the current spares_current perimeter ",
@@ -1044,56 +1408,44 @@ if (column_contract_ok) {
   )
 
   ## Exposure totals and year coverage ---------------------------------------
-
-  # Mirror the runtime projection: it keeps an exposure row only when the row's
-  # own TA/DE is eligible and the unit is eligible in the scope reference. An
-  # exposure row whose SEJUF has no unit_mapping row is already reported as
-  # BLOCKING and cannot contribute.
-  unit_eligibility <- unit_lookup$eligible[
-    match(exposure_norm$SEJUF, unit_lookup$SEJUF)
-  ]
-  in_context <- exposure_norm$CODE_TA %in% context$eligible_ta_codes &
-    exposure_norm$de_domain_ref %in% context$eligible_de_domains &
-    exposure_norm$denominator_profile_id %in% context$denominator_profile_id &
-    exposure_norm$exposure_unit %in% context$exposure_unit &
-    unit_eligibility %in% TRUE
-  in_context[is.na(in_context)] <- FALSE
+  ##
+  ## Mirror the runtime projection: it keeps an exposure row only when the
+  ## row's own TA/DE is eligible and the unit is eligible in the scope
+  ## reference.
+  unit_eligibility <- unit_lookup$eligible[matched_unit]
+  in_context <- (exposure_norm$CODE_TA %in% context$eligible_ta_codes) &
+    (exposure_norm$de_domain_ref %in% context$eligible_de_domains) &
+    (exposure_norm$denominator_profile_id %in% context$denominator_profile_id) &
+    (exposure_norm$exposure_unit %in% context$exposure_unit) &
+    (unit_eligibility %in% TRUE)
 
   exposure_years <- sort(unique(
     exposure_norm$calendar_year[!is.na(exposure_norm$calendar_year)]
   ))
-  microbiology_years <- if (!is.null(sample_dates)) {
-    sort(unique(as.integer(format(sample_dates, "%Y"))))
-  } else {
+  microbiology_years <- if (is.null(sample_dates)) {
     integer()
+  } else {
+    sort(unique(as.integer(format(sample_dates, "%Y"))))
   }
 
   if (length(exposure_years) > 0L) {
+    sum_for_year <- function(year, mask) {
+      selected <- (exposure_norm$calendar_year %in% year) & mask
+      sum(exposure_norm$exposure_value[selected], na.rm = TRUE)
+    }
     year_coverage <- data.frame(
       calendar_year = exposure_years,
       exposure_total = vapply(
         exposure_years,
-        function(year) {
-          sum(
-            exposure_norm$exposure_value[
-              exposure_norm$calendar_year %in% year
-            ],
-            na.rm = TRUE
-          )
-        },
-        numeric(1)
+        sum_for_year,
+        numeric(1),
+        mask = rep(TRUE, nrow(exposure_norm))
       ),
       exposure_in_spares_current = vapply(
         exposure_years,
-        function(year) {
-          sum(
-            exposure_norm$exposure_value[
-              exposure_norm$calendar_year %in% year & in_context
-            ],
-            na.rm = TRUE
-          )
-        },
-        numeric(1)
+        sum_for_year,
+        numeric(1),
+        mask = in_context
       ),
       microbiology_rows = vapply(
         exposure_years,
@@ -1110,7 +1462,7 @@ if (column_contract_ok) {
 
     add_finding(
       "INFO",
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
+      exposure_block,
       "exposure_totals",
       paste0(
         "Years ",
@@ -1122,7 +1474,8 @@ if (column_contract_ok) {
           sum(year_coverage$exposure_in_spares_current),
           scientific = FALSE
         ),
-        ", which becomes hospital_nights in the operational v2 bundle."
+        ", which becomes hospital_nights in the operational v2 bundle. Only ",
+        "units mapped inside the perimeter contribute."
       )
     )
 
@@ -1132,7 +1485,7 @@ if (column_contract_ok) {
     if (length(empty_context_years) > 0L) {
       add_finding(
         "WARNING",
-        "incidence_exposure_by_year_um_uf_ta_de_profile",
+        exposure_block,
         "no_exposure_in_perimeter",
         paste0(
           "These years carry exposure but none inside the current perimeter: ",
@@ -1147,7 +1500,7 @@ if (column_contract_ok) {
   if (length(missing_exposure_years) > 0L) {
     add_finding(
       "WARNING",
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
+      exposure_block,
       "year_not_covered",
       paste0(
         "Microbiology rows exist for years without any profiled exposure: ",
@@ -1160,7 +1513,7 @@ if (column_contract_ok) {
   if (length(missing_microbiology_years) > 0L) {
     add_finding(
       "INFO",
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
+      exposure_block,
       "year_without_microbiology",
       paste0(
         "Profiled exposure exists for years without microbiology rows: ",
@@ -1182,10 +1535,24 @@ n_info <- sum(all_findings$severity == "INFO")
 
 dir.create(report_dir, recursive = TRUE, showWarnings = FALSE)
 if (!dir.exists(report_dir)) {
-  stop("Could not create the diagnostics report directory: ", report_dir,
-       call. = FALSE)
+  stop(
+    "Could not create the diagnostics report directory: ", report_dir,
+    call. = FALSE
+  )
 }
 report_dir <- normalizePath(report_dir, winslash = "/", mustWork = TRUE)
+
+# Remove any artifact of a previous run first: a run that stops at the schema
+# writes fewer tables, and a stale one beside fresh findings would be read as
+# current.
+report_artifacts <- c(
+  "site_input_diagnostics.txt",
+  "findings.csv",
+  "label_coverage.csv",
+  "unit_coverage.csv",
+  "year_coverage.csv"
+)
+unlink(file.path(report_dir, report_artifacts), force = TRUE)
 
 report_lines <- c(
   "ORCHIDEE site input diagnostics",
@@ -1218,7 +1585,10 @@ for (severity in c("BLOCKING", "WARNING", "INFO")) {
   if (nrow(subset_findings) == 0L) {
     next
   }
-  report_lines <- c(report_lines, paste0(severity, " (", nrow(subset_findings), ")"))
+  report_lines <- c(
+    report_lines,
+    paste0(severity, " (", nrow(subset_findings), ")")
+  )
   for (index in seq_len(nrow(subset_findings))) {
     row <- subset_findings[index, ]
     counts <- character()
@@ -1258,35 +1628,24 @@ utils::write.csv(
 )
 
 written_files <- c(report_path, findings_path)
-if (!is.null(label_coverage)) {
-  label_path <- file.path(report_dir, "label_coverage.csv")
+optional_tables <- list(
+  label_coverage.csv = label_coverage,
+  unit_coverage.csv = unit_coverage,
+  year_coverage.csv = year_coverage
+)
+for (file_name in names(optional_tables)) {
+  table <- optional_tables[[file_name]]
+  if (is.null(table)) {
+    next
+  }
+  table_path <- file.path(report_dir, file_name)
   utils::write.csv(
-    label_coverage,
-    label_path,
+    table,
+    table_path,
     row.names = FALSE,
     fileEncoding = "UTF-8"
   )
-  written_files <- c(written_files, label_path)
-}
-if (!is.null(unit_coverage)) {
-  unit_path <- file.path(report_dir, "unit_coverage.csv")
-  utils::write.csv(
-    unit_coverage,
-    unit_path,
-    row.names = FALSE,
-    fileEncoding = "UTF-8"
-  )
-  written_files <- c(written_files, unit_path)
-}
-if (!is.null(year_coverage)) {
-  year_path <- file.path(report_dir, "year_coverage.csv")
-  utils::write.csv(
-    year_coverage,
-    year_path,
-    row.names = FALSE,
-    fileEncoding = "UTF-8"
-  )
-  written_files <- c(written_files, year_path)
+  written_files <- c(written_files, table_path)
 }
 
 cat(paste(report_lines, collapse = "\n"), "\n", sep = "")

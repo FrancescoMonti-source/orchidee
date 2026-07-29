@@ -148,6 +148,11 @@ suivants :
     ou sous `-Report` ; son statut de sortie vaut 1 tant qu'il reste un
     `BLOCKING`. Il ne couvre que le contrat de handoff et ne dit rien du
     contrat de publication des indicateurs ;
+-   invariant de solidité : un `PASS` de `-Diagnose` doit impliquer que la
+    construction et la validation stricte v3 aboutissent. Tout contrôle ajouté
+    doit donc refléter une règle réellement appliquée par le builder ou par le
+    contrat v3 ; `tests/test_site_input_diagnostics.R` le vérifie en
+    construisant pour de vrai chaque fixture acceptée ;
 -   `-EmitTemplates` produit les six en-têtes et `mapping_reference/`, sans
     effectuer le mapping local ;
 -   le wrapper conserve v3, matérialise et smoke le v2 opérationnel, puis écrit
