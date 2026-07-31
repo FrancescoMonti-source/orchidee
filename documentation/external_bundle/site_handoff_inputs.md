@@ -424,7 +424,9 @@ Each mapping dimension is reported per local label with both `n_rows` and
 `n_document_occurrences`, so you can tell a label worth mapping from a
 negligible one. Values beyond the tenth are truncated in the summary but kept
 in full in `finding_values.csv`, so one pass is enough however many labels are
-involved.
+involved. Both tables carry a `finding_id`, and the summary prints it as `[#n]`
+beside each finding: some checks are reported once per field, so the id is what
+ties a list of values to the finding it belongs to.
 
 The report is written to a `diagnostics` subdirectory of `-Output` when you
 pass one, otherwise to `outputs\site_diagnostics`; `-Report` overrides both.

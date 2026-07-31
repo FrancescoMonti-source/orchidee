@@ -551,10 +551,10 @@ orchidee_handoff_date_shapes <- function() {
   # downstream validates this suffix -- as.Date() ignores it whole -- so the
   # hour, minute and second ranges are checked here rather than merely counted,
   # otherwise "2024-03-12 25:99:99" would be accepted as a date.
-  time_of_day <- paste0(
-    "([ T]([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?",
-    "(\\.[0-9]+)?)?"
-  )
+  # The fraction belongs to the seconds, not to the time: outside that group it
+  # would also accept a fractional minute, "09:15.123", which is not a form
+  # anyone writes and not what this tolerates.
+  time_of_day <- "([ T]([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9](\\.[0-9]+)?)?)?"
   list(
     list(
       pattern = paste0("^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}", time_of_day, "$"),
@@ -574,13 +574,18 @@ orchidee_handoff_date_shapes <- function() {
 # Returns the parsed values alongside the elements that could not be read, so a
 # caller reporting on a column does not have to stop at the first bad value.
 orchidee_handoff_parse_date_values <- function(x) {
+  # A typed input skips the text shapes entirely, so it is checked on its own
+  # terms rather than trusted for arriving pre-parsed: an .rds is as much a site
+  # handoff as a CSV, and an infinite day number is not a date.
   if (inherits(x, "Date")) {
-    return(list(values = x, bad = is.na(x)))
+    return(list(values = x, bad = !is.finite(unclass(x))))
   }
   if (is.factor(x)) x <- as.character(x)
   if (is.numeric(x)) {
-    values <- as.Date(x, origin = "1970-01-01")
-    return(list(values = values, bad = is.na(values)))
+    bad <- !is.finite(x)
+    values <- rep(as.Date(NA), length(x))
+    values[!bad] <- as.Date(x[!bad], origin = "1970-01-01")
+    return(list(values = values, bad = bad | is.na(values)))
   }
   x_chr <- orchidee_handoff_trim_or_na(x)
   values <- rep(as.Date(NA), length(x_chr))
@@ -608,9 +613,21 @@ orchidee_handoff_parse_date <- function(x, col_name = "DATEPRELEV") {
 # characters, so an unanchored "%H:%M:%S" accepted "09:15:00 (approx)" as 09:15
 # and dropped the rest without a word. The accepted forms are the two the
 # contract documents.
+# A time of day has a domain, and only the text shapes enforced it: an .rds
+# carrying a difftime was accepted whatever it held, so a negative or a 90000
+# would pass here and survive validation downstream, which checks the class and
+# not the interval. A missing time stays acceptable -- the column is optional.
+orchidee_handoff_time_of_day_out_of_range <- function(seconds) {
+  !is.na(seconds) & (!is.finite(seconds) | seconds < 0 | seconds >= 86400)
+}
+
 orchidee_handoff_parse_time_values <- function(x) {
   if (inherits(x, "difftime")) {
-    return(list(values = x, bad = rep(FALSE, length(x))))
+    bad <- orchidee_handoff_time_of_day_out_of_range(
+      as.numeric(x, units = "secs")
+    )
+    x[bad] <- NA_real_
+    return(list(values = x, bad = bad))
   }
   if (missing(x) || is.null(x)) {
     return(list(
@@ -620,10 +637,9 @@ orchidee_handoff_parse_time_values <- function(x) {
   }
   if (is.factor(x)) x <- as.character(x)
   if (is.numeric(x)) {
-    return(list(
-      values = as.difftime(x, units = "secs"),
-      bad = rep(FALSE, length(x))
-    ))
+    bad <- orchidee_handoff_time_of_day_out_of_range(x)
+    x[bad] <- NA_real_
+    return(list(values = as.difftime(x, units = "secs"), bad = bad))
   }
 
   x_chr <- orchidee_handoff_trim_or_na(x)

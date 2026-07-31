@@ -67,31 +67,45 @@ if (length(args) != 7L || any(args %in% c("-h", "--help"))) {
     "identifiers.\n",
     sep = ""
   )
-  quit(status = if (length(args) == 0L || any(args %in% c("-h", "--help"))) {
-    0L
-  } else {
-    1L
-  })
+  # 0 is reserved for a published report with no blocking finding, so only an
+  # explicit help request may use it. Any other invocation is a technical
+  # failure: a caller that mistakenly passed no arguments must not read success,
+  # and a wrong argument count is not a verdict on anybody's data.
+  quit(status = if (any(args %in% c("-h", "--help"))) 0L else 2L)
 }
 
 # Exit status is part of the interface: 1 means the blocks carry blocking
 # findings, 2 means the diagnostics could not run or publish. An operator
 # wrapper must not report a technical failure as a data verdict.
+
+# A run that stops after taking the publication lock must not leave it behind,
+# and its staging directory must not outlive it either: the previous report is
+# still in place and has to stay the only one an operator can find.
+release_publication_resources <- function() {
+  for (name in c("staging_dir", "lock_dir")) {
+    if (exists(name, envir = globalenv(), inherits = FALSE)) {
+      unlink(
+        get(name, envir = globalenv(), inherits = FALSE),
+        recursive = TRUE,
+        force = TRUE
+      )
+    }
+  }
+  invisible(NULL)
+}
+
+quit_technical <- function(...) {
+  release_publication_resources()
+  message(...)
+  quit(status = 2L, runLast = FALSE)
+}
+
 options(error = function() {
   message(
     "Site input diagnostics stopped before publishing a report. ",
     "This is a technical failure, not a verdict on the six blocks."
   )
-  # A run that fails while composing the report leaves its staging directory
-  # behind; the previous report is still in place and must stay the only one an
-  # operator can find.
-  if (exists("staging_dir", envir = globalenv(), inherits = FALSE)) {
-    unlink(
-      get("staging_dir", envir = globalenv(), inherits = FALSE),
-      recursive = TRUE,
-      force = TRUE
-    )
-  }
+  release_publication_resources()
   quit(status = 2L, runLast = FALSE)
 })
 
@@ -126,7 +140,13 @@ add_finding <- function(
     n_document_occurrences = NA_integer_,
     values = character()
   ) {
-  findings[[length(findings) + 1L]] <<- data.frame(
+  # Several checks are emitted once per field -- non_integer_value for both
+  # calendar_year and exposure_value, unsupported_phenotype_status for both
+  # phenotypes -- so block and check do not identify an occurrence. The id does,
+  # and it is what joins the two tables.
+  finding_id <- length(findings) + 1L
+  findings[[finding_id]] <<- data.frame(
+    finding_id = finding_id,
     severity = severity,
     block = block,
     check = check,
@@ -141,6 +161,7 @@ add_finding <- function(
   values <- sort(unique(as.character(values)))
   if (length(values) > 0L) {
     finding_values[[length(finding_values) + 1L]] <<- data.frame(
+      finding_id = finding_id,
       severity = severity,
       block = block,
       check = check,
@@ -157,12 +178,16 @@ collected_finding_values <- function() {
   }
   out <- do.call(rbind, finding_values)
   severity_rank <- match(out$severity, c("BLOCKING", "WARNING", "INFO"))
-  out[order(severity_rank, out$block, out$check, out$value), , drop = FALSE]
+  out[
+    order(severity_rank, out$block, out$check, out$finding_id, out$value), ,
+    drop = FALSE
+  ]
 }
 
 collected_findings <- function() {
   if (length(findings) == 0L) {
     return(data.frame(
+      finding_id = integer(),
       severity = character(),
       block = character(),
       check = character(),
@@ -174,7 +199,7 @@ collected_findings <- function() {
   }
   out <- do.call(rbind, findings)
   severity_rank <- match(out$severity, c("BLOCKING", "WARNING", "INFO"))
-  out[order(severity_rank, out$block, out$check), , drop = FALSE]
+  out[order(severity_rank, out$block, out$check, out$finding_id), , drop = FALSE]
 }
 
 # NA must never decide a branch or silently drop a row from a count: an
@@ -1744,6 +1769,27 @@ if (!dir.exists(report_dir)) {
 }
 report_dir <- normalizePath(report_dir, winslash = "/", mustWork = TRUE)
 
+# Everything below writes into the report directory, and the manifest's promise
+# is only as good as the assumption that one run owns it. Two runs publishing at
+# once would interleave -- one deleting the other's staging, then a manifest
+# certifying the mixture -- which the write-last ordering cannot prevent because
+# it guards against interruption, not concurrency. dir.create() either creates
+# the directory or reports that it exists, atomically, so it is the lock.
+lock_candidate <- file.path(report_dir, ".orchidee_diagnostics.lock")
+if (!dir.create(lock_candidate, showWarnings = FALSE)) {
+  # Plain quit, not quit_technical(): the lock belongs to the other run, and the
+  # release helper must never be in a position to take it away. That is also why
+  # lock_dir is only bound once this run owns it -- the helper reads the name's
+  # existence as ownership.
+  message(
+    "Another diagnostics run is publishing into ", report_dir,
+    ". Wait for it to finish, or remove ", lock_candidate,
+    " if no run is in progress."
+  )
+  quit(status = 2L, runLast = FALSE)
+}
+lock_dir <- lock_candidate
+
 # Remove any artifact of a previous run first: a run that stops at the schema
 # writes fewer tables, and a stale one beside fresh findings would be read as
 # current.
@@ -1777,25 +1823,24 @@ locked_artifacts <- existing_artifacts[!vapply(
   logical(1)
 )]
 if (length(locked_artifacts) > 0L) {
-  message(
+  quit_technical(
     "Report artifacts from a previous run cannot be replaced: ",
     paste(basename(locked_artifacts), collapse = ", "),
     ". Close whatever holds them open, or choose another report directory. ",
     "The previous report was left untouched."
   )
-  quit(status = 2L, runLast = FALSE)
 }
 
 # The previous report is deleted only once the complete new one exists in
-# staging, so a failure while composing it cannot leave the directory empty.
-staging_dir <- file.path(report_dir, ".orchidee_diagnostics_staging")
-unlink(staging_dir, recursive = TRUE, force = TRUE)
+# staging, so a failure while composing it cannot leave the directory empty. The
+# name is unique to this run: a fixed one would be a path this process does not
+# own and may not delete.
+staging_dir <- tempfile(pattern = ".orchidee_staging_", tmpdir = report_dir)
 if (!dir.create(staging_dir, recursive = TRUE, showWarnings = FALSE)) {
-  message(
+  quit_technical(
     "Could not create the diagnostics staging directory: ", staging_dir,
     ". The previous report was left untouched."
   )
-  quit(status = 2L, runLast = FALSE)
 }
 
 report_lines <- c(
@@ -1852,7 +1897,7 @@ for (severity in c("BLOCKING", "WARNING", "INFO")) {
     }
     report_lines <- c(
       report_lines,
-      paste0("  ", row$block, " / ", row$check),
+      paste0("  [#", row$finding_id, "] ", row$block, " / ", row$check),
       paste0("    ", row$detail, suffix)
     )
   }
@@ -1923,13 +1968,11 @@ close(manifest_connection)
 manifest_target <- file.path(report_dir, report_manifest_name)
 unlink(manifest_target, force = TRUE)
 if (file.exists(manifest_target)) {
-  unlink(staging_dir, recursive = TRUE, force = TRUE)
-  message(
+  quit_technical(
     "The manifest of the previous report cannot be removed: ", manifest_target,
     ". Close whatever holds it open, or choose another report directory. ",
     "The previous report was left untouched."
   )
-  quit(status = 2L, runLast = FALSE)
 }
 
 unlink(setdiff(existing_artifacts, manifest_target), force = TRUE)
@@ -1947,30 +1990,27 @@ for (file_name in staged_names) {
   }
 }
 if (length(publication_failures) > 0L) {
-  unlink(staging_dir, recursive = TRUE, force = TRUE)
-  message(
+  quit_technical(
     "The diagnostics report could not be published in full; ", report_dir,
     " now holds an incomplete report and no ", report_manifest_name,
     ". Missing: ", paste(publication_failures, collapse = ", "),
     ". Rerun once the directory is writable."
   )
-  quit(status = 2L, runLast = FALSE)
 }
 
 # Only now, with every artifact in place, may the directory be marked complete.
 manifest_published <- suppressWarnings(
   file.rename(file.path(staging_dir, report_manifest_name), manifest_target)
 )
-unlink(staging_dir, recursive = TRUE, force = TRUE)
 if (!isTRUE(manifest_published)) {
-  message(
+  quit_technical(
     "The diagnostics report was written to ", report_dir,
     " but could not be marked complete: ", report_manifest_name,
     " could not be published. Treat the report as incomplete and rerun."
   )
-  quit(status = 2L, runLast = FALSE)
 }
 written_files <- c(written_files, manifest_target)
+release_publication_resources()
 
 cat(paste(report_lines, collapse = "\n"), "\n", sep = "")
 cat("Report files:\n")

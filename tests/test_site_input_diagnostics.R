@@ -95,6 +95,14 @@ run_case_paths <- function(label, input_paths) {
   result
 }
 
+# The lock and the staging directory are named per run, so they are recognised by
+# prefix rather than by an exact name. Scoping to our own prefix also keeps this
+# honest where a test deliberately stands a directory in for an artifact.
+orchidee_leftovers <- function(dir) {
+  entries <- list.dirs(dir, recursive = FALSE, full.names = FALSE)
+  entries[startsWith(entries, ".orchidee")]
+}
+
 severity_of <- function(result, block, check) {
   if (is.null(result$findings)) return(NA_character_)
   matched <- result$findings$severity[
@@ -746,9 +754,8 @@ if (identical(.Platform$OS.type, "windows")) {
   wrapper_preserved_after <- tools::md5sum(
     file.path(wrapper_technical_report, wrapper_preserved_names)
   )
-  wrapper_technical_staging <- dir.exists(
-    file.path(wrapper_technical_report, ".orchidee_diagnostics_staging")
-  )
+  wrapper_technical_staging <-
+    length(orchidee_leftovers(wrapper_technical_report)) > 0L
 
   # A setup mistake before R even starts is a technical failure too. The
   # repository root is refused as an output directory, and that refusal used to
@@ -925,8 +932,106 @@ close(manifest_handle)
 manifest_after <- tools::md5sum(
   list.files(manifest_report_dir, full.names = TRUE)
 )
-manifest_blocked_staging <- dir.exists(
-  file.path(manifest_report_dir, ".orchidee_diagnostics_staging")
+manifest_blocked_staging <-
+  length(orchidee_leftovers(manifest_report_dir)) > 0L
+
+## Publication lock -----------------------------------------------------------
+##
+## The manifest's write-last ordering guards against interruption, not against a
+## second run publishing into the same directory. Holding the lock stands in for
+## that other run deterministically.
+lock_report_dir <- file.path(test_root, "lock_report")
+lock_pass <- run_case("lock_pass", clean_blocks, report_dir = lock_report_dir)
+# A run that completes owns nothing afterwards: no lock, no staging.
+lock_released <- length(orchidee_leftovers(lock_report_dir)) == 0L
+lock_before <- tools::md5sum(list.files(lock_report_dir, full.names = TRUE))
+lock_path <- file.path(lock_report_dir, ".orchidee_diagnostics.lock")
+dir.create(lock_path)
+lock_contended <- run_case(
+  "lock_contended",
+  clean_blocks,
+  report_dir = lock_report_dir
+)
+lock_after <- tools::md5sum(list.files(lock_report_dir, full.names = TRUE))
+lock_survived <- dir.exists(lock_path)
+# The refused run must not have left a staging directory of its own beside the
+# lock it did not touch.
+lock_contended_leftovers <- setdiff(
+  orchidee_leftovers(lock_report_dir),
+  basename(lock_path)
+)
+unlink(lock_path, recursive = TRUE, force = TRUE)
+
+## Command-line contract ------------------------------------------------------
+##
+## 0 means a published report with no blocking finding. An invocation that never
+## looked at anybody's data must not borrow it, nor borrow 1.
+help_result <- run_script("scripts/diagnose_site_inputs.R", "--help")
+no_args_result <- run_script("scripts/diagnose_site_inputs.R", character())
+short_args_result <- run_script(
+  "scripts/diagnose_site_inputs.R",
+  clean_result$input_paths
+)
+
+## Typed .rds inputs ----------------------------------------------------------
+##
+## An .rds is as much a site handoff as a CSV, and it arrives pre-typed: the text
+## shapes never see it. A difftime outside the day, or a non-finite one, must be
+## refused on its own terms rather than trusted for having the right class.
+typed_time_dir <- file.path(test_root, "typed_time_inputs")
+typed_time_paths <- write_blocks(typed_time_dir, clean_blocks)
+typed_observations <- clean_blocks$microbiology_observations
+typed_observations$HEUREPRELEV <- as.difftime(
+  c(90000, 33300),
+  units = "secs"
+)
+typed_time_target <- file.path(typed_time_dir, "microbiology_observations.rds")
+saveRDS(typed_observations, typed_time_target)
+unlink(typed_time_paths[[1L]], force = TRUE)
+typed_time_paths[[1L]] <- typed_time_target
+typed_time_result <- run_case_paths("typed_time_out_of_day", typed_time_paths)
+
+typed_negative_dir <- file.path(test_root, "typed_negative_inputs")
+typed_negative_paths <- write_blocks(typed_negative_dir, clean_blocks)
+typed_negative_observations <- clean_blocks$microbiology_observations
+typed_negative_observations$HEUREPRELEV <- as.difftime(
+  c(-3600, 33300),
+  units = "secs"
+)
+typed_negative_target <- file.path(
+  typed_negative_dir,
+  "microbiology_observations.rds"
+)
+saveRDS(typed_negative_observations, typed_negative_target)
+unlink(typed_negative_paths[[1L]], force = TRUE)
+typed_negative_paths[[1L]] <- typed_negative_target
+typed_negative_result <- run_case_paths(
+  "typed_time_negative",
+  typed_negative_paths
+)
+
+typed_date_dir <- file.path(test_root, "typed_date_inputs")
+typed_date_paths <- write_blocks(typed_date_dir, clean_blocks)
+typed_date_observations <- clean_blocks$microbiology_observations
+typed_date_observations$DATEPRELEV <- structure(
+  c(Inf, 19815),
+  class = "Date"
+)
+typed_date_target <- file.path(typed_date_dir, "microbiology_observations.rds")
+saveRDS(typed_date_observations, typed_date_target)
+unlink(typed_date_paths[[1L]], force = TRUE)
+typed_date_paths[[1L]] <- typed_date_target
+typed_date_result <- run_case_paths("typed_date_not_finite", typed_date_paths)
+
+# A fractional minute is not a form anyone writes; the fraction belongs to the
+# seconds.
+fractional_minute_observations <- clean_blocks$microbiology_observations
+fractional_minute_observations$DATEPRELEV <- c(
+  "2024-03-12 09:15.123", "2024-04-02"
+)
+fractional_minute_result <- run_case(
+  "fractional_minute_suffix",
+  with_blocks(microbiology_observations = fractional_minute_observations)
 )
 
 ## Derived report content ----------------------------------------------------
@@ -979,8 +1084,9 @@ all_results <- list(
   unreadable_result, not_a_table_result, duplicate_column_result,
   two_scope_result, scope_values_result, all_screening_result,
   missing_souche_result, conflicting_mapping_result, no_domain_result,
-  bad_profile_result,
-  reused_pass, reused_schema_failure, manifest_pass
+  bad_profile_result, typed_time_result, typed_negative_result,
+  typed_date_result, fractional_minute_result,
+  reused_pass, reused_schema_failure, manifest_pass, lock_pass
 )
 invisible(lapply(all_results, assert_pass_implies_buildable))
 
@@ -1435,6 +1541,73 @@ stopifnot(
       "unsupported_denominator_profile"
     ),
     "BLOCKING"
+  ),
+
+  # A second run publishing into the same directory is refused, and refused
+  # without touching the report the first one left or the lock it holds.
+  identical(lock_pass$status, 0L),
+  isTRUE(lock_released),
+  identical(lock_contended$status, 2L),
+  isTRUE(lock_survived),
+  identical(lock_contended_leftovers, character()),
+  identical(lock_before, lock_after),
+  any(grepl(
+    "Another diagnostics run is publishing into",
+    lock_contended$output,
+    fixed = TRUE
+  )),
+
+  # Only an explicit help request may exit 0 without a report behind it.
+  identical(help_result$status, 0L),
+  identical(no_args_result$status, 2L),
+  identical(short_args_result$status, 2L),
+
+  # Typed .rds inputs are validated, not trusted for their class.
+  identical(typed_time_result$status, 1L),
+  identical(
+    severity_of(
+      typed_time_result,
+      "microbiology_observations",
+      "heureprelev_format"
+    ),
+    "BLOCKING"
+  ),
+  identical(typed_negative_result$status, 1L),
+  identical(
+    severity_of(
+      typed_negative_result,
+      "microbiology_observations",
+      "heureprelev_format"
+    ),
+    "BLOCKING"
+  ),
+  identical(typed_date_result$status, 1L),
+  identical(
+    severity_of(
+      typed_date_result,
+      "microbiology_observations",
+      "dateprelev_format"
+    ),
+    "BLOCKING"
+  ),
+
+  # The tolerated timestamp suffix does not extend to a fractional minute.
+  identical(fractional_minute_result$status, 1L),
+  identical(
+    severity_of(
+      fractional_minute_result,
+      "microbiology_observations",
+      "dateprelev_format"
+    ),
+    "BLOCKING"
+  ),
+
+  # Values are attributable to the finding that reported them: block and check
+  # do not identify one, because some checks are emitted once per field.
+  "finding_id" %in% names(broken_result$findings),
+  all(
+    read_report_table(broken_result$report_dir, "finding_values.csv")$finding_id
+      %in% broken_result$findings$finding_id
   ),
 
   # A manifest that cannot be removed stops the run before a single artifact is
