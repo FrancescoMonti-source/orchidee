@@ -77,6 +77,24 @@ run_case <- function(label, blocks, report_dir = NULL) {
   result
 }
 
+# Some classes are about the file rather than its contents -- an extension the
+# reader refuses, an .rds holding something that is not a table -- so the case
+# has to own the paths instead of taking the six CSVs write_blocks produces.
+run_case_paths <- function(label, input_paths) {
+  case_index <<- case_index + 1L
+  slug <- sprintf("%02d_%s", case_index, label)
+  report_dir <- file.path(test_root, paste0(slug, "_report"))
+  result <- run_script(
+    "scripts/diagnose_site_inputs.R",
+    c(input_paths, report_dir)
+  )
+  result$label <- label
+  result$report_dir <- report_dir
+  result$input_paths <- input_paths
+  result$findings <- read_report_table(report_dir, "findings.csv")
+  result
+}
+
 severity_of <- function(result, block, check) {
   if (is.null(result$findings)) return(NA_character_)
   matched <- result$findings$severity[
@@ -760,6 +778,125 @@ reused_schema_failure <- run_case(
 )
 stale_after <- file.exists(file.path(shared_report_dir, "label_coverage.csv"))
 
+## Classes reached through the file rather than its contents ------------------
+
+# An extension the reader refuses. The block is dropped, and the other five must
+# still be checked -- that is the whole promise of a single pass.
+unreadable_paths <- write_blocks(
+  file.path(test_root, "unreadable_inputs"),
+  clean_blocks
+)
+unreadable_target <- sub("\\.csv$", ".dat", unreadable_paths[[2L]])
+stopifnot(file.rename(unreadable_paths[[2L]], unreadable_target))
+unreadable_paths[[2L]] <- unreadable_target
+unreadable_result <- run_case_paths("unreadable_input", unreadable_paths)
+
+# An .rds that holds something other than a table.
+not_a_table_paths <- write_blocks(
+  file.path(test_root, "not_a_table_inputs"),
+  clean_blocks
+)
+not_a_table_target <- sub("\\.csv$", ".rds", not_a_table_paths[[3L]])
+saveRDS(c("Urine", "urines"), not_a_table_target)
+unlink(not_a_table_paths[[3L]], force = TRUE)
+not_a_table_paths[[3L]] <- not_a_table_target
+not_a_table_result <- run_case_paths("not_a_table", not_a_table_paths)
+
+# read.table keeps duplicate header names, so the block reaches the contract
+# check with two columns of the same name and no way to say which one is meant.
+duplicate_column_dir <- file.path(test_root, "duplicate_column_inputs")
+duplicate_column_paths <- write_blocks(duplicate_column_dir, clean_blocks)
+duplicate_column_lines <- readLines(duplicate_column_paths[[5L]], warn = FALSE)
+duplicate_column_lines[[1L]] <- paste0(
+  duplicate_column_lines[[1L]], ",\"SEJUF\""
+)
+duplicate_column_lines[-1L] <- paste0(
+  duplicate_column_lines[-1L], ",\"UFDIAG1\""
+)
+writeLines(duplicate_column_lines, duplicate_column_paths[[5L]])
+duplicate_column_result <- run_case_paths(
+  "duplicate_columns",
+  duplicate_column_paths
+)
+
+## Classes reached through the block contents ---------------------------------
+
+# Exactly one diagnostic-scope column is required; two candidates present is as
+# unusable as none, because nothing says which one governs the exclusion.
+two_scope_observations <- clean_blocks$microbiology_observations
+two_scope_observations$diagnostic_scope <- c(TRUE, TRUE)
+two_scope_result <- run_case(
+  "two_diagnostic_scope_columns",
+  with_blocks(microbiology_observations = two_scope_observations)
+)
+
+# A scope column that is not readable as a flag.
+scope_values_observations <- clean_blocks$microbiology_observations
+scope_values_observations$ratb_diagnostic_scope <- c("yes", "maybe")
+scope_values_result <- run_case(
+  "unreadable_diagnostic_scope",
+  with_blocks(microbiology_observations = scope_values_observations)
+)
+
+# Every row flagged as screening leaves nothing to build from.
+all_screening_observations <- clean_blocks$microbiology_observations
+all_screening_observations$ratb_diagnostic_scope <- c(FALSE, FALSE)
+all_screening_result <- run_case(
+  "no_rows_in_scope",
+  with_blocks(microbiology_observations = all_screening_observations)
+)
+
+# souche_id belongs to the row grain, but a missing one is audit-only: builder
+# and diagnostics both derive a stand-in from sample type and bacterium. That
+# merges distinct isolates of one species, which is worth a warning and is not a
+# reason to refuse a handoff the build completes.
+missing_souche_observations <- clean_blocks$microbiology_observations
+missing_souche_observations$souche_id <- c("I1", NA_character_)
+missing_souche_result <- run_case(
+  "missing_souche_id",
+  with_blocks(microbiology_observations = missing_souche_observations)
+)
+
+# The same local label mapped to two different canonical values: the builder
+# cannot choose, and a first-match rule would silently pick one.
+conflicting_mapping_result <- run_case(
+  "conflicting_duplicate_keys",
+  with_blocks(
+    bacteria_mapping = data.frame(
+      bacteria_local = c("E. coli", "E. coli"),
+      bact_norm = c("escherichia_coli", "klebsiella_pneumoniae"),
+      stringsAsFactors = FALSE
+    )
+  )
+)
+
+# unit_mapping with no usable de_domain_ref cannot place a single unit in the
+# perimeter.
+no_domain_result <- run_case(
+  "no_de_domain_ref",
+  with_blocks(
+    unit_mapping = data.frame(
+      SEJUF = "UFDIAG1",
+      CODE_TA = "03",
+      CODE_DE = "102",
+      de_domain_ref = NA_character_,
+      stringsAsFactors = FALSE
+    )
+  )
+)
+
+# The profile registry pairs midnight_presence with patient_days. Another unit
+# against that profile is not a denominator ORCHIDEE knows how to read.
+bad_profile_exposure <-
+  clean_blocks$incidence_exposure_by_year_um_uf_ta_de_profile
+bad_profile_exposure$exposure_unit <- "admissions"
+bad_profile_result <- run_case(
+  "unsupported_denominator_profile",
+  with_blocks(
+    incidence_exposure_by_year_um_uf_ta_de_profile = bad_profile_exposure
+  )
+)
+
 ## Manifest ordering ---------------------------------------------------------
 ##
 ## A manifest that survives its own removal would certify the artifacts replaced
@@ -839,6 +976,10 @@ all_results <- list(
   many_unmapped_uf_result, blank_target_collision_result,
   independent_exposure_result, independent_date_result, mixed_date_result,
   french_date_result, trailing_time_result, impossible_time_result,
+  unreadable_result, not_a_table_result, duplicate_column_result,
+  two_scope_result, scope_values_result, all_screening_result,
+  missing_souche_result, conflicting_mapping_result, no_domain_result,
+  bad_profile_result,
   reused_pass, reused_schema_failure, manifest_pass
 )
 invisible(lapply(all_results, assert_pass_implies_buildable))
@@ -1191,6 +1332,111 @@ stopifnot(
   # A complete report is marked as one, and the marker lists exactly the files
   # published beside it. Without that, a half-replaced directory carries
   # ordinary names with nothing to say it was interrupted.
+  # The remaining blocking classes, one fixture each. Together with the cases
+  # above this covers every BLOCKING class the command can emit.
+  identical(unreadable_result$status, 1L),
+  identical(
+    severity_of(unreadable_result, "bacteria_mapping", "unreadable_input"),
+    "BLOCKING"
+  ),
+  # A block dropped at the door does not silence the other five.
+  identical(
+    severity_of(unreadable_result, "microbiology_observations", "rows_read"),
+    "INFO"
+  ),
+
+  identical(not_a_table_result$status, 1L),
+  identical(
+    severity_of(not_a_table_result, "sample_type_mapping", "not_a_table"),
+    "BLOCKING"
+  ),
+
+  identical(duplicate_column_result$status, 1L),
+  identical(
+    severity_of(duplicate_column_result, "unit_mapping", "duplicate_columns"),
+    "BLOCKING"
+  ),
+
+  identical(two_scope_result$status, 1L),
+  identical(
+    severity_of(
+      two_scope_result,
+      "microbiology_observations",
+      "diagnostic_scope_column"
+    ),
+    "BLOCKING"
+  ),
+
+  identical(scope_values_result$status, 1L),
+  identical(
+    severity_of(
+      scope_values_result,
+      "microbiology_observations",
+      "diagnostic_scope_values"
+    ),
+    "BLOCKING"
+  ),
+
+  identical(all_screening_result$status, 1L),
+  identical(
+    severity_of(
+      all_screening_result,
+      "microbiology_observations",
+      "no_rows_in_scope"
+    ),
+    "BLOCKING"
+  ),
+
+  # A field the row grain needs and cannot get. The existing missing-bacterium
+  # fixture already reached this, unasserted: with no bacteria_local there is no
+  # bact_norm to key the row on.
+  identical(
+    severity_of(
+      missing_bacteria_label_result,
+      "microbiology_observations",
+      "missing_row_grain_value"
+    ),
+    "BLOCKING"
+  ),
+
+  # A missing souche_id is not that case: both sides derive a stand-in, so it
+  # stays a warning and the build completes.
+  identical(missing_souche_result$status, 0L),
+  identical(
+    severity_of(
+      missing_souche_result,
+      "microbiology_observations",
+      "isolate_identifier_missing"
+    ),
+    "WARNING"
+  ),
+
+  identical(conflicting_mapping_result$status, 1L),
+  identical(
+    severity_of(
+      conflicting_mapping_result,
+      "bacteria_mapping",
+      "conflicting_duplicate_keys"
+    ),
+    "BLOCKING"
+  ),
+
+  identical(no_domain_result$status, 1L),
+  identical(
+    severity_of(no_domain_result, "unit_mapping", "no_de_domain_ref"),
+    "BLOCKING"
+  ),
+
+  identical(bad_profile_result$status, 1L),
+  identical(
+    severity_of(
+      bad_profile_result,
+      "incidence_exposure_by_year_um_uf_ta_de_profile",
+      "unsupported_denominator_profile"
+    ),
+    "BLOCKING"
+  ),
+
   # A manifest that cannot be removed stops the run before a single artifact is
   # replaced, so the previous report stays whole and its manifest keeps telling
   # the truth about it.
