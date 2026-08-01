@@ -30,16 +30,20 @@ Cette section sert uniquement d'orientation. La procédure opérateur maintenue,
 avec les colonnes, commandes et erreurs possibles, est
 [`documentation/external_bundle/site_handoff_inputs.md`](documentation/external_bundle/site_handoff_inputs.md).
 
-Après l'[installation R](#installation-r), vérifier d'abord le parcours complet
-avec les six fichiers synthétiques versionnés :
+Après l'[installation R](#installation-r), vérifier d'abord l'installation en
+faisant tourner le parcours complet sur la fixture synthétique versionnée :
 
 ```powershell
-& .\scripts\build_site.ps1 -RunExample
+& .\scripts\build_site.ps1 -RunSmokeTest
 ```
 
 Un `PASS` prouve que l'environnement et le builder fonctionnent sans introduire
-de données cliniques. La sortie de démonstration reste sous
-`outputs/site_example/`.
+de données cliniques. Il écarte l'installation comme seule explication, mais sur
+une observation synthétique il n'exerce ni déduplication, ni exclusion de
+screening, ni phénotype, ni résistance, ni filtrage de périmètre : il ne suffit
+donc pas à situer un problème ultérieur dans l'extraction ou le mapping local.
+Ce n'est pas du matériel d'onboarding et cela n'apprend rien sur les données du
+site. La sortie reste sous `outputs/site_smoke_test/`.
 
 Si les six fichiers locaux n'existent pas encore, générer ensuite leurs
 en-têtes et le kit de références pour les valeurs cibles ORCHIDEE :
@@ -51,9 +55,15 @@ $handoff = "data/site_handoff"
 
 Le site remplit les six fichiers de premier niveau. `mapping_reference/`
 indique vers quelles valeurs ORCHIDEE mapper les libellés locaux ; ce
-sous-répertoire est un kit d'aide, pas un septième bloc à fournir. Suivre
-ensuite dans la procédure opérateur la commande nommée avec `-DryRun`, puis
-retirer uniquement `-DryRun` après le `PASS`.
+sous-répertoire est un kit d'aide, pas un septième bloc à fournir.
+
+Suivre ensuite dans la procédure opérateur la commande nommée avec `-DryRun`,
+qui vérifie seulement les chemins et les colonnes. Après ce `PASS`, relancer la
+même commande avec `-Diagnose` : elle lit les six blocs une seule fois et
+rapporte en un seul passage tous les problèmes de contrat, classés `BLOCKING`,
+`WARNING` et `INFO`, avec le nombre de lignes et d'occurrences documentaires
+concernées par libellé local. C'est l'étape qui évite d'enchaîner un rebuild
+par classe d'erreur. Retirer enfin `-DryRun` et `-Diagnose` pour construire.
 
 Toutes les options du point d'entrée sont visibles avec :
 

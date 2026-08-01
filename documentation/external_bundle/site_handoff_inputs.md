@@ -59,19 +59,26 @@ from `renv.lock`:
 & .\scripts\setup.ps1
 ```
 
-Before working on protected local data, prove that the complete site workflow
-works with the versioned synthetic six-block example:
+Before working on protected local data, check this installation:
 
 ```powershell
-& .\scripts\build_site.ps1 -RunExample
+& .\scripts\build_site.ps1 -RunSmokeTest
 ```
 
 This uses only files under `examples/site_handoff_minimal/`, runs the same v3
 build, v2 projection, strict validation and runtime smoke as a real handoff,
-and writes under `outputs/site_example/` by default. A `PASS` separates a
-working ORCHIDEE installation from later problems in local extraction or
-mapping. On a deliberate repeat, follow the collision message and use
+and writes under `outputs/site_smoke_test/` by default. A failure points at the
+installation. A `PASS` rules the installation out as the sole explanation, but on
+one synthetic observation it exercises no deduplication, screening exclusion,
+phenotype, resistance or perimeter filtering, so it cannot by itself place a
+later problem in local extraction or mapping. On a deliberate repeat, follow the
+collision message and use
 `-Force`, or select another `-Output`.
+
+The fixture is a single synthetic observation. It exists to prove the
+installation, not to teach the contract: it shows you nothing about your own
+data, and `-Diagnose` below is the command that does. Read the block
+descriptions in this document rather than the fixture.
 
 If the six files do not exist yet, generate empty CSV templates with the
 canonical headers and the ORCHIDEE mapping-reference kit:
@@ -161,7 +168,7 @@ Required columns:
 | --- | --- |
 | `PATID` | Patient identifier. |
 | `ELTID` | Sample / microbiology event identifier. |
-| `DATEPRELEV` | Sample date. Use `YYYY-MM-DD` or `DD/MM/YYYY` in text files. |
+| `DATEPRELEV` | Sample date. Use `YYYY-MM-DD` or `DD/MM/YYYY` in text files; `YYYY/MM/DD` also works, and a trailing time of day is ignored provided it is a real time — the time of day belongs in `HEUREPRELEV`. Each value is read on its own, so the column may mix these forms, but anything else after the date is refused rather than guessed at. In a typed `.rds` the column may be a `Date` or a day number, and it must fall on a whole day: R hides a fractional day behind an ordinary-looking date while keeping it a distinct value in the row grain. |
 | `SEJUF` | Hospitalization UF active at sampling. ORCHIDEE uses it to apply the RATB TA/DE perimeter. |
 | `bacteria_local` | Local bacterium label. |
 | `sample_type_local` | Local sample-type label. |
@@ -378,10 +385,100 @@ $handoff = "data/site_handoff"
 ```
 
 This reads only delimited-file headers; RDS inputs must be deserialized to
-inspect their columns. It does not create an output directory. If the result is
-`PASS`, rerun exactly the same command without `-DryRun` for a first build. If
-the preflight reports a completed existing output, choose another `-Output` or,
-after review, add `-Force` as instructed by its warning.
+inspect their columns. It checks that the six files exist and carry the
+expected columns. It does not look at their content and does not create an
+output directory.
+
+Once `-DryRun` passes, replace `-DryRun` with `-Diagnose` in the same command:
+
+```powershell
+$handoff = "data/site_handoff"
+& .\scripts\build_site.ps1 `
+  -MicrobiologyObservations `
+    (Join-Path $handoff "microbiology_observations.csv") `
+  -BacteriaMapping (Join-Path $handoff "bacteria_mapping.csv") `
+  -SampleTypeMapping (Join-Path $handoff "sample_type_mapping.csv") `
+  -AntibioticMapping (Join-Path $handoff "antibiotic_mapping.csv") `
+  -UnitMapping (Join-Path $handoff "unit_mapping.csv") `
+  -IncidenceExposure `
+    (Join-Path $handoff `
+      "incidence_exposure_by_year_um_uf_ta_de_profile.csv") `
+  -Diagnose
+```
+
+`-Diagnose` reads the six blocks once and reports **every** contract problem in
+a single pass, classified as:
+
+| Level | Meaning |
+| --- | --- |
+| `BLOCKING` | The build cannot complete until this is corrected. |
+| `WARNING` | The build completes, but rows lose analytic value; review it. |
+| `INFO` | Counts that describe the handoff, including perimeter coverage. |
+
+This matters because the builder itself stops at the first problem and lists at
+most ten offending values. Correcting a real handoff through build failures
+alone takes one rebuild per problem class; `-Diagnose` collapses that into one
+report you can work through.
+
+Each mapping dimension is reported per local label with both `n_rows` and
+`n_document_occurrences`, so you can tell a label worth mapping from a
+negligible one. Values beyond the tenth are truncated in the summary but kept
+in full in `finding_values.csv`, so one pass is enough however many labels are
+involved. Both tables carry a `finding_id`, and the summary prints it as `[#n]`
+beside each finding: some checks are reported once per field, so the id is what
+ties a list of values to the finding it belongs to.
+
+The report is written to a `diagnostics` subdirectory of `-Output` when you
+pass one, otherwise to `outputs\site_diagnostics`; `-Report` overrides both.
+Beyond the six input paths it records for provenance, it contains aggregate
+counts and your own local vocabulary only; it never writes patient identifiers.
+
+Exit status 2 means the diagnostics could not produce a verdict — a technical
+problem, not a statement about your blocks. It covers failures before R starts
+too, such as an unusable `-Report` directory, so status 1 always means blocking
+findings and nothing else.
+
+The new report is composed in full before the previous one is replaced, so a run
+that fails while composing it leaves the earlier report in place. Replacing the
+files is not a single atomic step, so a complete report is marked by
+`report_manifest.txt`, which lists the files it is made of. A report directory
+without it was interrupted, whatever the files beside it look like, and the run
+exits 2 naming what it could not write.
+
+The order matters and is enforced: the previous manifest is deleted first and its
+removal is verified, because a manifest that survived would certify the files
+replaced after it. If it cannot be removed, nothing else is touched and the
+previous report stays whole. The new manifest is renamed into place only after
+every other artifact is published.
+
+One run publishes into a report directory at a time. A run takes
+`.orchidee_diagnostics.lock` there and releases it when it is done; a second run
+started against the same directory meanwhile is refused with exit status 2
+rather than interleaving its files with the first one's. If a run is killed the
+lock stays behind: the refusal message names it, and it can be deleted once you
+have established that no diagnostics run is still running.
+
+Establishing that is your part of the contract, not a formality. Deleting the
+lock while its run is alive is not supported: the run that owns it may then
+remove the lock a later run has taken, and two runs would publish into the
+directory at once. The lock is a directory, and no portable operation removes
+one only while it is still ours, so this is a boundary rather than something the
+command defends against.
+
+`-Diagnose` answers one question: do the six blocks satisfy the handoff
+contract? It does not predict which indicators the report will publish.
+
+Exit status is 1 while any `BLOCKING` finding remains, so the command can gate a
+local script. A `PASS` is a promise: it means the build this procedure runs
+next completes on these blocks — bundle v3, its `spares_current` projection to
+operational v2, and strict validation of both. Every check mirrors a rule the
+builder, the v3 contract or that projection actually enforces, and the test
+suite asserts the invariant by running that same build on each passing fixture.
+
+When it reports `PASS`, rerun exactly the same command with neither `-DryRun`
+nor `-Diagnose` for a first build. If the preflight reports a
+completed existing output, choose another `-Output` or, after review, add
+`-Force` as instructed by its warning.
 
 Add `-Output "D:\ORCHIDEE\site_current"` when generated bundles must live in a
 protected external workspace. Use
@@ -456,7 +553,8 @@ not the preferred onboarding path.
 
 ## If validation fails
 
-Read the first error message. The most common failures are:
+Run `-Diagnose` first: it lists every problem at once, while the messages below
+appear one at a time. The most common failures are:
 
 - a required column is missing;
 - a local bacterium, sample type or antibiotic has no mapping;

@@ -136,10 +136,37 @@ Ce runbook ne la reproduit pas. Pour la maintenance, retenir les invariants
 suivants :
 
 -   `scripts/build_site.ps1` est l'unique point d'entrée opérateur ;
--   `-RunExample` exécute le parcours complet sur les six CSV synthétiques
-    versionnés, sans données cliniques ;
+-   `-RunSmokeTest` vérifie l'installation en exécutant le parcours complet sur
+    la fixture synthétique versionnée, sans données cliniques ; c'est un
+    self-test, pas du matériel d'onboarding, et il ne doit pas être enrichi pour
+    imiter un site réel ;
 -   `-DryRun` vérifie les six chemins nommés, R, les paquets et les colonnes
-    avant toute construction ;
+    avant toute construction ; il reste volontairement économique et ne lit pas
+    le contenu ;
+-   `-Diagnose` lit les six blocs une seule fois et écrit un rapport agrégé
+    `BLOCKING` / `WARNING` / `INFO` dans un sous-répertoire `diagnostics` de
+    `-Output` si l'on en passe un, sinon sous `outputs/site_diagnostics` ;
+    `-Report` a priorité sur les deux. Son statut de sortie vaut 1 tant qu'il
+    reste un `BLOCKING`, et 2 lorsque le diagnostic n'a pas pu s'exécuter ou
+    publier son rapport, ce qui n'est pas un verdict sur les blocs. Il ne couvre
+    que le contrat de handoff et ne dit rien du contrat de publication des
+    indicateurs ;
+-   invariant de solidité : un `PASS` de `-Diagnose` doit impliquer que le
+    parcours opérateur complet aboutit, c'est-à-dire le bundle v3, sa projection
+    fermée `spares_current` vers le v2 opérationnel, et la validation stricte
+    des deux. Tout contrôle ajouté doit donc refléter une règle réellement
+    appliquée par le builder, par le contrat v3 ou par cette projection ;
+    `tests/test_site_input_diagnostics.R` le vérifie en exécutant ce même
+    parcours sur chaque fixture acceptée ;
+-   un seul diagnostic publie à la fois dans un répertoire de rapport : il y
+    prend `.orchidee_diagnostics.lock`, marqué par un jeton, et un second
+    diagnostic lancé entre-temps sort en 2 au lieu d'entrelacer ses fichiers.
+    Un verrou laissé par une exécution tuée est nommé dans le message de refus
+    et peut être supprimé une fois établi qu'aucune exécution n'est en cours.
+    Le supprimer sous une exécution vivante n'est pas supporté : le jeton
+    raccourcit la fenêtre pendant laquelle l'ancienne exécution effacerait le
+    verrou d'une nouvelle, il ne la ferme pas, et un verrou-répertoire ne peut
+    pas le garantir sans verrou système ;
 -   `-EmitTemplates` produit les six en-têtes et `mapping_reference/`, sans
     effectuer le mapping local ;
 -   le wrapper conserve v3, matérialise et smoke le v2 opérationnel, puis écrit

@@ -27,8 +27,9 @@ Profiled incidence exposure at year + UM + UF + TA + DE grain.
 
 .PARAMETER Output
 Dedicated output root. Defaults to outputs\site_current for local inputs and
-outputs\site_example with -RunExample. A destination inside the checkout must
-be below outputs\.
+outputs\site_smoke_test with -RunSmokeTest. With -Diagnose nothing is built and
+it only selects where the report is written. A destination inside the checkout
+must be below outputs\.
 
 .PARAMETER Force
 Replace a complete output from this same site v3 plus operational-v2 workflow.
@@ -39,15 +40,31 @@ Check paths, locked R, required packages and input columns without building or
 writing a bundle. Delimited inputs are read as headers; RDS inputs must be
 deserialized to inspect their columns.
 
+.PARAMETER Diagnose
+Read the six blocks once and write an aggregated report of every handoff
+contract problem, classified as BLOCKING, WARNING and INFO, instead of stopping
+at the first error. Use it after -DryRun passes and before a first build. It
+answers only whether the six blocks satisfy the handoff contract; it makes no
+claim about which indicators would be published. No bundle is built.
+
+.PARAMETER Report
+Directory for the -Diagnose report. Defaults to a diagnostics subdirectory of
+-Output when that is given, otherwise outputs\site_diagnostics. A destination
+inside the checkout must be below outputs\.
+
 .PARAMETER EmitTemplates
 Create the six empty v3 handoff CSV templates and the ORCHIDEE mapping-reference
 kit in a new or unused directory. Existing generated files are never
 overwritten.
 
-.PARAMETER RunExample
-Build the versioned synthetic six-block example. This proves that the complete
-site workflow works before protected local data are introduced. The default
-output is outputs\site_example.
+.PARAMETER RunSmokeTest
+Check this installation by running the complete site workflow on the versioned
+synthetic six-block fixture. A failure points at the installation; a PASS rules
+it out as the sole explanation without proving anything about your own data,
+because one synthetic observation exercises no deduplication, screening
+exclusion, phenotype, resistance or perimeter filtering. It is not onboarding
+material. Run it before -Diagnose. The default output is
+outputs\site_smoke_test.
 
 .EXAMPLE
 & .\scripts\build_site.ps1 `
@@ -61,48 +78,72 @@ output is outputs\site_example.
   -DryRun
 
 .EXAMPLE
+& .\scripts\build_site.ps1 `
+  -MicrobiologyObservations "C:\handoff\microbiology_observations.csv" `
+  -BacteriaMapping "C:\handoff\bacteria_mapping.csv" `
+  -SampleTypeMapping "C:\handoff\sample_type_mapping.csv" `
+  -AntibioticMapping "C:\handoff\antibiotic_mapping.csv" `
+  -UnitMapping "C:\handoff\unit_mapping.csv" `
+  -IncidenceExposure `
+    "C:\handoff\incidence_exposure_by_year_um_uf_ta_de_profile.csv" `
+  -Diagnose
+
+.EXAMPLE
 & .\scripts\build_site.ps1 -EmitTemplates "data\site_handoff"
 
 .EXAMPLE
-& .\scripts\build_site.ps1 -RunExample
+& .\scripts\build_site.ps1 -RunSmokeTest
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Build')]
 param(
   [Parameter(Mandatory, ParameterSetName = 'Build')]
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
   [string]$MicrobiologyObservations,
 
   [Parameter(Mandatory, ParameterSetName = 'Build')]
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
   [string]$BacteriaMapping,
 
   [Parameter(Mandatory, ParameterSetName = 'Build')]
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
   [string]$SampleTypeMapping,
 
   [Parameter(Mandatory, ParameterSetName = 'Build')]
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
   [string]$AntibioticMapping,
 
   [Parameter(Mandatory, ParameterSetName = 'Build')]
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
   [string]$UnitMapping,
 
   [Parameter(Mandatory, ParameterSetName = 'Build')]
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
   [string]$IncidenceExposure,
 
   [Parameter(ParameterSetName = 'Build')]
-  [Parameter(ParameterSetName = 'Example')]
+  [Parameter(ParameterSetName = 'SmokeTest')]
+  [Parameter(ParameterSetName = 'Diagnose')]
   [string]$Output,
 
   [Parameter(ParameterSetName = 'Build')]
-  [Parameter(ParameterSetName = 'Example')]
+  [Parameter(ParameterSetName = 'SmokeTest')]
   [switch]$Force,
 
   [Parameter(ParameterSetName = 'Build')]
   [switch]$DryRun,
 
+  [Parameter(Mandatory, ParameterSetName = 'Diagnose')]
+  [switch]$Diagnose,
+
+  [Parameter(ParameterSetName = 'Diagnose')]
+  [string]$Report,
+
   [Parameter(Mandatory, ParameterSetName = 'Templates')]
   [string]$EmitTemplates,
 
-  [Parameter(Mandatory, ParameterSetName = 'Example')]
-  [switch]$RunExample
+  [Parameter(Mandatory, ParameterSetName = 'SmokeTest')]
+  [switch]$RunSmokeTest
 )
 
 Set-StrictMode -Version Latest
@@ -213,7 +254,31 @@ function Assert-SafeTemplateDirectory {
   return $resolved
 }
 
-$rScript = Resolve-OrchideeRScript -RepoRoot $RepoRoot
+# -Diagnose has its own exit-status contract: 1 means blocking findings in the
+# six blocks, 2 means no verdict could be produced. Everything that can fail
+# before R runs -- resolving R, the six input paths, the report directory -- has
+# to honour it, or a caller reads a setup mistake as a problem with the site's
+# data.
+$isDiagnose = $PSCmdlet.ParameterSetName -eq 'Diagnose'
+
+function Exit-OrchideeDiagnoseSetupFailure {
+  param([string]$Message)
+
+  Write-Host ''
+  Write-Host (
+    "The diagnostics could not start: $Message" + ' This is not a verdict on ' +
+    'the six blocks, and no report was written.'
+  )
+  exit 2
+}
+
+try {
+  $rScript = Resolve-OrchideeRScript -RepoRoot $RepoRoot
+}
+catch {
+  if (-not $isDiagnose) { throw }
+  Exit-OrchideeDiagnoseSetupFailure -Message $_.Exception.Message
+}
 
 if ($PSCmdlet.ParameterSetName -eq 'Templates') {
   $templatePath = Resolve-OrchideeRepoPath `
@@ -239,20 +304,20 @@ if ($PSCmdlet.ParameterSetName -eq 'Templates') {
   return
 }
 
-$isExample = $PSCmdlet.ParameterSetName -eq 'Example'
-if ($isExample) {
-  $exampleRoot = Join-Path $RepoRoot 'examples\site_handoff_minimal'
+$isSmokeTest = $PSCmdlet.ParameterSetName -eq 'SmokeTest'
+if ($isSmokeTest) {
+  $fixtureRoot = Join-Path $RepoRoot 'examples\site_handoff_minimal'
   $MicrobiologyObservations = Join-Path `
-    $exampleRoot `
+    $fixtureRoot `
     'microbiology_observations.csv'
-  $BacteriaMapping = Join-Path $exampleRoot 'bacteria_mapping.csv'
-  $SampleTypeMapping = Join-Path $exampleRoot 'sample_type_mapping.csv'
-  $AntibioticMapping = Join-Path $exampleRoot 'antibiotic_mapping.csv'
-  $UnitMapping = Join-Path $exampleRoot 'unit_mapping.csv'
+  $BacteriaMapping = Join-Path $fixtureRoot 'bacteria_mapping.csv'
+  $SampleTypeMapping = Join-Path $fixtureRoot 'sample_type_mapping.csv'
+  $AntibioticMapping = Join-Path $fixtureRoot 'antibiotic_mapping.csv'
+  $UnitMapping = Join-Path $fixtureRoot 'unit_mapping.csv'
   $IncidenceExposure = Join-Path `
-    $exampleRoot `
+    $fixtureRoot `
     'incidence_exposure_by_year_um_uf_ta_de_profile.csv'
-  Write-Host 'Mode: versioned synthetic site example'
+  Write-Host 'Mode: installation smoke test on the versioned synthetic fixture'
 }
 
 $inputDefinitions = @(
@@ -281,17 +346,96 @@ $inputDefinitions = @(
     Value = $IncidenceExposure
   }
 )
-$inputPaths = @(
-  $inputDefinitions | ForEach-Object {
-    Resolve-OrchideeInputFile `
+try {
+  $inputPaths = @(
+    $inputDefinitions | ForEach-Object {
+      Resolve-OrchideeInputFile `
+        -RepoRoot $RepoRoot `
+        -Path $_.Value `
+        -Label $_.Name
+    }
+  )
+}
+catch {
+  if (-not $isDiagnose) { throw }
+  Exit-OrchideeDiagnoseSetupFailure -Message $_.Exception.Message
+}
+
+if ($isDiagnose) {
+  # -Output is accepted here so that the documented workflow really is the same
+  # command line with -DryRun swapped for -Diagnose. The report then sits
+  # beside the build it precedes.
+  try {
+    $reportRoot = if (-not [string]::IsNullOrWhiteSpace($Report)) {
+      Resolve-OrchideeRepoPath -RepoRoot $RepoRoot -Path $Report
+    } elseif (-not [string]::IsNullOrWhiteSpace($Output)) {
+      Join-Path (
+        Resolve-OrchideeRepoPath -RepoRoot $RepoRoot -Path $Output
+      ) 'diagnostics'
+    } else {
+      Join-Path $RepoRoot 'outputs\site_diagnostics'
+    }
+    $reportRoot = Assert-OrchideeSafeOutputDirectory `
       -RepoRoot $RepoRoot `
-      -Path $_.Value `
-      -Label $_.Name
+      -OutputPath $reportRoot `
+      -InputPaths $inputPaths `
+      -InputLabel 'Site handoff inputs'
   }
-)
+  catch {
+    Exit-OrchideeDiagnoseSetupFailure -Message $_.Exception.Message
+  }
+
+  for ($index = 0; $index -lt $inputDefinitions.Count; $index++) {
+    Write-Host "$($inputDefinitions[$index].Name): $($inputPaths[$index])"
+  }
+  Write-Host "Report: $reportRoot"
+  Write-Host "R:      $rScript"
+
+  $diagnoser = Join-Path $RepoRoot 'scripts\diagnose_site_inputs.R'
+  Push-Location $RepoRoot
+  try {
+    & $rScript --no-save --no-restore $diagnoser @inputPaths $reportRoot
+    $diagnoseExit = $LASTEXITCODE
+  }
+  finally {
+    Pop-Location
+  }
+
+  if ($diagnoseExit -eq 1) {
+    Write-Host ''
+    Write-Host (
+      'Correct the blocking findings above and rerun -Diagnose. No bundle was ' +
+      'built.'
+    )
+    exit 1
+  }
+  if ($diagnoseExit -eq 2) {
+    # Exit rather than throw: the documented interface promises 2 for a
+    # technical failure, and a throw would surface 1 to the caller, which is
+    # the code reserved for blocking findings in the blocks themselves.
+    Write-Host ''
+    Write-Host (
+      'The diagnostics could not run or publish their report; this is not a ' +
+      "verdict on the six blocks. See the message above. Report: $reportRoot"
+    )
+    exit 2
+  }
+  if ($diagnoseExit -ne 0) {
+    # Any other status is a technical failure too, so report it as one instead
+    # of collapsing it onto the blocking-findings code.
+    Write-Host ''
+    Write-Host (
+      "Site input diagnostics failed unexpectedly (exit $diagnoseExit); this " +
+      'is not a verdict on the six blocks.'
+    )
+    exit 2
+  }
+  return
+}
+
 $outputRoot = if ([string]::IsNullOrWhiteSpace($Output)) {
-  if ($isExample) {
-    Join-Path $RepoRoot 'outputs\site_example'
+  if ($isSmokeTest) {
+    Join-Path $RepoRoot 'outputs\site_smoke_test'
   } else {
     Join-Path $RepoRoot 'outputs\site_current'
   }

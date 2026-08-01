@@ -535,53 +535,159 @@ orchidee_handoff_ascii_lower <- function(x) {
   tolower(x)
 }
 
-orchidee_handoff_parse_date <- function(x, col_name = "DATEPRELEV") {
-  if (inherits(x, "Date")) {
-    return(x)
-  }
-  if (is.factor(x)) x <- as.character(x)
-  if (is.numeric(x)) {
-    out <- as.Date(x, origin = "1970-01-01")
-  } else {
-    x_chr <- orchidee_handoff_trim_or_na(x)
-    out <- as.Date(x_chr)
-    bad <- is.na(out) & !is.na(x_chr)
-    if (any(bad)) {
-      out[bad] <- as.Date(x_chr[bad], format = "%d/%m/%Y")
-    }
-  }
-  bad <- is.na(out)
-  if (any(bad)) {
-    stop(col_name, " must contain non-missing dates.", call. = FALSE)
-  }
-  out
+# Each accepted text form is matched against an anchored shape before it is
+# parsed. The shapes are disjoint -- a four-digit leading group means the year
+# comes first -- so a value is read the same way whatever its neighbours look
+# like. This replaces as.Date(x) with no format, which derived one format for
+# the whole column from R's tryFormats and made the documented DD/MM/YYYY
+# silently wrong: strptime ignores trailing characters, so %Y/%m/%d matched
+# "12/03/2024" as year 12 month 03 day 20 without an NA, and the %d/%m/%Y branch
+# that was meant to handle it was never reached. A uniformly French column built
+# a bundle dated in year 12 rather than failing.
+orchidee_handoff_date_shapes <- function() {
+  # A trailing time of day is allowed and ignored: an HDW export commonly carries
+  # a timestamp in the date column, the time of day belongs to HEUREPRELEV, and
+  # dropping it is unambiguous. Anything else after the date is not. Nothing
+  # downstream validates this suffix -- as.Date() ignores it whole -- so the
+  # hour, minute and second ranges are checked here rather than merely counted,
+  # otherwise "2024-03-12 25:99:99" would be accepted as a date.
+  # The fraction belongs to the seconds, not to the time: outside that group it
+  # would also accept a fractional minute, "09:15.123", which is not a form
+  # anyone writes and not what this tolerates.
+  time_of_day <- "([ T]([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9](\\.[0-9]+)?)?)?"
+  list(
+    list(
+      pattern = paste0("^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}", time_of_day, "$"),
+      format = "%Y-%m-%d"
+    ),
+    list(
+      pattern = paste0("^[0-9]{4}/[0-9]{1,2}/[0-9]{1,2}", time_of_day, "$"),
+      format = "%Y/%m/%d"
+    ),
+    list(
+      pattern = paste0("^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}", time_of_day, "$"),
+      format = "%d/%m/%Y"
+    )
+  )
 }
 
-orchidee_handoff_parse_time <- function(x, col_name = "HEUREPRELEV") {
-  if (inherits(x, "difftime")) {
-    return(x)
-  }
-  if (missing(x) || is.null(x)) {
-    return(as.difftime(rep(NA_real_, 0L), units = "secs"))
+# A Date is a day number, and R lets that number carry a fraction. Neither
+# format() nor as.character() shows it, so half a day travels to the bundle
+# behind an ordinary-looking date: 19815 and 19815.5 both print as 2024-04-02
+# while remaining two distinct values in the row grain. No documented delivery
+# produces one -- parsing text always yields a whole day -- so it is refused
+# rather than rounded away, which would silently change what the site delivered.
+# The comparison is exact because a tolerance leaves a hole its own size, and
+# every value in that hole is the case being refused: 19815 + 1e-9 is a double
+# of its own, prints as 2024-04-02, and splits the grain exactly as 19815.5
+# does. Nothing legitimate lands there -- a day number arrives as written, not
+# as the result of arithmetic that could leave a rounding residue.
+orchidee_handoff_non_whole_days <- function(days) {
+  is.finite(days) & days != trunc(days)
+}
+
+# Returns the parsed values alongside the elements that could not be read, so a
+# caller reporting on a column does not have to stop at the first bad value.
+orchidee_handoff_parse_date_values <- function(x) {
+  # A typed input skips the text shapes entirely, so it is checked on its own
+  # terms rather than trusted for arriving pre-parsed: an .rds is as much a site
+  # handoff as a CSV, and an infinite day number is not a date.
+  if (inherits(x, "Date")) {
+    days <- unclass(x)
+    return(list(
+      values = x,
+      bad = !is.finite(days) | orchidee_handoff_non_whole_days(days)
+    ))
   }
   if (is.factor(x)) x <- as.character(x)
   if (is.numeric(x)) {
-    return(as.difftime(x, units = "secs"))
+    bad <- !is.finite(x) | orchidee_handoff_non_whole_days(x)
+    values <- rep(as.Date(NA), length(x))
+    values[!bad] <- as.Date(x[!bad], origin = "1970-01-01")
+    return(list(values = values, bad = bad | is.na(values)))
+  }
+  x_chr <- orchidee_handoff_trim_or_na(x)
+  values <- rep(as.Date(NA), length(x_chr))
+  for (shape in orchidee_handoff_date_shapes()) {
+    pending <- is.na(values) & !is.na(x_chr) & grepl(shape$pattern, x_chr)
+    if (!any(pending)) {
+      next
+    }
+    values[pending] <- suppressWarnings(
+      as.Date(x_chr[pending], format = shape$format)
+    )
+  }
+  list(values = values, bad = is.na(values))
+}
+
+orchidee_handoff_parse_date <- function(x, col_name = "DATEPRELEV") {
+  parsed <- orchidee_handoff_parse_date_values(x)
+  if (any(parsed$bad)) {
+    stop(
+      col_name, " must contain non-missing dates on whole days.",
+      call. = FALSE
+    )
+  }
+  parsed$values
+}
+
+# Times are anchored for the same reason as dates: strptime ignores trailing
+# characters, so an unanchored "%H:%M:%S" accepted "09:15:00 (approx)" as 09:15
+# and dropped the rest without a word. The accepted forms are the two the
+# contract documents.
+# A time of day has a domain, and only the text shapes enforced it: an .rds
+# carrying a difftime was accepted whatever it held, so a negative or a 90000
+# would pass here and survive validation downstream, which checks the class and
+# not the interval. A missing time stays acceptable -- the column is optional.
+orchidee_handoff_time_of_day_out_of_range <- function(seconds) {
+  !is.na(seconds) & (!is.finite(seconds) | seconds < 0 | seconds >= 86400)
+}
+
+orchidee_handoff_parse_time_values <- function(x) {
+  if (inherits(x, "difftime")) {
+    bad <- orchidee_handoff_time_of_day_out_of_range(
+      as.numeric(x, units = "secs")
+    )
+    x[bad] <- NA_real_
+    return(list(values = x, bad = bad))
+  }
+  if (missing(x) || is.null(x)) {
+    return(list(
+      values = as.difftime(rep(NA_real_, 0L), units = "secs"),
+      bad = logical(0)
+    ))
+  }
+  if (is.factor(x)) x <- as.character(x)
+  if (is.numeric(x)) {
+    bad <- orchidee_handoff_time_of_day_out_of_range(x)
+    x[bad] <- NA_real_
+    return(list(values = as.difftime(x, units = "secs"), bad = bad))
   }
 
   x_chr <- orchidee_handoff_trim_or_na(x)
-  out <- as.difftime(rep(NA_real_, length(x_chr)), units = "secs")
+  values <- as.difftime(rep(NA_real_, length(x_chr)), units = "secs")
   has_value <- !is.na(x_chr)
-  hh_mm <- has_value & grepl("^[0-9]{1,2}:[0-9]{2}$", x_chr)
-  x_chr[hh_mm] <- paste0(x_chr[hh_mm], ":00")
-  has_value <- !is.na(x_chr)
-  parsed <- suppressWarnings(as.difftime(x_chr[has_value], format = "%H:%M:%S"))
-  out[has_value] <- parsed
-  bad <- has_value & is.na(out)
-  if (any(bad)) {
+  padded <- x_chr
+  hh_mm <- has_value & grepl("^[0-9]{1,2}:[0-9]{2}$", padded)
+  padded[hh_mm] <- paste0(padded[hh_mm], ":00")
+  # Fractional seconds are allowed and ignored for the same reason as a trailing
+  # time of day on a date: unambiguous, and previously accepted.
+  parseable <- has_value &
+    grepl("^[0-9]{1,2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?$", padded)
+  if (any(parseable)) {
+    values[parseable] <- suppressWarnings(
+      as.difftime(padded[parseable], format = "%H:%M:%S")
+    )
+  }
+  list(values = values, bad = has_value & is.na(values))
+}
+
+orchidee_handoff_parse_time <- function(x, col_name = "HEUREPRELEV") {
+  parsed <- orchidee_handoff_parse_time_values(x)
+  if (any(parsed$bad)) {
     stop(col_name, " must use HH:MM or HH:MM:SS when provided.", call. = FALSE)
   }
-  out
+  parsed$values
 }
 
 orchidee_handoff_normalize_sir <- function(x) {
@@ -678,6 +784,48 @@ orchidee_handoff_map_values <- function(
   }
 
   mapped
+}
+
+# Screening exclusion follows the most specific usable document identity.
+# Complete PATID + ELTID groups use PATID + EVTID + ELTID. If any row in a
+# PATID + ELTID group lacks EVTID, that group conservatively falls back to
+# PATID + ELTID. ELTID alone is never propagated across patients. Rows without
+# a usable PATID + ELTID pair receive NA and never carry screening.
+orchidee_handoff_document_occurrence_key <- function(PATID, EVTID, ELTID) {
+  document_key <- rep(NA_character_, length(PATID))
+  usable <- !is.na(PATID) & !is.na(ELTID)
+  usable_rows <- which(usable)
+  if (length(usable_rows) == 0L) {
+    return(document_key)
+  }
+
+  patient_sample_key <- paste(
+    PATID[usable_rows],
+    ELTID[usable_rows],
+    sep = "\r"
+  )
+  fallback_to_patient_sample <- ave(
+    is.na(EVTID[usable_rows]),
+    patient_sample_key,
+    FUN = any
+  )
+  document_key[usable_rows] <- ifelse(
+    fallback_to_patient_sample,
+    paste(
+      "patient_sample",
+      PATID[usable_rows],
+      ELTID[usable_rows],
+      sep = "\r"
+    ),
+    paste(
+      "event_sample",
+      PATID[usable_rows],
+      EVTID[usable_rows],
+      ELTID[usable_rows],
+      sep = "\r"
+    )
+  )
+  document_key
 }
 
 orchidee_handoff_collapse_phenotype <- function(x, allowed, col_name) {
@@ -780,45 +928,19 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
   }
   obs$ELTID <- orchidee_handoff_trim_or_na(obs$ELTID)
 
-  # Screening exclusion follows the most specific usable document identity.
-  # Complete PATID + ELTID groups use PATID + EVTID + ELTID. If any row in a
-  # PATID + ELTID group lacks EVTID, that group conservatively falls back to
-  # PATID + ELTID. ELTID alone is never propagated across patients.
-  has_patient_sample <- !is.na(obs$PATID) & !is.na(obs$ELTID)
+  document_key <- orchidee_handoff_document_occurrence_key(
+    obs$PATID,
+    obs$EVTID,
+    obs$ELTID
+  )
   propagate_screening <- rep(FALSE, nrow(obs))
-  valid_scope_rows <- which(has_patient_sample)
-  if (length(valid_scope_rows) > 0L) {
-    patient_sample_key <- paste(
-      obs$PATID[valid_scope_rows],
-      obs$ELTID[valid_scope_rows],
-      sep = "\r"
-    )
-    fallback_to_patient_sample <- ave(
-      is.na(obs$EVTID[valid_scope_rows]),
-      patient_sample_key,
-      FUN = any
-    )
-    document_key <- ifelse(
-      fallback_to_patient_sample,
-      paste(
-        "patient_sample",
-        obs$PATID[valid_scope_rows],
-        obs$ELTID[valid_scope_rows],
-        sep = "\r"
-      ),
-      paste(
-        "event_sample",
-        obs$PATID[valid_scope_rows],
-        obs$EVTID[valid_scope_rows],
-        obs$ELTID[valid_scope_rows],
-        sep = "\r"
-      )
-    )
+  usable_key <- !is.na(document_key)
+  if (any(usable_key)) {
     screening_document_keys <- unique(
-      document_key[!diagnostic_scope[valid_scope_rows]]
+      document_key[usable_key & !diagnostic_scope]
     )
-    propagate_screening[valid_scope_rows] <-
-      document_key %in% screening_document_keys
+    propagate_screening[usable_key] <-
+      document_key[usable_key] %in% screening_document_keys
   }
 
   drop_mask <- (!diagnostic_scope) | propagate_screening

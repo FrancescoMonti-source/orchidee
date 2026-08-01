@@ -218,6 +218,11 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
         `denominator_bundle`
     -   ne constitue pas un connecteur universel d'entrepôt ; il attend
         des blocs locaux déjà compréhensibles et mappés par le site
+-   `R/site_input_report_publication_helpers.R`
+    -   propriété du répertoire de rapport de `scripts/diagnose_site_inputs.R` :
+        verrou `.orchidee_diagnostics.lock` marqué par un jeton, suivi du
+        répertoire de composition, et libération définitive de l'un et de
+        l'autre
 
 ### Indicateurs et couche rapport
 
@@ -307,13 +312,26 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
     -   validateur CLI autonome pour les bundles externes
 -   `scripts/build_site.ps1`
     -   point d'entrée opérateur Rennes/autre site : six chemins nommés,
-        préflight `-DryRun`, bundle v3 conservé, projection v2 opérationnelle et
-        smoke automatique sous `outputs/site_current`
-    -   `-RunExample` exécute ce même parcours sur les six CSV synthétiques
-        versionnés sous `examples/site_handoff_minimal/`
+        préflight `-DryRun`, diagnostic agrégé `-Diagnose`, bundle v3 conservé,
+        projection v2 opérationnelle et smoke automatique sous
+        `outputs/site_current`
+    -   `-RunSmokeTest` exécute ce même parcours sur la fixture synthétique
+        versionnée sous `examples/site_handoff_minimal/` ; c'est le self-test
+        d'installation, à garder minimal
 -   `scripts/check_site_environment.R`
     -   vérifie les paquets et le contrat de colonnes des six blocs sans
         construire de bundle ; lit seulement les en-têtes délimités
+-   `scripts/diagnose_site_inputs.R`
+    -   lit les six blocs une seule fois et produit un rapport agrégé des
+        problèmes de contrat de handoff, classés `BLOCKING`, `WARNING` et
+        `INFO`, au lieu de s'arrêter à la première erreur
+    -   couverture de mapping par libellé local avec `n_rows` et
+        `n_document_occurrences`, couverture des UF, cohérence TA/DE entre les
+        blocs 5 et 6, exclusion screening au niveau de l'occurrence et totaux
+        d'exposition avant et après la projection `spares_current`
+    -   reste strictement dans le contrat de handoff : il ne charge ni la spec
+        des indicateurs ni la taxonomie et ne préjuge pas des indicateurs
+        publiés
 -   `scripts/emit_site_handoff_templates.R`
     -   génère les six CSV vides et le kit de références de mapping depuis les
         contrats, la taxonomie, les réglages de publication et catalogues TA/DE
