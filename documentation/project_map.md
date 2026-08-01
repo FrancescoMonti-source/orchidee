@@ -218,6 +218,11 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
         `denominator_bundle`
     -   ne constitue pas un connecteur universel d'entrepôt ; il attend
         des blocs locaux déjà compréhensibles et mappés par le site
+-   `R/site_input_report_publication_helpers.R`
+    -   propriété du répertoire de rapport de `scripts/diagnose_site_inputs.R` :
+        verrou `.orchidee_diagnostics.lock` marqué par un jeton, suivi du
+        répertoire de composition, et libération définitive de l'un et de
+        l'autre
 
 ### Indicateurs et couche rapport
 

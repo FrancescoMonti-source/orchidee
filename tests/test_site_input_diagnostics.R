@@ -11,6 +11,7 @@
 source("R/external_bundle_validation_helpers.R")
 source("R/ratb_hospital_days_helpers.R")
 source("R/external_handoff_helpers.R")
+source("R/site_input_report_publication_helpers.R")
 
 block_names <- names(orchidee_handoff_site_input_spec("v3"))
 
@@ -168,6 +169,22 @@ bundle_sample_dates <- function(result) {
     return(NULL)
   }
   sort(as.character(readRDS(sir_wide_path)$DATEPRELEV))
+}
+
+# The character form is not the whole value: a Date carries a day number, and a
+# fractional one prints as an ordinary date while splitting the row grain in
+# two. Where a fixture pins how a date is read, the number is checked as well.
+bundle_sample_date_days <- function(result) {
+  sir_wide_path <- file.path(
+    test_root,
+    paste0(result$label, "_bundle"),
+    "bundle_v3",
+    "sir_wide.rds"
+  )
+  if (!file.exists(sir_wide_path)) {
+    return(NULL)
+  }
+  sort(unclass(readRDS(sir_wide_path)$DATEPRELEV))
 }
 
 ## Baseline blocks -----------------------------------------------------------
@@ -560,6 +577,18 @@ impossible_time_result <- run_case(
   with_blocks(microbiology_observations = impossible_time_observations)
 )
 
+# The tolerated suffix has a positive half, and it is the half the decision was
+# taken for: an HDW export carrying a timestamp in the date column must pass and
+# reach the bundle as the day it names, with nothing of the time left in it.
+datetime_suffix_observations <- clean_blocks$microbiology_observations
+datetime_suffix_observations$DATEPRELEV <- c(
+  "2024-03-12 09:15:00", "2024-04-02T23:59:59"
+)
+datetime_suffix_result <- run_case(
+  "tolerated_timestamp_suffix",
+  with_blocks(microbiology_observations = datetime_suffix_observations)
+)
+
 # Trailing characters are the same defect on times: strptime ignores them, so an
 # unanchored %H:%M:%S read "09:15:00 (approx)" as 09:15 and dropped the rest.
 trailing_time_observations <- clean_blocks$microbiology_observations
@@ -912,6 +941,12 @@ bad_profile_result <- run_case(
 ## removal. A read handle reproduces exactly that -- it satisfies the preflight's
 ## append check and prevents the unlink -- so this is the post-preflight case,
 ## not a second test of the preflight.
+##
+## Only the way the condition is induced is Windows-specific, not the behaviour:
+## an open handle prevents deletion there, while POSIX unlink() removes the name
+## regardless and leaves the content to the descriptor. There is no portable way
+## to make one file undeletable inside a directory the run must still write to,
+## so the case runs where the operator runs it.
 manifest_report_dir <- file.path(test_root, "manifest_report")
 manifest_pass <- run_case(
   "manifest_pass",
@@ -919,21 +954,28 @@ manifest_pass <- run_case(
   report_dir = manifest_report_dir
 )
 manifest_path <- file.path(manifest_report_dir, "report_manifest.txt")
-manifest_before <- tools::md5sum(
-  list.files(manifest_report_dir, full.names = TRUE)
-)
-manifest_handle <- file(manifest_path, open = "rb")
-manifest_blocked <- run_case(
-  "manifest_blocked",
-  clean_blocks,
-  report_dir = manifest_report_dir
-)
-close(manifest_handle)
-manifest_after <- tools::md5sum(
-  list.files(manifest_report_dir, full.names = TRUE)
-)
-manifest_blocked_staging <-
-  length(orchidee_leftovers(manifest_report_dir)) > 0L
+manifest_removal_blockable <- identical(.Platform$OS.type, "windows")
+manifest_blocked <- NULL
+manifest_before <- NULL
+manifest_after <- NULL
+manifest_blocked_staging <- NULL
+if (manifest_removal_blockable) {
+  manifest_before <- tools::md5sum(
+    list.files(manifest_report_dir, full.names = TRUE)
+  )
+  manifest_handle <- file(manifest_path, open = "rb")
+  manifest_blocked <- run_case(
+    "manifest_blocked",
+    clean_blocks,
+    report_dir = manifest_report_dir
+  )
+  close(manifest_handle)
+  manifest_after <- tools::md5sum(
+    list.files(manifest_report_dir, full.names = TRUE)
+  )
+  manifest_blocked_staging <-
+    length(orchidee_leftovers(manifest_report_dir)) > 0L
+}
 
 ## Publication lock -----------------------------------------------------------
 ##
@@ -961,6 +1003,60 @@ lock_contended_leftovers <- setdiff(
   basename(lock_path)
 )
 unlink(lock_path, recursive = TRUE, force = TRUE)
+
+## Releasing ownership --------------------------------------------------------
+##
+## Publication releases the lock and then keeps going -- it still has a report to
+## print -- so the error handler can fire after the release. A second release
+## must do nothing at all: by then another run may hold the lock, and taking it
+## away would let a third one into a directory being published into. Reproducing
+## that through the CLI would need two interleaved processes and a failure with
+## no natural trigger, so the property is asserted on the unit that owns it.
+release_dir <- file.path(test_root, "release_unit")
+dir.create(release_dir, recursive = TRUE, showWarnings = FALSE)
+release_lock <- file.path(release_dir, orchidee_diagnostics_lock_name())
+release_state <- orchidee_publication_state()
+release_staging <- file.path(release_dir, ".orchidee_staging_unit")
+dir.create(release_staging)
+orchidee_publication_track_staging(release_state, release_staging)
+release_acquired <- orchidee_publication_acquire(release_state, release_dir)
+release_owned <- identical(
+  orchidee_publication_lock_owner(release_lock),
+  release_state$token
+)
+orchidee_publication_release(release_state)
+release_cleared <- !dir.exists(release_lock) && !dir.exists(release_staging)
+
+# Another run takes the lock the moment the first one lets it go.
+dir.create(release_lock)
+writeLines("another-run", file.path(release_lock, "owner.txt"))
+orchidee_publication_release(release_state)
+release_second_kept <- dir.exists(release_lock)
+release_second_owner <- orchidee_publication_lock_owner(release_lock)
+
+# The token makes ownership a property of the lock rather than of what the run
+# remembers, so a lock removed by hand mid-run and retaken by somebody else is
+# still safe from the run that used to hold it.
+foreign_state <- orchidee_publication_state()
+foreign_state$lock <- release_lock
+orchidee_publication_release(foreign_state)
+foreign_lock_kept <- dir.exists(release_lock)
+unlink(release_lock, recursive = TRUE, force = TRUE)
+
+# dir.create() reports the same failure for a lock that is already there and for
+# one that cannot be created at all. Telling an operator to wait for a run that
+# does not exist would send them looking in the wrong place.
+held_state <- orchidee_publication_state()
+dir.create(release_lock)
+held_outcome <- orchidee_publication_acquire(held_state, release_dir)
+held_untouched <- is.null(held_state$lock)
+unlink(release_lock, recursive = TRUE, force = TRUE)
+unavailable_target <- file.path(test_root, "not_a_report_dir")
+writeLines("not a directory", unavailable_target)
+unavailable_outcome <- orchidee_publication_acquire(
+  orchidee_publication_state(),
+  unavailable_target
+)
 
 ## Command-line contract ------------------------------------------------------
 ##
@@ -1022,6 +1118,45 @@ saveRDS(typed_date_observations, typed_date_target)
 unlink(typed_date_paths[[1L]], force = TRUE)
 typed_date_paths[[1L]] <- typed_date_target
 typed_date_result <- run_case_paths("typed_date_not_finite", typed_date_paths)
+
+# R lets a Date carry a fractional day, and hides it: 19814.5 and 19814 both
+# print as the same date while staying two values in the row grain. A typed
+# handoff is the only way one can arrive, and both typed forms take their own
+# branch, so both are pinned.
+fractional_day_dir <- file.path(test_root, "fractional_day_inputs")
+fractional_day_paths <- write_blocks(fractional_day_dir, clean_blocks)
+fractional_day_observations <- clean_blocks$microbiology_observations
+fractional_day_observations$DATEPRELEV <- structure(
+  c(19814.5, 19815),
+  class = "Date"
+)
+fractional_day_target <- file.path(
+  fractional_day_dir,
+  "microbiology_observations.rds"
+)
+saveRDS(fractional_day_observations, fractional_day_target)
+unlink(fractional_day_paths[[1L]], force = TRUE)
+fractional_day_paths[[1L]] <- fractional_day_target
+fractional_day_result <- run_case_paths(
+  "typed_date_fractional_day",
+  fractional_day_paths
+)
+
+fractional_numeric_dir <- file.path(test_root, "fractional_numeric_inputs")
+fractional_numeric_paths <- write_blocks(fractional_numeric_dir, clean_blocks)
+fractional_numeric_observations <- clean_blocks$microbiology_observations
+fractional_numeric_observations$DATEPRELEV <- c(19814.5, 19815)
+fractional_numeric_target <- file.path(
+  fractional_numeric_dir,
+  "microbiology_observations.rds"
+)
+saveRDS(fractional_numeric_observations, fractional_numeric_target)
+unlink(fractional_numeric_paths[[1L]], force = TRUE)
+fractional_numeric_paths[[1L]] <- fractional_numeric_target
+fractional_numeric_result <- run_case_paths(
+  "numeric_date_fractional_day",
+  fractional_numeric_paths
+)
 
 # A fractional minute is not a form anyone writes; the fraction belongs to the
 # seconds.
@@ -1085,7 +1220,8 @@ all_results <- list(
   two_scope_result, scope_values_result, all_screening_result,
   missing_souche_result, conflicting_mapping_result, no_domain_result,
   bad_profile_result, typed_time_result, typed_negative_result,
-  typed_date_result, fractional_minute_result,
+  typed_date_result, fractional_minute_result, datetime_suffix_result,
+  fractional_day_result, fractional_numeric_result,
   reused_pass, reused_schema_failure, manifest_pass, lock_pass
 )
 invisible(lapply(all_results, assert_pass_implies_buildable))
@@ -1382,6 +1518,43 @@ stopifnot(
   # The clean fixture pins the ISO form through the same assertion.
   identical(bundle_sample_dates(clean_result), c("2024-03-12", "2024-04-02")),
 
+  # A timestamp in the date column is accepted and the time is dropped, which is
+  # the reason the suffix is tolerated at all. Checked on the day numbers as
+  # well: a leftover fraction would print as the right date anyway.
+  identical(datetime_suffix_result$status, 0L),
+  identical(
+    bundle_sample_dates(datetime_suffix_result),
+    c("2024-03-12", "2024-04-02")
+  ),
+  identical(
+    bundle_sample_date_days(datetime_suffix_result),
+    round(bundle_sample_date_days(datetime_suffix_result))
+  ),
+  identical(length(bundle_sample_date_days(datetime_suffix_result)), 2L),
+
+  # A fractional day is refused on both typed branches rather than rounded away.
+  identical(fractional_day_result$status, 1L),
+  identical(
+    severity_of(
+      fractional_day_result,
+      "microbiology_observations",
+      "dateprelev_format"
+    ),
+    "BLOCKING"
+  ),
+  # The message quotes the day number: as.character() would show an ordinary
+  # date and read as a broken tool.
+  any(grepl("day number 19814.5", fractional_day_result$output, fixed = TRUE)),
+  identical(fractional_numeric_result$status, 1L),
+  identical(
+    severity_of(
+      fractional_numeric_result,
+      "microbiology_observations",
+      "dateprelev_format"
+    ),
+    "BLOCKING"
+  ),
+
   # A tolerated timestamp suffix is still validated, not counted.
   identical(impossible_time_result$status, 1L),
   identical(
@@ -1610,20 +1783,22 @@ stopifnot(
       %in% broken_result$findings$finding_id
   ),
 
-  # A manifest that cannot be removed stops the run before a single artifact is
-  # replaced, so the previous report stays whole and its manifest keeps telling
-  # the truth about it.
+  # Publishing into a directory whose previous report is intact is the ordinary
+  # case; the blocked-manifest half is asserted below, where it can be induced.
   identical(manifest_pass$status, 0L),
-  identical(manifest_blocked$status, 2L),
-  file.exists(manifest_path),
-  identical(manifest_before, manifest_after),
-  isFALSE(manifest_blocked_staging),
-  any(grepl(
-    "manifest of the previous report cannot be removed",
-    manifest_blocked$output,
-    fixed = TRUE
-  )),
-  !any(grepl("PASS:", manifest_blocked$output, fixed = TRUE)),
+
+  # Ownership of the report directory is given up once and for all. The lock is
+  # released, and a release that comes after another run has taken it -- the
+  # error handler firing behind a successful publication -- leaves it alone.
+  identical(release_acquired, "acquired"),
+  isTRUE(release_owned),
+  isTRUE(release_cleared),
+  isTRUE(release_second_kept),
+  identical(release_second_owner, "another-run"),
+  isTRUE(foreign_lock_kept),
+  identical(held_outcome, "held"),
+  isTRUE(held_untouched),
+  identical(unavailable_outcome, "unavailable"),
 
   file.exists(file.path(clean_result$report_dir, "report_manifest.txt")),
   identical(
@@ -1648,6 +1823,25 @@ stopifnot(
     logical(1)
   ))
 )
+
+# A manifest that cannot be removed stops the run before a single artifact is
+# replaced, so the previous report stays whole and its manifest keeps telling the
+# truth about it. Asserted where an open handle blocks the removal; the run's
+# behaviour is not Windows-specific, the way of inducing it is.
+if (manifest_removal_blockable) {
+  stopifnot(
+    identical(manifest_blocked$status, 2L),
+    file.exists(manifest_path),
+    identical(manifest_before, manifest_after),
+    isFALSE(manifest_blocked_staging),
+    any(grepl(
+      "manifest of the previous report cannot be removed",
+      manifest_blocked$output,
+      fixed = TRUE
+    )),
+    !any(grepl("PASS:", manifest_blocked$output, fixed = TRUE))
+  )
+}
 
 if (identical(.Platform$OS.type, "windows")) {
   wrapper_findings <- read_report_table(wrapper_diagnose_report, "findings.csv")

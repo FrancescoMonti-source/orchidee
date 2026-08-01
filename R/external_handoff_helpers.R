@@ -571,6 +571,17 @@ orchidee_handoff_date_shapes <- function() {
   )
 }
 
+# A Date is a day number, and R lets that number carry a fraction. Neither
+# format() nor as.character() shows it, so half a day travels to the bundle
+# behind an ordinary-looking date: 19815 and 19815.5 both print as 2024-04-02
+# while remaining two distinct values in the row grain. No documented delivery
+# produces one -- parsing text always yields a whole day -- so it is refused
+# rather than rounded away, which would silently change what the site delivered.
+orchidee_handoff_non_whole_days <- function(days) {
+  !is.na(days) & is.finite(days) &
+    abs(days - round(days)) >= sqrt(.Machine$double.eps)
+}
+
 # Returns the parsed values alongside the elements that could not be read, so a
 # caller reporting on a column does not have to stop at the first bad value.
 orchidee_handoff_parse_date_values <- function(x) {
@@ -578,11 +589,15 @@ orchidee_handoff_parse_date_values <- function(x) {
   # terms rather than trusted for arriving pre-parsed: an .rds is as much a site
   # handoff as a CSV, and an infinite day number is not a date.
   if (inherits(x, "Date")) {
-    return(list(values = x, bad = !is.finite(unclass(x))))
+    days <- unclass(x)
+    return(list(
+      values = x,
+      bad = !is.finite(days) | orchidee_handoff_non_whole_days(days)
+    ))
   }
   if (is.factor(x)) x <- as.character(x)
   if (is.numeric(x)) {
-    bad <- !is.finite(x)
+    bad <- !is.finite(x) | orchidee_handoff_non_whole_days(x)
     values <- rep(as.Date(NA), length(x))
     values[!bad] <- as.Date(x[!bad], origin = "1970-01-01")
     return(list(values = values, bad = bad | is.na(values)))
@@ -604,7 +619,10 @@ orchidee_handoff_parse_date_values <- function(x) {
 orchidee_handoff_parse_date <- function(x, col_name = "DATEPRELEV") {
   parsed <- orchidee_handoff_parse_date_values(x)
   if (any(parsed$bad)) {
-    stop(col_name, " must contain non-missing dates.", call. = FALSE)
+    stop(
+      col_name, " must contain non-missing dates on whole days.",
+      call. = FALSE
+    )
   }
   parsed$values
 }

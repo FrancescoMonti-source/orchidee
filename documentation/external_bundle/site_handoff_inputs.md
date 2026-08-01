@@ -168,7 +168,7 @@ Required columns:
 | --- | --- |
 | `PATID` | Patient identifier. |
 | `ELTID` | Sample / microbiology event identifier. |
-| `DATEPRELEV` | Sample date. Use `YYYY-MM-DD` or `DD/MM/YYYY` in text files; `YYYY/MM/DD` also works, and a trailing time of day is ignored provided it is a real time — the time of day belongs in `HEUREPRELEV`. Each value is read on its own, so the column may mix these forms, but anything else after the date is refused rather than guessed at. |
+| `DATEPRELEV` | Sample date. Use `YYYY-MM-DD` or `DD/MM/YYYY` in text files; `YYYY/MM/DD` also works, and a trailing time of day is ignored provided it is a real time — the time of day belongs in `HEUREPRELEV`. Each value is read on its own, so the column may mix these forms, but anything else after the date is refused rather than guessed at. In a typed `.rds` the column may be a `Date` or a day number, and it must fall on a whole day: R hides a fractional day behind an ordinary-looking date while keeping it a distinct value in the row grain. |
 | `SEJUF` | Hospitalization UF active at sampling. ORCHIDEE uses it to apply the RATB TA/DE perimeter. |
 | `bacteria_local` | Local bacterium label. |
 | `sample_type_local` | Local sample-type label. |
@@ -450,6 +450,13 @@ removal is verified, because a manifest that survived would certify the files
 replaced after it. If it cannot be removed, nothing else is touched and the
 previous report stays whole. The new manifest is renamed into place only after
 every other artifact is published.
+
+One run publishes into a report directory at a time. A run takes
+`.orchidee_diagnostics.lock` there and releases it when it is done; a second run
+started against the same directory meanwhile is refused with exit status 2
+rather than interleaving its files with the first one's. If a run is killed the
+lock stays behind: the refusal message names it, and it is safe to delete once
+no run is in progress.
 
 `-Diagnose` answers one question: do the six blocks satisfy the handoff
 contract? It does not predict which indicators the report will publish.

@@ -158,6 +158,11 @@ suivants :
     appliquée par le builder, par le contrat v3 ou par cette projection ;
     `tests/test_site_input_diagnostics.R` le vérifie en exécutant ce même
     parcours sur chaque fixture acceptée ;
+-   un seul diagnostic publie à la fois dans un répertoire de rapport : il y
+    prend `.orchidee_diagnostics.lock`, marqué par un jeton, et un second
+    diagnostic lancé entre-temps sort en 2 au lieu d'entrelacer ses fichiers.
+    Un verrou laissé par une exécution tuée est nommé dans le message de refus
+    et peut être supprimé lorsqu'aucune exécution n'est en cours ;
 -   `-EmitTemplates` produit les six en-têtes et `mapping_reference/`, sans
     effectuer le mapping local ;
 -   le wrapper conserve v3, matérialise et smoke le v2 opérationnel, puis écrit

@@ -80,16 +80,15 @@ if (length(args) != 7L || any(args %in% c("-h", "--help"))) {
 
 # A run that stops after taking the publication lock must not leave it behind,
 # and its staging directory must not outlive it either: the previous report is
-# still in place and has to stay the only one an operator can find.
+# still in place and has to stay the only one an operator can find. What a run
+# owns lives in publication_state, which is emptied by the release itself, so
+# the handler below cannot release twice -- the second call would otherwise
+# reach a lock another run has taken since.
 release_publication_resources <- function() {
-  for (name in c("staging_dir", "lock_dir")) {
-    if (exists(name, envir = globalenv(), inherits = FALSE)) {
-      unlink(
-        get(name, envir = globalenv(), inherits = FALSE),
-        recursive = TRUE,
-        force = TRUE
-      )
-    }
+  if (exists("publication_state", envir = globalenv(), inherits = FALSE)) {
+    orchidee_publication_release(
+      get("publication_state", envir = globalenv(), inherits = FALSE)
+    )
   }
   invisible(NULL)
 }
@@ -100,6 +99,8 @@ quit_technical <- function(...) {
   quit(status = 2L, runLast = FALSE)
 }
 
+# Installed before the R sources are read: a failure there is technical too, and
+# nothing is owned yet, so the release has nothing to do.
 options(error = function() {
   message(
     "Site input diagnostics stopped before publishing a report. ",
@@ -116,6 +117,7 @@ orchidee_source_required_script("phenotype_flag_helpers.R")
 orchidee_source_required_script("external_bundle_validation_helpers.R")
 orchidee_source_required_script("ratb_hospital_days_helpers.R")
 orchidee_source_required_script("external_handoff_helpers.R")
+orchidee_source_required_script("site_input_report_publication_helpers.R")
 
 contract <- orchidee_external_contract_v3()
 spec <- orchidee_handoff_site_input_spec("v3")
@@ -259,7 +261,22 @@ parse_integerish <- function(x) {
 
 raw_text_of <- function(x) {
   if (is.factor(x)) x <- as.character(x)
-  if (is.character(x)) orchidee_handoff_trim_or_na(x) else as.character(x)
+  if (is.character(x)) {
+    return(orchidee_handoff_trim_or_na(x))
+  }
+  # A typed column has no raw text, and as.character() on a Date drops exactly
+  # what makes some values unreadable: an infinite day number prints as NA and a
+  # fractional one as an ordinary date. Quoting "2024-04-02" back at a site as a
+  # value ORCHIDEE cannot read would read as a broken tool, so those values are
+  # reported as the day numbers they are.
+  if (inherits(x, "Date")) {
+    days <- unclass(x)
+    text <- as.character(x)
+    opaque <- (is.na(text) & !is.na(days)) | orchidee_handoff_non_whole_days(days)
+    text[opaque] <- paste0("day number ", format(days[opaque], trim = TRUE))
+    return(text)
+  }
+  as.character(x)
 }
 
 # Dates and times are parsed by the builder's own element-wise helpers, so the
@@ -1773,22 +1790,31 @@ report_dir <- normalizePath(report_dir, winslash = "/", mustWork = TRUE)
 # is only as good as the assumption that one run owns it. Two runs publishing at
 # once would interleave -- one deleting the other's staging, then a manifest
 # certifying the mixture -- which the write-last ordering cannot prevent because
-# it guards against interruption, not concurrency. dir.create() either creates
-# the directory or reports that it exists, atomically, so it is the lock.
-lock_candidate <- file.path(report_dir, ".orchidee_diagnostics.lock")
-if (!dir.create(lock_candidate, showWarnings = FALSE)) {
-  # Plain quit, not quit_technical(): the lock belongs to the other run, and the
-  # release helper must never be in a position to take it away. That is also why
-  # lock_dir is only bound once this run owns it -- the helper reads the name's
-  # existence as ownership.
-  message(
-    "Another diagnostics run is publishing into ", report_dir,
-    ". Wait for it to finish, or remove ", lock_candidate,
-    " if no run is in progress."
-  )
+# it guards against interruption, not concurrency. How the lock is taken, marked
+# and given up is in R/site_input_report_publication_helpers.R.
+publication_state <- orchidee_publication_state()
+lock_path <- file.path(report_dir, orchidee_diagnostics_lock_name())
+lock_outcome <- orchidee_publication_acquire(publication_state, report_dir)
+if (!identical(lock_outcome, "acquired")) {
+  # Plain quit, not quit_technical(): this run owns nothing, and the lock that
+  # is there belongs to somebody else. A lock that could not be created at all
+  # is a different problem, and telling the operator to wait for a run that does
+  # not exist would send them looking in the wrong place.
+  if (identical(lock_outcome, "held")) {
+    message(
+      "Another diagnostics run is publishing into ", report_dir,
+      ". Wait for it to finish, or remove ", lock_path,
+      " if no run is in progress."
+    )
+  } else {
+    message(
+      "The diagnostics report directory cannot be locked for writing: ",
+      lock_path, " could not be created. Check that ", report_dir,
+      " is a writable directory."
+    )
+  }
   quit(status = 2L, runLast = FALSE)
 }
-lock_dir <- lock_candidate
 
 # Remove any artifact of a previous run first: a run that stops at the schema
 # writes fewer tables, and a stale one beside fresh findings would be read as
@@ -1842,6 +1868,7 @@ if (!dir.create(staging_dir, recursive = TRUE, showWarnings = FALSE)) {
     ". The previous report was left untouched."
   )
 }
+orchidee_publication_track_staging(publication_state, staging_dir)
 
 report_lines <- c(
   "ORCHIDEE site input diagnostics",
