@@ -535,6 +535,22 @@ orchidee_handoff_ascii_lower <- function(x) {
   tolower(x)
 }
 
+# What a valid time of day looks like is written once, because two callers need
+# it: HEUREPRELEV, and the time-of-day suffix tolerated on a date. Stating it
+# twice let the two disagree. The date suffix range-checked its groups while
+# HEUREPRELEV counted digits and left the ranges to strptime, which accepts a
+# leap second and hour 24, so "09:15:60" was refused inside a date and accepted
+# as a time of day, where it silently became 09:16.
+# The fraction stays inside the seconds group for both callers, so neither
+# accepts a fractional minute.
+orchidee_handoff_clock_pattern <- function(seconds_required) {
+  seconds <- ":[0-5][0-9](\\.[0-9]+)?"
+  paste0(
+    "([01]?[0-9]|2[0-3]):[0-5][0-9]",
+    if (seconds_required) seconds else paste0("(", seconds, ")?")
+  )
+}
+
 # Each accepted text form is matched against an anchored shape before it is
 # parsed. The shapes are disjoint -- a four-digit leading group means the year
 # comes first -- so a value is read the same way whatever its neighbours look
@@ -553,8 +569,13 @@ orchidee_handoff_date_shapes <- function() {
   # otherwise "2024-03-12 25:99:99" would be accepted as a date.
   # The fraction belongs to the seconds, not to the time: outside that group it
   # would also accept a fractional minute, "09:15.123", which is not a form
-  # anyone writes and not what this tolerates.
-  time_of_day <- "([ T]([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9](\\.[0-9]+)?)?)?"
+  # anyone writes and not what this tolerates. That is a property of the shared
+  # clock shape now, so HEUREPRELEV cannot lose it either.
+  time_of_day <- paste0(
+    "([ T]",
+    orchidee_handoff_clock_pattern(seconds_required = FALSE),
+    ")?"
+  )
   list(
     list(
       pattern = paste0("^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}", time_of_day, "$"),
@@ -671,9 +692,17 @@ orchidee_handoff_parse_time_values <- function(x) {
   hh_mm <- has_value & grepl("^[0-9]{1,2}:[0-9]{2}$", padded)
   padded[hh_mm] <- paste0(padded[hh_mm], ":00")
   # Fractional seconds are allowed and ignored for the same reason as a trailing
-  # time of day on a date: unambiguous, and previously accepted.
+  # time of day on a date: unambiguous, and previously accepted. The ranges are
+  # part of the shape rather than left to strptime, which reads a leap second and
+  # hour 24 as the following minute and the following midnight -- 86400 seconds,
+  # the very value the difftime branch above refuses. Counting digits here made
+  # the same clock legal or illegal depending on whether the site sent text or a
+  # difftime, and on whether it sent it in HEUREPRELEV or after a date.
   parseable <- has_value &
-    grepl("^[0-9]{1,2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?$", padded)
+    grepl(
+      paste0("^", orchidee_handoff_clock_pattern(seconds_required = TRUE), "$"),
+      padded
+    )
   if (any(parseable)) {
     values[parseable] <- suppressWarnings(
       as.difftime(padded[parseable], format = "%H:%M:%S")
