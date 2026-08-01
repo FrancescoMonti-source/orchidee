@@ -577,9 +577,13 @@ orchidee_handoff_date_shapes <- function() {
 # while remaining two distinct values in the row grain. No documented delivery
 # produces one -- parsing text always yields a whole day -- so it is refused
 # rather than rounded away, which would silently change what the site delivered.
+# The comparison is exact because a tolerance leaves a hole its own size, and
+# every value in that hole is the case being refused: 19815 + 1e-9 is a double
+# of its own, prints as 2024-04-02, and splits the grain exactly as 19815.5
+# does. Nothing legitimate lands there -- a day number arrives as written, not
+# as the result of arithmetic that could leave a rounding residue.
 orchidee_handoff_non_whole_days <- function(days) {
-  !is.na(days) & is.finite(days) &
-    abs(days - round(days)) >= sqrt(.Machine$double.eps)
+  is.finite(days) & days != trunc(days)
 }
 
 # Returns the parsed values alongside the elements that could not be read, so a

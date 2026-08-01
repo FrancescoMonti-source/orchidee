@@ -84,6 +84,12 @@ orchidee_publication_release <- function(state) {
   if (!identical(orchidee_publication_lock_owner(lock), state$token)) {
     return(invisible(FALSE))
   }
+  # What is reported is the state of the directory, not the fact that removal
+  # was attempted: a filesystem that refuses the removal leaves a lock behind,
+  # and a release that claimed success anyway would be the one thing a caller
+  # could not check for itself. The ownership is given up either way -- retrying
+  # later is what the emptied state exists to prevent -- so a lock that survives
+  # is left to the documented procedure for one abandoned by an interrupted run.
   unlink(lock, recursive = TRUE, force = TRUE)
-  invisible(TRUE)
+  invisible(!dir.exists(lock))
 }

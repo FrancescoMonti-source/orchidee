@@ -1024,13 +1024,15 @@ release_owned <- identical(
   orchidee_publication_lock_owner(release_lock),
   release_state$token
 )
-orchidee_publication_release(release_state)
+# What the release reports is the state of the directory: a caller cannot check
+# for itself whether a lock it no longer owns is gone.
+release_reported <- orchidee_publication_release(release_state)
 release_cleared <- !dir.exists(release_lock) && !dir.exists(release_staging)
 
 # Another run takes the lock the moment the first one lets it go.
 dir.create(release_lock)
 writeLines("another-run", file.path(release_lock, "owner.txt"))
-orchidee_publication_release(release_state)
+release_second_reported <- orchidee_publication_release(release_state)
 release_second_kept <- dir.exists(release_lock)
 release_second_owner <- orchidee_publication_lock_owner(release_lock)
 
@@ -1158,6 +1160,30 @@ fractional_numeric_result <- run_case_paths(
   fractional_numeric_paths
 )
 
+# Half a day is the visible case. A fraction of 1e-9 is the same defect at the
+# size where a tolerance would have let it through: still a double of its own,
+# still 2024-04-02 on the page, still two rows in the grain. It also pins how
+# the value is quoted, since format() shows seven significant digits and would
+# report this one as the whole day number it is not.
+tiny_fraction_dir <- file.path(test_root, "tiny_fraction_inputs")
+tiny_fraction_paths <- write_blocks(tiny_fraction_dir, clean_blocks)
+tiny_fraction_observations <- clean_blocks$microbiology_observations
+tiny_fraction_observations$DATEPRELEV <- structure(
+  c(19815 + 1e-9, 19815),
+  class = "Date"
+)
+tiny_fraction_target <- file.path(
+  tiny_fraction_dir,
+  "microbiology_observations.rds"
+)
+saveRDS(tiny_fraction_observations, tiny_fraction_target)
+unlink(tiny_fraction_paths[[1L]], force = TRUE)
+tiny_fraction_paths[[1L]] <- tiny_fraction_target
+tiny_fraction_result <- run_case_paths(
+  "typed_date_tiny_fraction",
+  tiny_fraction_paths
+)
+
 # A fractional minute is not a form anyone writes; the fraction belongs to the
 # seconds.
 fractional_minute_observations <- clean_blocks$microbiology_observations
@@ -1221,7 +1247,7 @@ all_results <- list(
   missing_souche_result, conflicting_mapping_result, no_domain_result,
   bad_profile_result, typed_time_result, typed_negative_result,
   typed_date_result, fractional_minute_result, datetime_suffix_result,
-  fractional_day_result, fractional_numeric_result,
+  fractional_day_result, fractional_numeric_result, tiny_fraction_result,
   reused_pass, reused_schema_failure, manifest_pass, lock_pass
 )
 invisible(lapply(all_results, assert_pass_implies_buildable))
@@ -1555,6 +1581,25 @@ stopifnot(
     "BLOCKING"
   ),
 
+  # And a fraction below any tolerance worth writing, since the comparison is
+  # exact. The day number is quoted at the precision that distinguishes it from
+  # the whole day it prints as; anything shorter reads as a tool refusing an
+  # ordinary date.
+  identical(tiny_fraction_result$status, 1L),
+  identical(
+    severity_of(
+      tiny_fraction_result,
+      "microbiology_observations",
+      "dateprelev_format"
+    ),
+    "BLOCKING"
+  ),
+  any(grepl(
+    "day number 19815.000000001",
+    tiny_fraction_result$output,
+    fixed = TRUE
+  )),
+
   # A tolerated timestamp suffix is still validated, not counted.
   identical(impossible_time_result$status, 1L),
   identical(
@@ -1793,6 +1838,8 @@ stopifnot(
   identical(release_acquired, "acquired"),
   isTRUE(release_owned),
   isTRUE(release_cleared),
+  isTRUE(release_reported),
+  identical(release_second_reported, FALSE),
   isTRUE(release_second_kept),
   identical(release_second_owner, "another-run"),
   isTRUE(foreign_lock_kept),

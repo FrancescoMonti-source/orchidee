@@ -268,12 +268,23 @@ raw_text_of <- function(x) {
   # what makes some values unreadable: an infinite day number prints as NA and a
   # fractional one as an ordinary date. Quoting "2024-04-02" back at a site as a
   # value ORCHIDEE cannot read would read as a broken tool, so those values are
-  # reported as the day numbers they are.
+  # reported as the day numbers they are. Seventeen significant digits, because
+  # that is what round-trips a double: format() shows seven and would quote
+  # 19815 + 1e-9 back as "19815", a whole day number refused for not being one.
   if (inherits(x, "Date")) {
     days <- unclass(x)
     text <- as.character(x)
     opaque <- (is.na(text) & !is.na(days)) | orchidee_handoff_non_whole_days(days)
-    text[opaque] <- paste0("day number ", format(days[opaque], trim = TRUE))
+    text[opaque] <- paste0("day number ", sprintf("%.17g", days[opaque]))
+    return(text)
+  }
+  # The same reason one branch over. Only dates and times reach this function,
+  # so a bare numeric column here is day or second numbers, and as.character()
+  # stops at fifteen significant digits -- enough to print a day number carrying
+  # a fraction of 1e-12 as the whole day it is not.
+  if (is.numeric(x)) {
+    text <- sprintf("%.17g", x)
+    text[is.na(x)] <- NA_character_
     return(text)
   }
   as.character(x)
