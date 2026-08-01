@@ -1814,8 +1814,9 @@ if (!identical(lock_outcome, "acquired")) {
   if (identical(lock_outcome, "held")) {
     message(
       "Another diagnostics run is publishing into ", report_dir,
-      ". Wait for it to finish, or remove ", lock_path,
-      " if no run is in progress."
+      ". Wait for it to finish. Remove ", lock_path,
+      " only after establishing that no diagnostics run is still running: ",
+      "removing it under a live run is not supported."
     )
   } else {
     message(

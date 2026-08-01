@@ -1037,8 +1037,11 @@ release_second_kept <- dir.exists(release_lock)
 release_second_owner <- orchidee_publication_lock_owner(release_lock)
 
 # The token makes ownership a property of the lock rather than of what the run
-# remembers, so a lock removed by hand mid-run and retaken by somebody else is
-# still safe from the run that used to hold it.
+# remembers: a lock this run did not mark is left alone. What is pinned is that
+# check, not safety from a lock removed by hand mid-run -- reading the owner and
+# removing the directory are two operations, and a swap between them is outside
+# what a directory lock can defend. The helper says so, and the operator text
+# calls that removal unsupported rather than merely inadvisable.
 foreign_state <- orchidee_publication_state()
 foreign_state$lock <- release_lock
 orchidee_publication_release(foreign_state)

@@ -162,7 +162,11 @@ suivants :
     prend `.orchidee_diagnostics.lock`, marqué par un jeton, et un second
     diagnostic lancé entre-temps sort en 2 au lieu d'entrelacer ses fichiers.
     Un verrou laissé par une exécution tuée est nommé dans le message de refus
-    et peut être supprimé lorsqu'aucune exécution n'est en cours ;
+    et peut être supprimé une fois établi qu'aucune exécution n'est en cours.
+    Le supprimer sous une exécution vivante n'est pas supporté : le jeton
+    raccourcit la fenêtre pendant laquelle l'ancienne exécution effacerait le
+    verrou d'une nouvelle, il ne la ferme pas, et un verrou-répertoire ne peut
+    pas le garantir sans verrou système ;
 -   `-EmitTemplates` produit les six en-têtes et `mapping_reference/`, sans
     effectuer le mapping local ;
 -   le wrapper conserve v3, matérialise et smoke le v2 opérationnel, puis écrit

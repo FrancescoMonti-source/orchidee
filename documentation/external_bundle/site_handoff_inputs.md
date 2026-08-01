@@ -455,8 +455,15 @@ One run publishes into a report directory at a time. A run takes
 `.orchidee_diagnostics.lock` there and releases it when it is done; a second run
 started against the same directory meanwhile is refused with exit status 2
 rather than interleaving its files with the first one's. If a run is killed the
-lock stays behind: the refusal message names it, and it is safe to delete once
-no run is in progress.
+lock stays behind: the refusal message names it, and it can be deleted once you
+have established that no diagnostics run is still running.
+
+Establishing that is your part of the contract, not a formality. Deleting the
+lock while its run is alive is not supported: the run that owns it may then
+remove the lock a later run has taken, and two runs would publish into the
+directory at once. The lock is a directory, and no portable operation removes
+one only while it is still ours, so this is a boundary rather than something the
+command defends against.
 
 `-Diagnose` answers one question: do the six blocks satisfy the handoff
 contract? It does not predict which indicators the report will publish.

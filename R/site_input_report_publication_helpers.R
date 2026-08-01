@@ -14,9 +14,8 @@ orchidee_diagnostics_lock_name <- function() {
 orchidee_publication_state <- function() {
   state <- new.env(parent = emptyenv())
   # Ownership is written into the lock, not merely remembered by the run that
-  # took it. The refusal message tells an operator to remove a stale lock by
-  # hand; if they do so while its run is alive, the next run takes the lock and
-  # ours would otherwise remove it on the way out.
+  # took it, so a run that meets a lock it never marked leaves it alone. What
+  # that buys is a shorter interval, not a guarantee -- see the release below.
   state$token <- paste0(Sys.getpid(), "-", basename(tempfile("")))
   state$lock <- NULL
   state$staging <- NULL
@@ -68,8 +67,20 @@ orchidee_publication_track_staging <- function(state, staging_dir) {
 
 # A release is final: each path leaves the state before it is unlinked, so a
 # second release has nothing to act on and cannot reach a lock another run has
-# taken in the meantime. The token is verified for the same reason, one step
-# further out -- a lock this run did not mark is somebody else's.
+# taken in the meantime. That much the release settles on its own.
+#
+# The token settles less, and the boundary is worth stating rather than
+# implying. Reading the owner and removing the directory are two operations, so
+# a lock replaced between them is still removed by the wrong run; the same gap
+# exists on the way in, between creating the lock and marking it. Both need the
+# same thing to happen first -- somebody removing a lock while its run is alive
+# -- which is why that is documented as unsupported instead of defended against.
+# Defending against it needs a lock the operating system holds: a directory
+# anyone may delete cannot make "remove this only while it is still mine" a
+# single operation, and no base-R call does it either. The token stays because
+# it shortens the exposure from the length of a publication to the length of two
+# filesystem calls, which is the difference between a likely accident and an
+# unlucky one.
 orchidee_publication_release <- function(state) {
   staging <- state$staging
   state$staging <- NULL
