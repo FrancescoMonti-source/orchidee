@@ -186,7 +186,7 @@ Optional columns:
 | Column | Meaning |
 | --- | --- |
 | `EVTID` | Hospital stay / encounter identifier, if available. When present on every row of a `PATID + ELTID` group, it keeps reused sample identifiers separate during screening exclusion. |
-| `HEUREPRELEV` | Sample time, `HH:MM` or `HH:MM:SS`. |
+| `HEUREPRELEV` | Sample time, `HH:MM` or `HH:MM:SS`, and it must be a real time of day — the same rule applied to a time of day trailing `DATEPRELEV`. A leap second and hour 24 are refused rather than rolled forward into the next minute or the next midnight. In a typed `.rds` the column may be a `difftime` or a number of seconds, which must fall inside the day for the same reason. |
 | `souche_id` or `isolate_local_id` | Local isolate identifier when the lab distinguishes several isolates for the same sample. |
 | `blse_status_row` or `blse_status` | Optional BLSE status: `positive`, `negative`, `unknown`, `no_signal`. |
 | `carbapenemase_status_row` or `carbapenemase_status` | Optional carbapenemase status: `positive`, `negative`, `unknown`, `no_signal`. |

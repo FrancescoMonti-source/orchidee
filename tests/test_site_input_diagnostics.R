@@ -112,6 +112,16 @@ severity_of <- function(result, block, check) {
   if (length(matched) == 0L) NA_character_ else matched[[1L]]
 }
 
+# A severity alone does not say a finding is usable. Where a check exists to name
+# the offending values, the assertion has to read what it actually named.
+detail_of <- function(result, block, check) {
+  if (is.null(result$findings)) return(NA_character_)
+  matched <- result$findings$detail[
+    result$findings$block == block & result$findings$check == check
+  ]
+  if (length(matched) == 0L) NA_character_ else matched[[1L]]
+}
+
 blocking_checks <- function(result) {
   if (is.null(result$findings)) return(character())
   sort(paste0(
@@ -575,6 +585,19 @@ impossible_time_observations$DATEPRELEV <- c(
 impossible_time_result <- run_case(
   "impossible_timestamp_suffix",
   with_blocks(microbiology_observations = impossible_time_observations)
+)
+
+# The same clock has to read the same way wherever it arrives. HEUREPRELEV
+# counted digits and left the ranges to strptime, which takes a leap second as
+# the next minute and hour 24 as the next midnight, so "09:15:60" was refused
+# above as a suffix on a date and accepted here as 09:16. "24:00:00" was worse
+# than inconsistent: it parsed to 86400 seconds, the value the difftime branch
+# of the same function already refuses as outside a day.
+out_of_range_time_observations <- clean_blocks$microbiology_observations
+out_of_range_time_observations$HEUREPRELEV <- c("09:15:60", "24:00:00")
+out_of_range_time_result <- run_case(
+  "out_of_range_time",
+  with_blocks(microbiology_observations = out_of_range_time_observations)
 )
 
 # The tolerated suffix has a positive half, and it is the half the decision was
@@ -1245,6 +1268,7 @@ all_results <- list(
   many_unmapped_uf_result, blank_target_collision_result,
   independent_exposure_result, independent_date_result, mixed_date_result,
   french_date_result, trailing_time_result, impossible_time_result,
+  out_of_range_time_result,
   unreadable_result, not_a_table_result, duplicate_column_result,
   two_scope_result, scope_values_result, all_screening_result,
   missing_souche_result, conflicting_mapping_result, no_domain_result,
@@ -1612,6 +1636,38 @@ stopifnot(
       "dateprelev_format"
     ),
     "BLOCKING"
+  ),
+
+  # A time of day is range-checked wherever it appears, so the two paths cannot
+  # disagree about what a valid clock reads. Both values are named: a site
+  # correcting an export needs to see which ones, and "24:00:00" in particular
+  # used to parse to a quantity the same function refuses as a difftime.
+  identical(out_of_range_time_result$status, 1L),
+  identical(
+    severity_of(
+      out_of_range_time_result,
+      "microbiology_observations",
+      "heureprelev_format"
+    ),
+    "BLOCKING"
+  ),
+  grepl(
+    "09:15:60",
+    detail_of(
+      out_of_range_time_result,
+      "microbiology_observations",
+      "heureprelev_format"
+    ),
+    fixed = TRUE
+  ),
+  grepl(
+    "24:00:00",
+    detail_of(
+      out_of_range_time_result,
+      "microbiology_observations",
+      "heureprelev_format"
+    ),
+    fixed = TRUE
   ),
 
   # Trailing characters on a time are reported rather than silently dropped.
