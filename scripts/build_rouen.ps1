@@ -183,7 +183,6 @@ $rArgs = @(
   $bactPath
   $pmsiPath
   $outputPath
-  '--contract=v3'
   "--operational-v2-output=$operationalV2Path"
 )
 if ($Force) {

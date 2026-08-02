@@ -248,9 +248,8 @@ La provenance méthodologique et les documents privés sont distingués dans
 Il restitue les résultats publiés du noyau actuellement disponible et ne reprend pas les audits détaillés
 de qualité, de périmètre ou de validation, qui restent dans les artefacts du
 runtime et les documents méthodologiques.
-La méthode détaillée, les conventions ORCHIDEE et les choix d'implémentation
-sont décrits dans
-[`documentation/ratb_implementation_decisions.qmd`](documentation/ratb_implementation_decisions.qmd).
+La méthode détaillée et les conventions ORCHIDEE sont décrites dans
+[`documentation/ratb_methodology.qmd`](documentation/ratb_methodology.qmd).
 
 **Source opérationnelle :** `r operational_runtime$input_source`.
 

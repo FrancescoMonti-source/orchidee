@@ -22,17 +22,13 @@ setwd(project_root)
 args <- commandArgs(trailingOnly = TRUE)
 force <- "--force" %in% args
 suppress_next_steps <- "--no-next-steps" %in% args
-contract_args <- grep("^--contract=", args, value = TRUE)
-if (length(contract_args) > 1L) {
-  stop("Pass at most one --contract option.", call. = FALSE)
-}
-contract_version <- if (length(contract_args) == 0L) {
-  NA_character_
-} else {
-  sub("^--contract=", "", contract_args[[1L]])
-}
-if (!is.na(contract_version) && !contract_version %in% c("v2", "v3")) {
-  stop("--contract must be v2 or v3.", call. = FALSE)
+retired_contract_args <- grep("^--contract=", args, value = TRUE)
+if (length(retired_contract_args) > 0L) {
+  stop(
+    "This builder always constructs the complete v3 contract. Remove ",
+    "--contract=...; direct v2 construction is retired.",
+    call. = FALSE
+  )
 }
 operational_v2_args <- grep(
   "^--operational-v2-output=",
@@ -50,12 +46,9 @@ operational_v2_output <- if (length(operational_v2_args) == 0L) {
 if (!is.na(operational_v2_output) && !nzchar(operational_v2_output)) {
   stop("--operational-v2-output requires a directory.", call. = FALSE)
 }
-if (!is.na(operational_v2_output) && !identical(contract_version, "v3")) {
-  stop("--operational-v2-output is only available with --contract=v3.", call. = FALSE)
-}
 args <- setdiff(
   args,
-  c("--force", "--no-next-steps", contract_args, operational_v2_args)
+  c("--force", "--no-next-steps", operational_v2_args)
 )
 
 if (length(args) == 8L) {
@@ -77,7 +70,7 @@ if (length(args) != 7L || "--help" %in% args || "-h" %in% args) {
     "    <unit_mapping.{rds,csv,tsv,tab,txt}> `\n",
     "    <denominator.{rds,csv,tsv,tab,txt}> `\n",
     "    <output_bundle_dir> `\n",
-    "    --contract=v2|v3 [--operational-v2-output=<dir>] [--force] ",
+    "    [--operational-v2-output=<dir>] [--force] ",
     "[--no-next-steps]\n\n",
     "Inputs:\n",
     "  microbiology_observations: long local S/I/R observations with the\n",
@@ -87,11 +80,10 @@ if (length(args) != 7L || "--help" %in% args || "-h" %in% args) {
     "  antibiotic_mapping: antibiotic_local + atb_norm.\n",
     "  unit_mapping: one row per SEJUF with CODE_TA, CODE_DE and\n",
     "    de_domain_ref directly in this block.\n",
-    "  denominator: v2 uses calendar_year + hospital_nights; v3 uses\n",
-    "    year + UM + UF + TA + DE + domain + profile + exposure + unit.\n",
-    "  --contract=v2: declare SEJUF as the hospitalization unit at sampling.\n",
-    "  --contract=v3: keep v2 SEJUF semantics and require profiled exposure;\n",
-    "    unit_mapping must contain CODE_TA, CODE_DE and de_domain_ref.\n",
+    "  incidence exposure: calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE +\n",
+    "    de_domain_ref + denominator_profile_id + exposure_value + exposure_unit.\n",
+    "  This builder always constructs the complete v3 contract; unit_mapping\n",
+    "    must contain CODE_TA, CODE_DE and de_domain_ref.\n",
     "  --operational-v2-output: validate v3, then materialize its closed\n",
     "    spares_current projection as a separate operational v2 bundle.\n",
     "  --no-next-steps: suppress copyable commands when a higher-level\n",
@@ -100,10 +92,6 @@ if (length(args) != 7L || "--help" %in% args || "-h" %in% args) {
   )
   quit(status = if (length(args) == 0L || "--help" %in% args || "-h" %in% args) 0L else 1L)
 }
-if (is.na(contract_version)) {
-  stop("Pass --contract=v2 or --contract=v3.", call. = FALSE)
-}
-
 microbiology_path <- args[[1L]]
 bacteria_mapping_path <- args[[2L]]
 sample_type_mapping_path <- args[[3L]]
@@ -276,11 +264,7 @@ orchidee_source_required_script("ratb_hospital_days_helpers.R")
 orchidee_source_required_script("external_handoff_helpers.R")
 orchidee_source_required_script("ratb_canonical_runtime_helpers.R")
 
-contract <- switch(
-  contract_version,
-  v2 = orchidee_external_contract_v2(),
-  v3 = orchidee_external_contract_v3()
-)
+contract <- orchidee_external_contract_v3()
 
 microbiology_observations <- orchidee_handoff_read_table(microbiology_path)
 bacteria_mapping <- orchidee_handoff_read_table(bacteria_mapping_path)
@@ -295,19 +279,9 @@ bundle <- orchidee_handoff_build_external_bundle_from_site_inputs(
   sample_type_mapping = sample_type_mapping,
   antibiotic_mapping = antibiotic_mapping,
   unit_mapping = unit_mapping,
-  denominator_by_year = if (identical(contract_version, "v3")) {
-    NULL
-  } else {
-    denominator_input
-  },
+  denominator_by_year = NULL,
   contract = contract,
-  incidence_exposure_by_year_um_uf_ta_de_profile = if (
-    identical(contract_version, "v3")
-  ) {
-    denominator_input
-  } else {
-    NULL
-  }
+  incidence_exposure_by_year_um_uf_ta_de_profile = denominator_input
 )
 
 run_canonical_runtime_smoke <- function(bundle, label) {
@@ -562,11 +536,7 @@ build_result <- tryCatch({
 
   source_manifest <- publish_staged_bundle(
     staged = staged_source,
-    role = if (is.na(operational_v2_output)) {
-      "direct_bundle"
-    } else {
-      "durable_v3"
-    },
+    role = "durable_v3",
     build_id = build_id,
     related_bundle_dir = operational_v2_output,
     overwrite = force
@@ -648,12 +618,10 @@ if (!is.na(operational_v2_output)) {
     "\n",
     sep = ""
   )
-  if (identical(contract$version, "v3")) {
-    cat(
-      "The current notebooks do not read v3 directly. To create their v2 ",
-      "input, re-run with --operational-v2-output=<directory> and either a ",
-      "new v3 output directory or, after review, --force.\n",
-      sep = ""
-    )
-  }
+  cat(
+    "The current notebooks do not read v3 directly. To create their v2 ",
+    "input, re-run with --operational-v2-output=<directory> and either a ",
+    "new v3 output directory or, after review, --force.\n",
+    sep = ""
+  )
 }

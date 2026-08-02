@@ -148,14 +148,11 @@ denominator needed by today's runtime.
 
 Both outputs declare the same semantic rule: `SEJUF` in microbiology is the
 hospitalization UF active at sampling. The site adapter must establish that
-attribution before handoff; v2 or v3 is a semantic claim, not only a metadata
-switch. See `sir_wide.md`.
+attribution before handoff. See `sir_wide.md`.
 
-The builder also accepts an explicit direct v2 input with
-`denominator_by_year`, but no contract is inferred when `--contract` is
-omitted. Nothing here changes the runtime contract: v3 is retained for future
-use and does not by itself publish stratified indicators. Its exact schema is
-in `denominator_bundle_v3.md`.
+Nothing here changes the runtime contract: v3 is retained for future use and
+does not by itself publish stratified indicators. Its exact schema is in
+`denominator_bundle_v3.md`.
 
 ## Block 1: microbiology_observations
 
@@ -545,29 +542,6 @@ $workspace = Join-Path (Get-Location) "outputs/site_current/runtime"
 The wrapper prints this command with the exact resolved paths at the end of the
 build. The `full` render calculates the operational indicators and writes its
 caches and report exports under the selected private workspace.
-
-### Explicit direct v2 path
-
-For maintenance and comparison, the builder accepts `denominator_by_year` as
-block 6 under v2. `unit_mapping` still provides `CODE_TA`, `CODE_DE` and
-`de_domain_ref` directly; there is no seventh reference block. The explicit
-command is:
-
-```powershell
-& .\scripts\run_r.ps1 scripts/build_external_bundle_from_site_inputs.R `
-  inputs/microbiology_observations.csv `
-  inputs/bacteria_mapping.csv `
-  inputs/sample_type_mapping.csv `
-  inputs/antibiotic_mapping.csv `
-  inputs/unit_mapping.csv `
-  inputs/denominator_by_year.csv `
-  outputs/site_bundle_v2 `
-  --contract=v2
-```
-
-This path does not infer hospitalization-unit attribution and cannot recover
-v3 detail from an annual denominator. It is a maintainer-only comparison path,
-not the preferred onboarding path.
 
 ## If validation fails
 

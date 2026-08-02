@@ -15,8 +15,8 @@ cliniques locales.
 
 - `documentation/ratb_indicator_spec.csv` définit le catalogue publié des
   indicateurs.
-- `documentation/ratb_implementation_decisions.qmd` décrit les conventions
-  méthodologiques effectivement implémentées.
+- `documentation/ratb_methodology.qmd` décrit la méthode analytique appliquée
+  aux indicateurs publiés.
 - `documentation/external_bundle/` définit la frontière entre les adaptations
   locales et les bundles canoniques.
 - `ref/consores/` contient les catalogues TA/DE partagés.

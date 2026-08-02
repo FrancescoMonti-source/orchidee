@@ -119,17 +119,13 @@ setwd(project_root)
 args <- commandArgs(trailingOnly = TRUE)
 force <- "--force" %in% args
 help <- any(args %in% c("-h", "--help"))
-contract_args <- grep("^--contract=", args, value = TRUE)
-if (length(contract_args) > 1L) {
-  stop("Pass at most one --contract option.", call. = FALSE)
-}
-contract_version <- if (length(contract_args) == 0L) {
-  NA_character_
-} else {
-  sub("^--contract=", "", contract_args[[1L]])
-}
-if (!is.na(contract_version) && !contract_version %in% c("v2", "v3")) {
-  stop("--contract must be v2 or v3 for the Rouen adapter.", call. = FALSE)
+retired_contract_args <- grep("^--contract=", args, value = TRUE)
+if (length(retired_contract_args) > 0L) {
+  stop(
+    "This builder always constructs the complete v3 contract. Remove ",
+    "--contract=...; direct v2 construction is retired.",
+    call. = FALSE
+  )
 }
 operational_v2_args <- grep(
   "^--operational-v2-output=",
@@ -147,43 +143,35 @@ operational_v2_output <- if (length(operational_v2_args) == 0L) {
 if (!is.na(operational_v2_output) && !nzchar(operational_v2_output)) {
   stop("--operational-v2-output requires a directory.", call. = FALSE)
 }
-if (!is.na(operational_v2_output) && !identical(contract_version, "v3")) {
-  stop("--operational-v2-output is only available with --contract=v3.", call. = FALSE)
-}
 args <- setdiff(
   args,
-  c("--force", "-h", "--help", contract_args, operational_v2_args)
+  c("--force", "-h", "--help", operational_v2_args)
 )
 if (help || length(args) != 3L) {
   cat(
     "Usage (PowerShell):\n",
     "  & .\\scripts\\run_r.ps1 scripts/build_rouen_external_bundle.R `\n",
     "    <bact_path> <pmsi_path> <output_dir> `\n",
-    "    --contract=v2|v3 [--operational-v2-output=<dir>] [--force]\n\n",
+    "    [--operational-v2-output=<dir>] [--force]\n\n",
     "Inputs:\n",
     "  bact_path: long Rouen bacteriology RDS export.\n",
     "  pmsi_path: redsan RDS output containing pmsi$main.\n",
     "Output:\n",
-    "  site_inputs/: the six explicit handoff tables for the selected contract.\n",
-    "  bundle/: a direct compatibility build without projection.\n",
+    "  site_inputs/: the six explicit v3 handoff tables.\n",
+    "  bundle/: a durable v3 build without operational projection.\n",
     "  bundle_v3/: the durable v3 bundle when projection is requested.\n",
-    "  --operational-v2-output: with v3, materialize the closed\n",
+    "  --operational-v2-output: materialize the closed\n",
     "    spares_current projection for today's runtime.\n",
     "  adapter_audit.rds: local audit; it may contain patient identifiers.\n",
     "  build_manifest.txt: human-readable paths, hashes and validation status.\n",
     "References:\n",
     "  Versioned Rouen and TA/DE references are loaded automatically.\n",
     "  Set ORCHIDEE_ROUEN_STRUCTURE_PATH only to override the structure workbook.\n",
-    "--contract is required. Preferred Rouen onboarding uses v3 with\n",
-    "  --operational-v2-output.\n",
+    "The preferred Rouen onboarding materializes the operational v2 projection.\n",
     sep = ""
   )
   quit(status = if (help) 0L else 1L)
 }
-if (is.na(contract_version)) {
-  stop("Pass --contract=v2 or --contract=v3.", call. = FALSE)
-}
-
 bacteriology_path <- args[[1L]]
 pmsi_path <- args[[2L]]
 output_dir <- args[[3L]]
@@ -200,11 +188,7 @@ site_input_names <- c(
   "sample_type_mapping",
   "antibiotic_mapping",
   "unit_mapping",
-  if (identical(contract_version, "v3")) {
-    "incidence_exposure_by_year_um_uf_ta_de_profile"
-  } else {
-    "denominator_by_year"
-  }
+  "incidence_exposure_by_year_um_uf_ta_de_profile"
 )
 bundle_object_names <- c(
   "sir_wide",
@@ -270,14 +254,6 @@ incompatible_paths <- if (!is.na(operational_v2_output)) {
   c(
     file.path(output_dir, "bundle"),
     file.path(site_input_dir, "denominator_by_year.rds")
-  )
-} else if (identical(contract_version, "v2")) {
-  c(
-    file.path(output_dir, "bundle_v3"),
-    file.path(
-      site_input_dir,
-      "incidence_exposure_by_year_um_uf_ta_de_profile.rds"
-    )
   )
 } else {
   c(
@@ -464,11 +440,7 @@ pmsi_handoff <- build_rouen_pmsi_handoff(
   target_start = config$target_start,
   target_end_exclusive = config$target_end_exclusive
 )
-contract <- switch(
-  contract_version,
-  v2 = orchidee_external_contract_v2(),
-  v3 = orchidee_external_contract_v3()
-)
+contract <- orchidee_external_contract_v3()
 result <- compose_rouen_external_bundle(
   microbiology_handoff = microbiology_handoff,
   pmsi_handoff = pmsi_handoff,
@@ -497,7 +469,7 @@ runtime_validation <- validate_ratb_canonical_runtime_inputs(
 )
 if (!isTRUE(runtime_validation$ok)) {
   stop(
-    "Rouen ", contract_version,
+    "Rouen v3",
     " bundle failed the canonical runtime smoke: ",
     paste(runtime_validation$errors, collapse = " | "),
     call. = FALSE
@@ -582,7 +554,7 @@ if (!is.null(operational_v2_bundle)) {
 audit <- result$audit
 audit$metadata <- list(
   adapter_id = config$adapter_id,
-  contract_version = contract_version,
+  contract_version = "v3",
   redsan_version = as.character(utils::packageVersion("redsan")),
   repository_head = if (length(repository_state$head) == 1L) {
     repository_state$head
@@ -669,7 +641,7 @@ manifest_metadata <- c(
   repository_working_tree_dirty = audit$metadata$repository_working_tree_dirty,
   adapter_id = audit$metadata$adapter_id,
   redsan_version = audit$metadata$redsan_version,
-  source_contract = contract_version,
+  source_contract = "v3",
   target_start = as.character(audit$metadata$target_start),
   target_end_exclusive = as.character(audit$metadata$target_end_exclusive),
   pmsi_source_policy = audit$metadata$pmsi_source_policy,
@@ -728,7 +700,7 @@ if (!file.rename(manifest_tmp_path, manifest_path)) {
 
 cat(
   "PASS: built Rouen six-input handoff and canonical ",
-  contract_version,
+  "v3",
   " bundle.\n",
   sep = ""
 )

@@ -570,7 +570,6 @@ $builderArgs = @(
   $builder
 ) + $inputPaths + @(
   $bundleV3Path
-  '--contract=v3'
   "--operational-v2-output=$bundleV2Path"
   '--no-next-steps'
 )

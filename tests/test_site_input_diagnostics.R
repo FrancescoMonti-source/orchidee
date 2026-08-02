@@ -145,7 +145,6 @@ assert_pass_implies_buildable <- function(result) {
     c(
       result$input_paths,
       file.path(bundle_dir, "bundle_v3"),
-      "--contract=v3",
       paste0(
         "--operational-v2-output=",
         file.path(bundle_dir, "bundle_v2_operational")

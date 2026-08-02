@@ -17,7 +17,7 @@ Before substantial work, read:
 3. `documentation/maintenance_runbook.md`
 
 For analytical or methodological changes, also consult
-`documentation/ratb_implementation_decisions.qmd` and
+`documentation/ratb_methodology.qmd` and
 `documentation/ratb_indicator_spec.csv` as relevant.
 
 ## Repository Conventions
@@ -81,7 +81,7 @@ Notes:
 ## Rendering And Verification
 
 - Use `scripts/render_orchidee.ps1` for routine renders.
-- Available targets are `memo`, `docs`, `indicators`, and `full`.
+- Available targets are `memo`, `indicators`, and `full`.
 - Use `full` after changes to upstream pipeline, raw deduplication, perimeter,
   denominator, or indicator logic; it builds the canonical raw cache and then
   renders the indicator report.

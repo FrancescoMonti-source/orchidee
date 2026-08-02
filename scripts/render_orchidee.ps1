@@ -8,7 +8,7 @@ needed by the selected target, then runs the smallest corresponding render.
 Data-bearing targets display the effective bundle and workspace before work.
 
 .PARAMETER Target
-Render target: memo, indicators or full. Docs is retained as an alias for memo.
+Render target: memo, indicators or full.
 Full rebuilds the canonical raw runtime before rendering the indicator report.
 
 .PARAMETER Bundle
@@ -36,7 +36,7 @@ commands without building the runtime or rendering documents.
 
 [CmdletBinding()]
 param(
-  [ValidateSet('memo','docs','indicators','full')]
+  [ValidateSet('memo','indicators','full')]
   [string]$Target = 'memo',
 
   [string]$Bundle,
@@ -164,14 +164,7 @@ try {
 
   $targets = switch ($Target) {
     'memo' {
-      @('documentation/ratb_implementation_decisions.qmd')
-    }
-    'docs' {
-      Write-Warning (
-        "Target 'docs' is a compatibility alias for 'memo'; only one " +
-        'methodological document remains active.'
-      )
-      @('documentation/ratb_implementation_decisions.qmd')
+      @('documentation/ratb_methodology.qmd')
     }
     'indicators' {
       @('orchidee_ratb_indicators.qmd')

@@ -19,7 +19,6 @@ Utiliser le wrapper plutôt que des commandes de rendu ad hoc :
 Cibles disponibles :
 
 -   `memo`
--   `docs`, alias de compatibilité de `memo`
 -   `indicators`
 -   `full`
 
@@ -229,8 +228,7 @@ doit rester visible dans les métadonnées d'audit.
 Le script valide strictement v3 et v2 puis exécute le smoke du runtime sur les
 deux. La projection applique `spares_current` et doit redériver exactement le
 total annuel v2. Le runtime reste strictement sur v2 : cette commande conserve
-v3 sans l'adopter comme entrée des notebooks. Le build direct
-`--contract=v2` reste disponible comme chemin direct explicite.
+v3 sans l'adopter comme entrée des notebooks.
 
 ## Exécution opérationnelle sur un bundle v2
 
@@ -310,21 +308,12 @@ Pour les cibles qui consomment les données, les exemples ci-dessous nomment la
 sortie Rouen par défaut. Adapter les deux chemins si le build utilisait un autre
 `-Output` ; ne pas les omettre.
 
-### Si seul le mémo a changé
+### Si seule la méthodologie a changé
 
 Commande :
 
 ```powershell
 & .\scripts\render_orchidee.ps1 -Target memo
-```
-
-### Alias de compatibilité `docs`
-
-Il ne reste qu'un document méthodologique actif. `docs` est conservé comme
-alias explicite de `memo` et émet un avertissement :
-
-```powershell
-& .\scripts\render_orchidee.ps1 -Target docs
 ```
 
 ### Si seule la couche d'affichage du rapport d'indicateurs a changé

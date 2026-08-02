@@ -517,7 +517,6 @@ run_golden_cli <- function(
     shQuote(cli_bacteriology_path),
     shQuote(cli_pmsi_path),
     shQuote(output_dir),
-    "--contract=v3",
     shQuote(paste0("--operational-v2-output=", operational_v2_dir))
   )
   if (isTRUE(force)) cli_args <- c(cli_args, "--force")
@@ -554,50 +553,19 @@ if (!identical(cli_force_status, 0L)) {
     call. = FALSE
   )
 }
-cli_direct_v2_dir <- file.path(cli_root, "direct_v2")
-Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = structure_fixture_path)
-cli_direct_v2_output <- system2(
+cli_retired_v2_output <- suppressWarnings(system2(
   rscript,
   c(
     "--no-save",
     "--no-restore",
     shQuote("scripts/build_rouen_external_bundle.R"),
-    shQuote(cli_bacteriology_path),
-    shQuote(cli_pmsi_path),
-    shQuote(cli_direct_v2_dir),
     "--contract=v2"
   ),
   stdout = TRUE,
   stderr = TRUE
-)
-if (is.na(previous_structure_path)) {
-  Sys.unsetenv("ORCHIDEE_ROUEN_STRUCTURE_PATH")
-} else {
-  Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = previous_structure_path)
-}
-cli_direct_v2_status <- attr(cli_direct_v2_output, "status")
-if (is.null(cli_direct_v2_status)) cli_direct_v2_status <- 0L
-if (!identical(cli_direct_v2_status, 0L)) {
-  stop(
-    "Synthetic Rouen direct-v2 CLI failed:\n",
-    paste(cli_direct_v2_output, collapse = "\n"),
-    call. = FALSE
-  )
-}
-cli_direct_v2_files_exist <- all(file.exists(c(
-  file.path(
-    cli_direct_v2_dir,
-    "site_inputs",
-    paste0(names(composed$site_inputs), ".rds")
-  ),
-  file.path(
-    cli_direct_v2_dir,
-    "bundle",
-    paste0(names(composed$bundle), ".rds")
-  ),
-  file.path(cli_direct_v2_dir, "adapter_audit.rds"),
-  file.path(cli_direct_v2_dir, "build_manifest.txt")
-)))
+))
+cli_retired_v2_status <- attr(cli_retired_v2_output, "status")
+if (is.null(cli_retired_v2_status)) cli_retired_v2_status <- 0L
 cli_lock_path <- paste0(cli_output_dir, ".rouen-build.lock")
 dir.create(cli_lock_path)
 writeLines("pid: synthetic-test-owner", file.path(cli_lock_path, "owner.txt"))
@@ -668,14 +636,18 @@ cli_manifest_expected <- c(
 unlink(cli_root, recursive = TRUE)
 
 # Why: protects the Rouen onboarding CLI contract: one synthetic raw run must
-# materialize the named v3/v2 layout, preserve the explicit direct-v2 path,
+# materialize the named v3/v2 layout, reject the retired direct-v2 option,
 # finish all requested gates and leave a provenance manifest; a concurrent
 # writer must fail before touching it.
 stopifnot(
   identical(cli_status, 0L),
   identical(cli_force_status, 0L),
-  identical(cli_direct_v2_status, 0L),
-  cli_direct_v2_files_exist,
+  !identical(cli_retired_v2_status, 0L),
+  any(grepl(
+    "direct v2 construction is retired",
+    cli_retired_v2_output,
+    fixed = TRUE
+  )),
   !identical(cli_locked_status, 0L),
   any(grepl("holds the output lock", cli_locked_output, fixed = TRUE)),
   cli_files_exist,

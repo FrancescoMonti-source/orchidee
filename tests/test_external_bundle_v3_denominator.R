@@ -276,7 +276,6 @@ cli_output <- system2(
     shQuote("scripts/build_external_bundle_from_site_inputs.R"),
     shQuote(unname(cli_block_paths)),
     shQuote(cli_v3_dir),
-    "--contract=v3",
     shQuote(paste0("--operational-v2-output=", cli_v2_dir))
   ),
   stdout = TRUE,
@@ -353,7 +352,6 @@ cli_invalid_output <- suppressWarnings(
       shQuote("scripts/build_external_bundle_from_site_inputs.R"),
       shQuote(unname(cli_invalid_block_paths)),
       shQuote(cli_invalid_v3_dir),
-      "--contract=v3",
       shQuote(paste0("--operational-v2-output=", cli_invalid_v2_dir))
     ),
     stdout = TRUE,
@@ -371,7 +369,6 @@ cli_invalid_force_output <- suppressWarnings(
       shQuote("scripts/build_external_bundle_from_site_inputs.R"),
       shQuote(unname(cli_invalid_block_paths)),
       shQuote(cli_v3_dir),
-      "--contract=v3",
       shQuote(paste0("--operational-v2-output=", cli_v2_dir)),
       "--force"
     ),
@@ -435,8 +432,7 @@ cli_seventh_block_output <- suppressWarnings(
       shQuote("scripts/build_external_bundle_from_site_inputs.R"),
       shQuote(unname(cli_block_paths)),
       shQuote(file.path(cli_root, "invalid_v3")),
-      shQuote(cli_de_reference_path),
-      "--contract=v3"
+      shQuote(cli_de_reference_path)
     ),
     stdout = TRUE,
     stderr = TRUE
@@ -458,7 +454,6 @@ cli_colliding_output <- suppressWarnings(
       shQuote("scripts/build_external_bundle_from_site_inputs.R"),
       shQuote(unname(cli_block_paths)),
       shQuote(cli_v3_dir),
-      "--contract=v3",
       shQuote(paste0("--operational-v2-output=", cli_colliding_v2_dir)),
       "--force"
     ),
@@ -468,6 +463,21 @@ cli_colliding_output <- suppressWarnings(
 )
 cli_colliding_status <- attr(cli_colliding_output, "status")
 if (is.null(cli_colliding_status)) cli_colliding_status <- 0L
+cli_retired_v2_output <- suppressWarnings(
+  system2(
+    rscript,
+    c(
+      "--no-save",
+      "--no-restore",
+      shQuote("scripts/build_external_bundle_from_site_inputs.R"),
+      "--contract=v2"
+    ),
+    stdout = TRUE,
+    stderr = TRUE
+  )
+)
+cli_retired_v2_status <- attr(cli_retired_v2_output, "status")
+if (is.null(cli_retired_v2_status)) cli_retired_v2_status <- 0L
 cli_v2_path_normalized <- normalizePath(
   cli_v2_dir,
   winslash = "/",
@@ -608,6 +618,12 @@ stopifnot(
     cli_seventh_block_output
   )),
   !identical(cli_colliding_status, 0L),
+  !identical(cli_retired_v2_status, 0L),
+  any(grepl(
+    "direct v2 construction is retired",
+    cli_retired_v2_output,
+    fixed = TRUE
+  )),
   any(grepl(
     "must differ from output_bundle_dir",
     cli_colliding_output

@@ -3,18 +3,17 @@
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 1L || !args[[1L]] %in% c(
   "memo",
-  "docs",
   "indicators",
   "full"
 )) {
   stop(
-    "Usage: check_render_environment.R memo|docs|indicators|full",
+    "Usage: check_render_environment.R memo|indicators|full",
     call. = FALSE
   )
 }
 target <- args[[1L]]
 
-required_packages <- if (target %in% c("memo", "docs")) {
+required_packages <- if (target == "memo") {
   c("knitr", "rmarkdown")
 } else {
   c(
