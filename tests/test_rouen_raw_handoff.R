@@ -37,6 +37,42 @@ supported_pairs <- readr::read_csv(
   "rules/couples_species_atb.csv",
   show_col_types = FALSE
 )
+
+# Why: these Rouen labels look similar but encode a different molecule,
+# breakpoint or local analysis method. Pattern order must keep the intended
+# RATB reading and make every provisional alternative auditable outside the
+# closed panel.
+antibiotic_mapping_sentinel <- normalise_atb(
+  data.frame(
+    LBLANA = c(
+      "CLAVENTIN",
+      "AUGMENTIN CYSTITE",
+      "AUGMENTIN",
+      "AUGMENTIN AUTRES CONTEXTES",
+      "PIPERA TAZO",
+      "PIPERACILLINE+TAZOBACTAM"
+    ),
+    LBLRES = "SIR",
+    stringsAsFactors = FALSE
+  ),
+  antibiotic_rules
+)
+expected_antibiotic_targets <- c(
+  "ticarcilline_acide_clavulanique",
+  "amoxicilline_acide_clavulanique_cystite",
+  "amoxicilline_acide_clavulanique",
+  "amoxicilline_acide_clavulanique",
+  "piperacilline_tazobactam_ppt85",
+  "piperacilline_tazobactam"
+)
+stopifnot(
+  identical(antibiotic_mapping_sentinel$atb_norm, expected_antibiotic_targets),
+  !any(expected_antibiotic_targets[c(1L, 2L, 5L)] %in%
+    supported_pairs$atb_norm),
+  all(expected_antibiotic_targets[c(3L, 4L, 6L)] %in%
+    supported_pairs$atb_norm)
+)
+
 sample_type_rules <- readr::read_csv(
   "mappings/rouen_naturepvt_regex.csv",
   show_col_types = FALSE
