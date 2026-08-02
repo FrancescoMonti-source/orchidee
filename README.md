@@ -216,8 +216,8 @@ six blocs de handoff d'un autre site.
     -   commandes de rendu, validation locale et dépannage courant ;
 -   `documentation/r_environment_baseline_2026-07-26.md`
     -   qualification du bootstrap froid et du gate fonctionnel du lock R ;
--   `documentation/ratb_implementation_decisions.qmd`
-    -   mémo méthodologique du noyau RATB gelé ;
+-   `documentation/ratb_methodology.qmd`
+    -   méthode analytique des indicateurs RATB publiés ;
 -   `documentation/reference_sources.md`
     -   sources publiques et frontière avec les documents locaux privés ;
 -   `documentation/ratb_indicator_spec.csv`

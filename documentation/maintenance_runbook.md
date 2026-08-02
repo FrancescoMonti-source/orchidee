@@ -309,7 +309,7 @@ Pour les cibles qui consomment les données, les exemples ci-dessous nomment la
 sortie Rouen par défaut. Adapter les deux chemins si le build utilisait un autre
 `-Output` ; ne pas les omettre.
 
-### Si seul le mémo a changé
+### Si seule la méthodologie a changé
 
 Commande :
 

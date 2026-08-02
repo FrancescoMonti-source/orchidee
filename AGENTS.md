@@ -17,7 +17,7 @@ Before substantial work, read:
 3. `documentation/maintenance_runbook.md`
 
 For analytical or methodological changes, also consult
-`documentation/ratb_implementation_decisions.qmd` and
+`documentation/ratb_methodology.qmd` and
 `documentation/ratb_indicator_spec.csv` as relevant.
 
 ## Repository Conventions

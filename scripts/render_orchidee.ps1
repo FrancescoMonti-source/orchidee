@@ -164,7 +164,7 @@ try {
 
   $targets = switch ($Target) {
     'memo' {
-      @('documentation/ratb_implementation_decisions.qmd')
+      @('documentation/ratb_methodology.qmd')
     }
     'indicators' {
       @('orchidee_ratb_indicators.qmd')
