@@ -242,11 +242,10 @@ implémentations cohérentes de la complétion exploratoire et du runtime
 `chu_native` sont conservées au tag
 `archive/completion-chu-native-2026-07-22`.
 
-Les CLI qui acceptent plusieurs contrats demandent explicitement
-`--contract=v2|v3`. Le parcours d'onboarding préféré construit v3 à partir des
-six blocs complets et demande `--operational-v2-output` pour produire l'entrée
-du runtime actuel. Un site ne doit déclarer ni v2 ni v3 avant d'avoir attribué
-l'UF d'hébergement active au prélèvement comme décrit dans
+Les builders construisent le bundle v3 complet à partir des six blocs et
+acceptent `--operational-v2-output` pour produire l'entrée du runtime actuel.
+Un site ne doit déclarer le v3 qu'après avoir attribué l'UF d'hébergement active
+au prélèvement comme décrit dans
 `documentation/external_bundle/sir_wide.md`.
 
 Pour comprendre la frontière technique actuelle, lire

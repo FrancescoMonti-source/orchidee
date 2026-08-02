@@ -352,12 +352,11 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
         affiche leur provenance et préflight Quarto, R, paquets et fichiers
         avant le calcul
 -   `scripts/build_rouen_external_bundle.R`
-    -   CLI R sous-jacente pour la construction Rouen et les comparaisons
-        explicites de contrats
+    -   CLI R sous-jacente pour la construction Rouen v3 et les comparaisons
+        explicites de sorties
     -   le parcours recommandé écrit les six blocs, conserve le bundle v3,
         projette `spares_current` vers un bundle v2 opérationnel et produit
         un manifest lisible, puis valide et smoke les deux contrats
-    -   le build direct v2 reste un chemin explicite
 -   `scripts/smoke_external_runtime_inputs.R`
     -   smoke test CLI vérifiant qu'un bundle validé peut construire les
         entrées aval minimales du coeur RATB

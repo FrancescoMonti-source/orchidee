@@ -106,6 +106,4 @@ declared shape and semantics; it cannot reconstruct the local PMSI attribution.
 
 The preferred onboarding path constructs bundle v3 and its separate v2
 operational projection as described in
-[site_handoff_inputs.md](site_handoff_inputs.md). Maintainers who need the
-positional direct-v2 comparison path should use its
-[single maintained recipe](site_handoff_inputs.md#explicit-direct-v2-path).
+[site_handoff_inputs.md](site_handoff_inputs.md).

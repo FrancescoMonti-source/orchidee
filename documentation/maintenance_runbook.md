@@ -228,8 +228,7 @@ doit rester visible dans les métadonnées d'audit.
 Le script valide strictement v3 et v2 puis exécute le smoke du runtime sur les
 deux. La projection applique `spares_current` et doit redériver exactement le
 total annuel v2. Le runtime reste strictement sur v2 : cette commande conserve
-v3 sans l'adopter comme entrée des notebooks. Le build direct
-`--contract=v2` reste disponible comme chemin direct explicite.
+v3 sans l'adopter comme entrée des notebooks.
 
 ## Exécution opérationnelle sur un bundle v2
 

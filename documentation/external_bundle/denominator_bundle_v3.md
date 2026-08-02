@@ -137,7 +137,7 @@ that remains audit-only. v2 keeps its four-column portable shape.
 
 ## Site handoff input
 
-For `--contract=v3`, the sixth site-owned input is
+The sixth site-owned input is
 `incidence_exposure_by_year_um_uf_ta_de_profile`, with the nine columns above.
 The shared builder validates and stores it under the same canonical name.
 Together with the other five blocks, this is the preferred unversioned handoff;
@@ -147,15 +147,12 @@ Pass `--operational-v2-output=<directory>` to retain the validated v3 bundle
 and materialize its closed `spares_current` projection as a separate strict
 v2 bundle. This construction bridge does not adopt v3 in the notebook runtime.
 
-For the explicit direct `--contract=v2` path, the sixth input is
-`denominator_by_year` with `calendar_year + hospital_nights`.
-
 ## Rouen producer
 
 The Rouen PMSI adapter builds the v3 exposure after the `redsan` `C > DW`
-source policy and the maintained TA/DE joins. Its existing v2 path remains
-unchanged. Every build verifies that selecting `spares_current` from the v3
-table reproduces the v2 annual denominator.
+source policy and the maintained TA/DE joins. Every build verifies that
+selecting `spares_current` from the v3 table reproduces the v2 annual
+denominator.
 
 Build and retain v3, then materialize the operational v2 view with:
 

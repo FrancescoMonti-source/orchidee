@@ -333,14 +333,14 @@ From the repository root:
 ```
 
 Add `-Force` only to replace existing outputs from the same workflow. If the
-destination contains a different direct-build layout, choose another
-`-Output`. The wrapper requires the R version declared in `renv.lock`;
+destination contains a layout from another workflow, choose another `-Output`.
+The wrapper requires the R version declared in `renv.lock`;
 `ORCHIDEE_R` may point to another executable only when it has that same exact
 version. It selects the preferred v3 construction and materializes the
 operational v2 projection automatically. If the R environment is incomplete,
 run `scripts/setup.ps1` and retry.
 
-The underlying R CLI remains available for maintenance or contract comparison:
+The underlying R CLI remains available for maintenance or an explicit v3 build:
 
 ```powershell
 $output = "outputs/rouen_current"
@@ -348,15 +348,12 @@ $output = "outputs/rouen_current"
   "C:\protected\bact22_24" `
   "C:\protected\pmsi" `
   $output `
-  --contract=v3 `
   --operational-v2-output="$output/bundle_v2_operational"
 ```
 
 Both command forms above execute the preferred v3 + operational-v2 workflow;
 the PowerShell wrapper is the operator entry point and the R form exposes its
-maintenance options. A direct `--contract=v2` build remains available as an
-explicit compatibility path; it replaces the sixth block with
-`denominator_by_year.rds` and writes its bundle under `bundle/`.
+maintenance options.
 
 The output contains:
 
