@@ -220,10 +220,28 @@ preserving distinct occurrences when a source identifier is reused. You
 therefore do not need to remove screening rows yourself: flag them and keep the
 flag consistent within the document occurrence.
 
-If several rows map to the same ORCHIDEE row key and antibiotic, ORCHIDEE keeps
-the last non-missing S/I/R value in input order. If the laboratory reports
-several isolates of the same species in one sample, provide `souche_id` or
-`isolate_local_id` so those isolates remain separate.
+Several rows may map to the same ORCHIDEE row key and antibiotic. Where they
+agree, they collapse into the one cell that antibiotic occupies. Where they
+disagree, `-Diagnose` reports a blocking finding rather than choosing between
+them: one cell holds one result, nothing here asks you to order your rows, and
+picking by position would make the published value depend on how the export was
+written. The report separates the two causes, because the correction is not the
+same one:
+
+- the same `antibiotic_local` label carrying two results is a question for the
+  laboratory, or a sign that two isolates need telling apart — if the laboratory
+  reports several isolates of the same species in one sample, provide
+  `souche_id` or `isolate_local_id` so those isolates remain separate;
+- two different `antibiotic_local` labels that your `antibiotic_mapping` sends
+  to the same ORCHIDEE antibiotic is a question for the mapping. Labels read
+  against different breakpoints, such as a urinary-context reading beside a
+  general one, are not interchangeable, and neither are two distinct molecules
+  sharing a column. Map each label to the antibiotic it tested, or keep only the
+  reading RATB should count.
+
+Note that the bundle builder itself still resolves a disagreement by keeping the
+last value in input order. A `-Diagnose` pass is what establishes that no such
+disagreement is left for it to resolve.
 
 ## Block 2: bacteria_mapping
 

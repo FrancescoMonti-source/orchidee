@@ -403,6 +403,38 @@ row_grain_result <- run_case(
   )
 )
 
+# One antibiogram cell, two answers. The builder keeps whichever row comes last,
+# so the value published for this isolate depends on the order the site wrote
+# its rows in. The two causes are told apart because the correction differs.
+contradictory_sir_result <- run_case(
+  "contradictory_sir",
+  add_observation(clean_blocks, sir_result = "R")
+)
+
+# Same cell, but reached through two different local labels that the site's own
+# antibiotic_mapping sends to one ORCHIDEE antibiotic. Measured on the Rouen
+# bundle, this is the dominant cause by an order of magnitude, and it is not a
+# laboratory contradiction: AUGMENTIN CYSTITE and AUGMENTIN AUTRES CONTEXTES are
+# the same drug read against different breakpoints, and both answers are right.
+collapsed_atb_blocks <- add_observation(
+  clean_blocks,
+  antibiotic_local = "Cefotaxime cystite",
+  sir_result = "R"
+)
+collapsed_atb_blocks$antibiotic_mapping <- data.frame(
+  antibiotic_local = c("Cefotaxime", "Cefotaxime cystite"),
+  atb_norm = c("cefotaxime", "cefotaxime"),
+  stringsAsFactors = FALSE
+)
+collapsed_atb_result <- run_case("collapsed_atb_mapping", collapsed_atb_blocks)
+
+# A value ORCHIDEE cannot read is not a second opinion. This cell holds "S" and
+# a word, and the site has one thing to correct, not two.
+unreadable_sir_result <- run_case(
+  "unreadable_sir_in_shared_cell",
+  add_observation(clean_blocks, sir_result = "ZZZ")
+)
+
 # The builder validates a whole mapping table, including rows no observation
 # uses.
 unused_blank_result <- run_case(
@@ -1269,6 +1301,7 @@ all_results <- list(
   independent_exposure_result, independent_date_result, mixed_date_result,
   french_date_result, trailing_time_result, impossible_time_result,
   out_of_range_time_result,
+  contradictory_sir_result, collapsed_atb_result, unreadable_sir_result,
   unreadable_result, not_a_table_result, duplicate_column_result,
   two_scope_result, scope_values_result, all_screening_result,
   missing_souche_result, conflicting_mapping_result, no_domain_result,
@@ -1669,6 +1702,76 @@ stopifnot(
     ),
     fixed = TRUE
   ),
+
+  # An antibiogram cell with two answers is refused rather than resolved by row
+  # order, and the two causes are kept apart: the fixture that contradicts
+  # itself under one label must not be reported as a mapping problem, and the
+  # one whose labels collapse must not be reported as a laboratory
+  # contradiction. Each names what a site has to look at -- the label, or the
+  # group of labels and the antibiotic they landed on.
+  identical(contradictory_sir_result$status, 1L),
+  identical(
+    severity_of(
+      contradictory_sir_result,
+      "microbiology_observations",
+      "contradictory_sir_result"
+    ),
+    "BLOCKING"
+  ),
+  grepl(
+    "Cefotaxime",
+    detail_of(
+      contradictory_sir_result,
+      "microbiology_observations",
+      "contradictory_sir_result"
+    ),
+    fixed = TRUE
+  ),
+  is.na(severity_of(
+    contradictory_sir_result,
+    "microbiology_observations",
+    "conflicting_sir_after_atb_mapping"
+  )),
+
+  identical(collapsed_atb_result$status, 1L),
+  identical(
+    severity_of(
+      collapsed_atb_result,
+      "microbiology_observations",
+      "conflicting_sir_after_atb_mapping"
+    ),
+    "BLOCKING"
+  ),
+  grepl(
+    "Cefotaxime + Cefotaxime cystite -> cefotaxime",
+    detail_of(
+      collapsed_atb_result,
+      "microbiology_observations",
+      "conflicting_sir_after_atb_mapping"
+    ),
+    fixed = TRUE
+  ),
+  is.na(severity_of(
+    collapsed_atb_result,
+    "microbiology_observations",
+    "contradictory_sir_result"
+  )),
+
+  # An unreadable value sharing a cell with a real one is one defect, not two.
+  identical(unreadable_sir_result$status, 1L),
+  identical(
+    severity_of(
+      unreadable_sir_result,
+      "microbiology_observations",
+      "unsupported_sir_values"
+    ),
+    "BLOCKING"
+  ),
+  is.na(severity_of(
+    unreadable_sir_result,
+    "microbiology_observations",
+    "contradictory_sir_result"
+  )),
 
   # Trailing characters on a time are reported rather than silently dropped.
   identical(trailing_time_result$status, 1L),

@@ -1022,6 +1022,97 @@ if (!is.null(obs_in_scope)) {
       }
     }
 
+    # One cell of the antibiogram, two different answers. The builder keeps
+    # whichever row comes last, so the published value depends on the order the
+    # rows happen to be written in -- and nothing in this contract asks a site
+    # to make that order mean anything. Reported by cause, because the
+    # correction is not the same: one label contradicting itself is a question
+    # for the laboratory, two labels landing on one ORCHIDEE antibiotic is a
+    # question for the mapping.
+    cell_atb <- mapped_values$atb_norm[gradable]
+    cell_local_atb <- mapped_local$atb_norm[gradable]
+    cell_sir <- normalized_sir[gradable]
+    # A value ORCHIDEE cannot read is already reported as such, and it is not
+    # evidence that the laboratory said two things: pairing it with a real
+    # result would report one defect twice and name the wrong correction.
+    cell_sir[
+      !cell_sir %in% contract$sir_wide$allowed_atb_values
+    ] <- NA_character_
+    graded_cells <- which(!is.na(cell_atb) & !is.na(cell_sir))
+    if (length(graded_cells) > 0L) {
+      cells <- split(
+        graded_cells,
+        paste(row_key[graded_cells], cell_atb[graded_cells], sep = "\r")
+      )
+      discordant <- cells[vapply(
+        cells,
+        function(idx) length(unique(cell_sir[idx])) > 1L,
+        logical(1)
+      )]
+      one_label <- vapply(
+        discordant,
+        function(idx) length(unique(cell_local_atb[idx])) == 1L,
+        logical(1)
+      )
+
+      if (any(one_label)) {
+        contradicting_labels <- vapply(
+          discordant[one_label],
+          function(idx) cell_local_atb[idx][[1L]],
+          character(1)
+        )
+        add_finding(
+          "BLOCKING",
+          "microbiology_observations",
+          "contradictory_sir_result",
+          paste0(
+            sum(one_label),
+            " isolate-antibiotic cells carry more than one S/I/R result for ",
+            "the same antibiotic_local label. The row grain is ",
+            paste(contract$sir_wide$row_grain_key, collapse = " + "),
+            ", and one cell holds one result; add souche_id to keep distinct ",
+            "isolates apart, or correct the contradictory results. Labels ",
+            "involved: ",
+            format_values(contradicting_labels),
+            "."
+          ),
+          values = contradicting_labels
+        )
+      }
+
+      if (any(!one_label)) {
+        collapsed_groups <- vapply(
+          discordant[!one_label],
+          function(idx) {
+            paste0(
+              paste(sort(unique(cell_local_atb[idx])), collapse = " + "),
+              " -> ",
+              cell_atb[idx][[1L]]
+            )
+          },
+          character(1)
+        )
+        add_finding(
+          "BLOCKING",
+          "microbiology_observations",
+          "conflicting_sir_after_atb_mapping",
+          paste0(
+            sum(!one_label),
+            " isolate-antibiotic cells are fed by several antibiotic_local ",
+            "labels that antibiotic_mapping sends to the same ORCHIDEE ",
+            "antibiotic, and those labels disagree. Tests read against ",
+            "different breakpoints, or on different molecules, cannot be ",
+            "merged into one defensible value. Map each label to the ",
+            "antibiotic it actually tested, or keep only the one RATB should ",
+            "count. Groups involved: ",
+            format_values(collapsed_groups),
+            "."
+          ),
+          values = collapsed_groups
+        )
+      }
+    }
+
     for (status_name in names(resolved_phenotype_columns)) {
       column <- resolved_phenotype_columns[[status_name]]
       allowed <- contract$sir_wide$phenotype_status_allowed[[status_name]]
