@@ -81,7 +81,7 @@ Notes:
 ## Rendering And Verification
 
 - Use `scripts/render_orchidee.ps1` for routine renders.
-- Available targets are `memo`, `docs`, `indicators`, and `full`.
+- Available targets are `memo`, `indicators`, and `full`.
 - Use `full` after changes to upstream pipeline, raw deduplication, perimeter,
   denominator, or indicator logic; it builds the canonical raw cache and then
   renders the indicator report.

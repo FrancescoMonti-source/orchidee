@@ -19,7 +19,6 @@ Utiliser le wrapper plutôt que des commandes de rendu ad hoc :
 Cibles disponibles :
 
 -   `memo`
--   `docs`, alias de compatibilité de `memo`
 -   `indicators`
 -   `full`
 
@@ -316,15 +315,6 @@ Commande :
 
 ```powershell
 & .\scripts\render_orchidee.ps1 -Target memo
-```
-
-### Alias de compatibilité `docs`
-
-Il ne reste qu'un document méthodologique actif. `docs` est conservé comme
-alias explicite de `memo` et émet un avertissement :
-
-```powershell
-& .\scripts\render_orchidee.ps1 -Target docs
 ```
 
 ### Si seule la couche d'affichage du rapport d'indicateurs a changé
