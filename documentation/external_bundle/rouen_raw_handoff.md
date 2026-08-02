@@ -236,6 +236,21 @@ Expanded rows precede explicit rows, so a later explicit drug result wins.
 BLSE and carbapenemase signals are read from the complete raw document, not
 only SIR rows, and must resolve to an exact candidate isolate key.
 
+A beta-lactam combined with an inhibitor is named for what it is, and counts
+only where RATB defines a column for it. `ceftazidime-avibactam`,
+`ceftolozane-tazobactam`, `imipeneme-relebactam` and `meropeneme-vaborbactam`
+each carry their own `atb_norm` and fall outside the RATB panel; the audit lists
+them under `mapped_outside_ratb_panel`. `CLAVENTIN` is ticarcillin-clavulanate
+and follows that rule as `ticarcilline_acide_clavulanique`. It used to be read
+as `amoxicilline_acide_clavulanique`, which put a different molecule in the
+Augmentin column: 14204 diagnostic rows, every one of them on an
+Enterobacterale, where clavulanate is exactly what changes the reading. It took
+part in 4195 isolate-antibiotic cells whose results disagreed, and the pivot
+settled each of them by position in the file. Naming it correctly leaves 3303 of
+the original 6220 discordant cells: the remainder is `AUGMENTIN CYSTITE` against
+`AUGMENTIN AUTRES CONTEXTES`, the same drug read against two breakpoints, which
+is a separate question.
+
 ## Hospitalization-unit attribution
 
 For each document occurrence, the adapter looks for PMSI records with the
