@@ -428,6 +428,22 @@ collapsed_atb_blocks$antibiotic_mapping <- data.frame(
 )
 collapsed_atb_result <- run_case("collapsed_atb_mapping", collapsed_atb_blocks)
 
+# A mixed cell must not let the presence of a second label hide a contradiction
+# inside the first one. Here Cefotaxime says S and R while the cystitis label
+# says S; only the former defect is established until Cefotaxime is corrected.
+mixed_sir_blocks <- add_observation(clean_blocks, sir_result = "R")
+mixed_sir_blocks <- add_observation(
+  mixed_sir_blocks,
+  antibiotic_local = "Cefotaxime cystite",
+  sir_result = "S"
+)
+mixed_sir_blocks$antibiotic_mapping <- data.frame(
+  antibiotic_local = c("Cefotaxime", "Cefotaxime cystite"),
+  atb_norm = c("cefotaxime", "cefotaxime"),
+  stringsAsFactors = FALSE
+)
+mixed_sir_result <- run_case("mixed_sir_causes", mixed_sir_blocks)
+
 # A value ORCHIDEE cannot read is not a second opinion. This cell holds "S" and
 # a word, and the site has one thing to correct, not two.
 unreadable_sir_result <- run_case(
@@ -1301,7 +1317,8 @@ all_results <- list(
   independent_exposure_result, independent_date_result, mixed_date_result,
   french_date_result, trailing_time_result, impossible_time_result,
   out_of_range_time_result,
-  contradictory_sir_result, collapsed_atb_result, unreadable_sir_result,
+  contradictory_sir_result, collapsed_atb_result, mixed_sir_result,
+  unreadable_sir_result,
   unreadable_result, not_a_table_result, duplicate_column_result,
   two_scope_result, scope_values_result, all_screening_result,
   missing_souche_result, conflicting_mapping_result, no_domain_result,
@@ -1755,6 +1772,33 @@ stopifnot(
     collapsed_atb_result,
     "microbiology_observations",
     "contradictory_sir_result"
+  )),
+
+  # In a mixed cell, a second label must not hide the contradiction carried by
+  # Cefotaxime itself. With only one internally stable label, no independent
+  # mapping conflict has yet been established.
+  identical(mixed_sir_result$status, 1L),
+  identical(
+    severity_of(
+      mixed_sir_result,
+      "microbiology_observations",
+      "contradictory_sir_result"
+    ),
+    "BLOCKING"
+  ),
+  grepl(
+    "Cefotaxime",
+    detail_of(
+      mixed_sir_result,
+      "microbiology_observations",
+      "contradictory_sir_result"
+    ),
+    fixed = TRUE
+  ),
+  is.na(severity_of(
+    mixed_sir_result,
+    "microbiology_observations",
+    "conflicting_sir_after_atb_mapping"
   )),
 
   # An unreadable value sharing a cell with a real one is one defect, not two.

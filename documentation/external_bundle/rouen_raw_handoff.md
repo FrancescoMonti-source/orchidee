@@ -249,7 +249,37 @@ part in 4195 isolate-antibiotic cells whose results disagreed, and the pivot
 settled each of them by position in the file. Naming it correctly leaves 3303 of
 the original 6220 discordant cells: the remainder is `AUGMENTIN CYSTITE` against
 `AUGMENTIN AUTRES CONTEXTES`, the same drug read against two breakpoints, which
-is a separate question.
+is a separate question. The uncomplicated-cystitis reading remains outside the
+RATB panel as `amoxicilline_acide_clavulanique_cystite`: it is the same drug,
+but uses a more permissive urinary breakpoint. Among the 22,342 isolates that
+carry both readings, the raw share of `R` is 25.06% with the cystitis breakpoint
+and 38.07% with the general breakpoint. On the RATB tested denominator, which
+retains `S + R` and leaves `ZIT` untested, the corresponding values are 25.07%
+and 38.31%. The RATB indicator uses the general breakpoint.
+
+A separate Rouen-specific method collision remains open for
+piperacillin-tazobactam. Within the 2022--2024 raw interval, all 1,842
+`PIPERA TAZO` rows use `TYPEANA = PPT85.PPT851`, while all 41,624
+`PIPERACILLINE+TAZOBACTAM` rows use `TYPEANA = PTZ36.PTZ361`. The two analyses
+coexist in 168 isolate-antibiotic cells: 120 agree and 48 disagree. In those 48
+cells, isolate level, organism, sample and declared CA-SFM version agree; the
+analysis code is what differs.
+
+The code suffixes and the historical standards support, but do not by
+themselves prove, an interpretation as two disk contents: CA-SFM 2012 specifies
+[75/10 micrograms](https://www.sfm-microbiologie.org/wp-content/uploads/2020/07/CASFM_2012.pdf)
+for piperacillin-tazobactam, whereas CA-SFM/EUCAST 2018 specifies
+[30/6 micrograms](https://www.sfm-microbiologie.org/wp-content/uploads/2019/02/CASFM-V1_0-FEV_2018.pdf).
+The local laboratory or LIS dictionary must still confirm that `PPT85` and
+`PTZ36` carry those exact meanings and explain why both analyses coexist.
+
+Pending that confirmation, `PTZ36` remains the RATB reading as
+`piperacilline_tazobactam`; `PPT85` is kept distinct as the provisional
+`piperacilline_tazobactam_ppt85` and audited under
+`mapped_outside_ratb_panel`. This prevents the 48 cross-method disagreements
+from being settled by row order. It is an interim safety decision, not a final
+retirement of `PPT85`: resolve and record the local method semantics here before
+considering that reading eligible for a published panel.
 
 ## Hospitalization-unit attribution
 

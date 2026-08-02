@@ -225,8 +225,8 @@ agree, they collapse into the one cell that antibiotic occupies. Where they
 disagree, `-Diagnose` reports a blocking finding rather than choosing between
 them: one cell holds one result, nothing here asks you to order your rows, and
 picking by position would make the published value depend on how the export was
-written. The report separates the two causes, because the correction is not the
-same one:
+written. The report separates the two causes, and may report both when both are
+independently observable, because the correction is not the same one:
 
 - the same `antibiotic_local` label carrying two results is a question for the
   laboratory, or a sign that two isolates need telling apart — if the laboratory

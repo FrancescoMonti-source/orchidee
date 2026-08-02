@@ -1049,24 +1049,58 @@ if (!is.null(obs_in_scope)) {
         function(idx) length(unique(cell_sir[idx])) > 1L,
         logical(1)
       )]
-      one_label <- vapply(
-        discordant,
-        function(idx) length(unique(cell_local_atb[idx])) == 1L,
+      # The two causes are independent. A cell such as A=S, A=R, B=S contains
+      # more than one local label, but only A is demonstrably contradictory;
+      # calling the whole cell a mapping collision would hide the correction A
+      # still needs. Compare labels only after identifying those whose own
+      # results are internally stable.
+      cell_profiles <- lapply(discordant, function(idx) {
+        rows_by_label <- split(idx, cell_local_atb[idx])
+        values_by_label <- lapply(
+          rows_by_label,
+          function(label_idx) unique(cell_sir[label_idx])
+        )
+        contradictory_labels <- names(values_by_label)[
+          lengths(values_by_label) > 1L
+        ]
+        stable_values_by_label <- vapply(
+          values_by_label[lengths(values_by_label) == 1L],
+          function(values) values[[1L]],
+          character(1)
+        )
+        list(
+          atb_norm = cell_atb[idx][[1L]],
+          contradictory_labels = contradictory_labels,
+          stable_values_by_label = stable_values_by_label
+        )
+      })
+      has_contradiction <- vapply(
+        cell_profiles,
+        function(profile) length(profile$contradictory_labels) > 0L,
+        logical(1)
+      )
+      has_mapping_conflict <- vapply(
+        cell_profiles,
+        function(profile) {
+          length(unique(unname(profile$stable_values_by_label))) > 1L
+        },
         logical(1)
       )
 
-      if (any(one_label)) {
-        contradicting_labels <- vapply(
-          discordant[one_label],
-          function(idx) cell_local_atb[idx][[1L]],
-          character(1)
+      if (any_true(has_contradiction)) {
+        contradicting_labels <- unlist(
+          lapply(
+            cell_profiles[has_contradiction],
+            function(profile) profile$contradictory_labels
+          ),
+          use.names = FALSE
         )
         add_finding(
           "BLOCKING",
           "microbiology_observations",
           "contradictory_sir_result",
           paste0(
-            sum(one_label),
+            count_true(has_contradiction),
             " isolate-antibiotic cells carry more than one S/I/R result for ",
             "the same antibiotic_local label. The row grain is ",
             paste(contract$sir_wide$row_grain_key, collapse = " + "),
@@ -1080,14 +1114,17 @@ if (!is.null(obs_in_scope)) {
         )
       }
 
-      if (any(!one_label)) {
+      if (any_true(has_mapping_conflict)) {
         collapsed_groups <- vapply(
-          discordant[!one_label],
-          function(idx) {
+          cell_profiles[has_mapping_conflict],
+          function(profile) {
             paste0(
-              paste(sort(unique(cell_local_atb[idx])), collapse = " + "),
+              paste(
+                sort(names(profile$stable_values_by_label)),
+                collapse = " + "
+              ),
               " -> ",
-              cell_atb[idx][[1L]]
+              profile$atb_norm
             )
           },
           character(1)
@@ -1097,10 +1134,11 @@ if (!is.null(obs_in_scope)) {
           "microbiology_observations",
           "conflicting_sir_after_atb_mapping",
           paste0(
-            sum(!one_label),
-            " isolate-antibiotic cells are fed by several antibiotic_local ",
-            "labels that antibiotic_mapping sends to the same ORCHIDEE ",
-            "antibiotic, and those labels disagree. Tests read against ",
+            count_true(has_mapping_conflict),
+            " isolate-antibiotic cells contain internally consistent ",
+            "antibiotic_local labels that antibiotic_mapping sends to the ",
+            "same ORCHIDEE antibiotic, and those labels disagree. ",
+            "Tests read against ",
             "different breakpoints, or on different molecules, cannot be ",
             "merged into one defensible value. Map each label to the ",
             "antibiotic it actually tested, or keep only the one RATB should ",
