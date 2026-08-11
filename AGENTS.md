@@ -13,7 +13,7 @@
 Before substantial work, read:
 
 1. `README.md`
-2. `documentation/project_map.md`
+2. `documentation/architecture.md`
 3. `documentation/maintenance_runbook.md`
 
 For analytical or methodological changes, also consult

@@ -152,7 +152,10 @@ ref/rouen/establishment_structure_2025.xlsx
 It also reads the shared TA/DE catalogues under `ref/consores/`. All these
 references are already versioned in the checkout; the operator does not provide
 their paths. Set `ORCHIDEE_ROUEN_STRUCTURE_PATH` only to test an explicitly
-selected replacement for the default structure.
+selected replacement for the default structure. The former name
+`ORCHIDEE_CONSORES_STRUCTURE_PATH` is still accepted with a migration warning so
+that an existing run is not changed silently; when both are set, the new name
+wins.
 
 These Rouen references are adapter-specific. They are not required by the
 operational `external_bundle_v2` runtime or by another site's builder when that
@@ -339,7 +342,7 @@ Add `-Force` only to replace existing outputs from the same workflow. If the
 destination contains a layout from another workflow, choose another `-Output`.
 The wrapper requires the R version declared in `renv.lock`;
 `ORCHIDEE_R` may point to another executable only when it has that same exact
-version. It selects the preferred v3 construction and materializes the
+version. It selects the maintained v3 construction and materializes the
 operational v2 projection automatically. If the R environment is incomplete,
 run `scripts/setup.ps1` and retry.
 
@@ -354,7 +357,7 @@ $output = "outputs/rouen_current"
   --operational-v2-output="$output/bundle_v2_operational"
 ```
 
-Both command forms above execute the preferred v3 + operational-v2 workflow;
+Both command forms above execute the maintained v3 + operational-v2 workflow;
 the PowerShell wrapper is the operator entry point and the R form exposes its
 maintenance options.
 
@@ -410,7 +413,7 @@ them to Git or publish them with the source repository.
 
 ## Current adoption boundary
 
-The preferred command retains v3 and explicitly projects the strict bundle
+The operator command retains v3 and explicitly projects the strict bundle
 accepted by the operational `external_bundle_v2` runtime. v3 is not adopted
 implicitly: the runtime remains strict and fail-closed on v2. A full render is
 required after an explicit future adoption so raw deduplication and indicators

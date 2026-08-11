@@ -6,10 +6,11 @@ editor_options:
 
 # Décision d'adoption opérationnelle du bundle v2 — 2026-07-19
 
-> **Statut au 2026-07-22.** Ce document conserve la décision et la comparaison
-> historiques. `chu_native` a depuis été retiré du chemin actif ; sa dernière
-> implémentation cohérente reste disponible au tag
-> `archive/completion-chu-native-2026-07-22`.
+> **Record historique figé.** Ce document conserve la décision et la
+> comparaison de juillet 2026. L'état courant est décrit dans
+> [`../architecture.md`](../architecture.md). `chu_native` est retiré
+> du chemin actif ; sa dernière implémentation cohérente reste disponible au
+> tag `archive/completion-chu-native-2026-07-22`.
 
 ## Décision
 
@@ -19,11 +20,8 @@ restait disponible explicitement pour la comparaison historique et le
 rollback, sans fallback entre les deux chemins. Il a depuis été retiré du
 chemin actif comme indiqué dans la note de statut ci-dessus.
 
-Cette décision concerne le runtime des notebooks. Les builders construisent
-désormais uniquement le bundle v3 complet, puis matérialisent le bundle v2
-opérationnel par une projection fermée. Un site ne doit fournir les six blocs
-d'entrée qu'après avoir attribué à `SEJUF` l'UF d'hébergement active au
-prélèvement, conformément à `sir_wide.md`.
+Cette décision concerne le runtime des notebooks. Le contrat de construction
+courant n'est pas répété dans ce record daté.
 
 ## Éléments observés avant adoption
 
@@ -52,10 +50,6 @@ périmètre, sans fallback vers l'UF microbiologique.
 
 ## Limites et suites séparées
 
-Cette adoption ne valide pas automatiquement l'adaptateur brut d'un autre
-établissement. Chaque site doit encore démontrer son attribution d'UF, ses
-mappings et son dénominateur avant de déclarer un bundle v2.
-
-Le retrait de `chu_native` a depuis été réalisé sans modifier le runtime v2.
-Le gate de non-régression v2 couvre désormais la comparaison opérationnelle
-courante ; son extension à d'autres contextes reste une décision séparée.
+Cette adoption ne validait pas automatiquement l'adaptateur brut d'un autre
+établissement. Chaque site devait encore démontrer son attribution d'UF, ses
+mappings et son dénominateur.

@@ -34,8 +34,8 @@ La liste des indicateurs, leurs périmètres de publication et leurs dénominate
 source de vérité dans [`ratb_indicator_spec.csv`](ratb_indicator_spec.csv). Le présent
 document explique les conventions communes qui permettent de les calculer. Les formats
 d'entrée, contrôles et procédures d'exécution relèvent des contrats techniques décrits dans
-[`external_bundle/`](external_bundle/) et dans le
-[`project map`](project_map.md).
+[`external_bundle/bundle_schemas.md`](external_bundle/bundle_schemas.md) et dans
+[`architecture.md`](architecture.md).
 
 La méthode couvre le noyau annuel opérationnel. Elle exclut les complétions expérimentales
 d'antibiogrammes, les analyses trimestrielles et les stratifications qui ne sont pas encore
@@ -181,5 +181,33 @@ ce document et le catalogue, puis déclencher la vérification des résultats co
 
 Un refactoring qui ne modifie aucune de ces règles reste un changement technique : il doit
 être vérifié, mais ne redéfinit pas la méthode. Les contrats d'entrée, la topologie de la
-chaîne et les commandes de maintenance sont documentés séparément dans le
-[`project map`](project_map.md) et le [`runbook de maintenance`](maintenance_runbook.md).
+chaîne et les commandes de maintenance sont documentés séparément dans
+[`architecture.md`](architecture.md) et le
+[`runbook de maintenance`](maintenance_runbook.md).
+
+# Sources
+
+Le comportement du pipeline n'est jamais modifié par une source externe seule : la décision
+retenue doit d'abord être transcrite dans le catalogue, la méthodologie, les mappings, les
+références ou les règles versionnées.
+
+- [Mission SPARES — résultats de surveillance en établissement de
+  santé](https://www.santepubliquefrance.fr/infections-associees-aux-soins/rapportsynthese/surveillance-de-la-consommation-des-antibiotiques-des-antifongiques-et-des-resistances-bacteriennes)
+  : cadre national de surveillance des consommations et résistances.
+- [Comité de l'antibiogramme de la Société française de
+  microbiologie](https://www.sfm-microbiologie.org/presentation-de-la-sfm/sections-et-groupes-de-travail/comite-de-lantibiogramme/)
+  : recommandations CA-SFM/EUCAST et catégories de sensibilité.
+- [ECDC — surveillance et données sur la résistance aux
+  antimicrobiens](https://www.ecdc.europa.eu/en/antimicrobial-resistance/surveillance-and-disease-data)
+  : protocoles et rapports EARS-Net.
+- [OMS — Global antibiotic resistance surveillance report
+  2025](https://www.who.int/publications/i/item/9789240116337) : contexte de surveillance
+  mondiale GLASS.
+- [OMS — Bacterial Priority Pathogens List
+  2024](https://www.who.int/publications/i/item/9789240093461) : hiérarchisation
+  internationale des bactéries résistantes prioritaires.
+
+Les liens pointent vers les pages éditoriales officielles afin que la version courante
+puisse être identifiée sans conserver une copie PDF dans Git. Les documents
+institutionnels, présentations, comptes rendus et extractions locales restent hors Git et
+ne sont pas des entrées requises du pipeline.

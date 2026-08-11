@@ -81,12 +81,11 @@ seule entrée du runtime et du rapport.
 | Question | Document |
 |---|---|
 | Quelles sont les conventions du dépôt et la collaboration ? | [`AGENTS.md`](AGENTS.md) |
-| Comment s'enchaînent adaptateurs, v3, v2 et indicateurs ? | [`operational_flow.md`](documentation/operational_flow.md) |
-| Quel fichier possède la logique à modifier ? | [`project_map.md`](documentation/project_map.md) |
+| Comment s'enchaîne la chaîne et quel fichier possède la logique ? | [`architecture.md`](documentation/architecture.md) |
 | Comment tester, rendre, comparer ou dépanner ? | [`maintenance_runbook.md`](documentation/maintenance_runbook.md) |
 | Quelle méthode est publiée ? | [`ratb_methodology.qmd`](documentation/ratb_methodology.qmd) |
 | Quels indicateurs sont publiés ? | [`ratb_indicator_spec.csv`](documentation/ratb_indicator_spec.csv) |
-| Quels sont les schémas des bundles ? | [`external_bundle/`](documentation/external_bundle/README.md) |
+| Quels sont les schémas des bundles ? | [`bundle_schemas.md`](documentation/external_bundle/bundle_schemas.md) |
 
 La méthode et le périmètre publiés ne changent qu'après une décision explicite
 et la vérification correspondante. Les notes datées conservent des décisions ou

@@ -8,8 +8,8 @@ editor_options:
 
 This is the sole maintained human-facing operator procedure for Rennes or
 another hospital that does not already have a packaged ORCHIDEE site adapter.
-The repository README and external-bundle index only orient readers here;
-`Get-Help .\scripts\build_site.ps1 -Full` lists the current command parameters.
+The repository README only orients readers here; `Get-Help
+.\scripts\build_site.ps1 -Full` lists the current command parameters.
 
 Rouen operators should not prepare the six blocks below. Start with
 [rouen_raw_handoff.md](rouen_raw_handoff.md) and provide only the BACT and PMSI
@@ -20,7 +20,7 @@ blocks below; ORCHIDEE turns them into its internal validated bundles.
 
 ## What you need to provide
 
-The preferred handoff always contains exactly these six blocks:
+The maintained handoff contains exactly these six blocks:
 
 1. `microbiology_observations`
 2. `bacteria_mapping`
@@ -34,7 +34,7 @@ They contain all information needed to build bundle v3, even while the current
 notebook runtime still consumes bundle v2. In particular, `unit_mapping`
 contains TA, DE and DE-domain information directly, and the sixth block keeps
 profiled exposure instead of an already filtered annual total. There is no
-seventh block in the preferred handoff.
+seventh handoff block.
 
 In plain language, the complete path is:
 
@@ -67,8 +67,10 @@ Before working on protected local data, check this installation:
 
 This uses only files under `examples/site_handoff_minimal/`, runs the same v3
 build, v2 projection, strict validation and runtime smoke as a real handoff,
-and writes under `outputs/site_smoke_test/` by default. A failure points at the
-installation. A `PASS` rules the installation out as the sole explanation, but on
+and writes under `outputs/site_smoke_test/` by default. A failure must be
+resolved before local data are introduced, but does not by itself distinguish
+an environment problem from a repository regression. A `PASS` rules the
+installation out as the sole explanation, but on
 one synthetic observation it exercises no deduplication, screening exclusion,
 phenotype, resistance or perimeter filtering, so it cannot by itself place a
 later problem in local extraction or mapping. On a deliberate repeat, follow the
@@ -138,7 +140,7 @@ describe these materialized outputs, not the six site-owned blocks.
 
 ## Current operational boundary
 
-The preferred command validates and retains a complete bundle v3, then derives
+The operator command validates and retains a complete bundle v3, then derives
 a separate strict bundle v2 for today's operational notebooks. It selects the
 closed `spares_current` context: the current RATB perimeter (TA 03/20 and the
 ratified DE domains) with the `midnight_presence` patient-day count. A site does
@@ -148,11 +150,11 @@ denominator needed by today's runtime.
 
 Both outputs declare the same semantic rule: `SEJUF` in microbiology is the
 hospitalization UF active at sampling. The site adapter must establish that
-attribution before handoff. See `sir_wide.md`.
+attribution before handoff. See [bundle_schemas.md](bundle_schemas.md).
 
 Nothing here changes the runtime contract: v3 is retained for future use and
 does not by itself publish stratified indicators. Its exact schema is in
-`denominator_bundle_v3.md`.
+[bundle_schemas.md](bundle_schemas.md).
 
 ## Block 1: microbiology_observations
 
@@ -430,55 +432,23 @@ a single pass, classified as:
 | `WARNING` | The build completes, but rows lose analytic value; review it. |
 | `INFO` | Counts that describe the handoff, including perimeter coverage. |
 
-This matters because the builder itself stops at the first problem and lists at
-most ten offending values. Correcting a real handoff through build failures
-alone takes one rebuild per problem class; `-Diagnose` collapses that into one
-report you can work through.
-
-Each mapping dimension is reported per local label with both `n_rows` and
-`n_document_occurrences`, so you can tell a label worth mapping from a
-negligible one. Values beyond the tenth are truncated in the summary but kept
-in full in `finding_values.csv`, so one pass is enough however many labels are
-involved. Both tables carry a `finding_id`, and the summary prints it as `[#n]`
-beside each finding: some checks are reported once per field, so the id is what
-ties a list of values to the finding it belongs to.
+The builder stops at the first invalid class; `-Diagnose` aggregates the work
+instead. Mapping findings include row and document-occurrence counts per local
+label. The summary is concise and `finding_values.csv` retains the complete
+value list, joined through `finding_id`.
 
 The report is written to a `diagnostics` subdirectory of `-Output` when you
 pass one, otherwise to `outputs\site_diagnostics`; `-Report` overrides both.
 Beyond the six input paths it records for provenance, it contains aggregate
 counts and your own local vocabulary only; it never writes patient identifiers.
 
-Exit status 2 means the diagnostics could not produce a verdict — a technical
-problem, not a statement about your blocks. It covers failures before R starts
-too, such as an unusable `-Report` directory, so status 1 always means blocking
-findings and nothing else.
+Exit status 1 means blocking findings. Exit status 2 means that no verdict could
+be produced because of a technical or publication failure.
 
-The new report is composed in full before the previous one is replaced, so a run
-that fails while composing it leaves the earlier report in place. Replacing the
-files is not a single atomic step, so a complete report is marked by
-`report_manifest.txt`, which lists the files it is made of. A report directory
-without it was interrupted, whatever the files beside it look like, and the run
-exits 2 naming what it could not write.
-
-The order matters and is enforced: the previous manifest is deleted first and its
-removal is verified, because a manifest that survived would certify the files
-replaced after it. If it cannot be removed, nothing else is touched and the
-previous report stays whole. The new manifest is renamed into place only after
-every other artifact is published.
-
-One run publishes into a report directory at a time. A run takes
-`.orchidee_diagnostics.lock` there and releases it when it is done; a second run
-started against the same directory meanwhile is refused with exit status 2
-rather than interleaving its files with the first one's. If a run is killed the
-lock stays behind: the refusal message names it, and it can be deleted once you
-have established that no diagnostics run is still running.
-
-Establishing that is your part of the contract, not a formality. Deleting the
-lock while its run is alive is not supported: the run that owns it may then
-remove the lock a later run has taken, and two runs would publish into the
-directory at once. The lock is a directory, and no portable operation removes
-one only while it is still ours, so this is a boundary rather than something the
-command defends against.
+`report_manifest.txt` marks a complete report. One run at a time may publish to
+a report directory; an interrupted run may leave
+`.orchidee_diagnostics.lock`. Delete that lock only after confirming that no
+diagnostic still uses the directory.
 
 `-Diagnose` answers one question: do the six blocks satisfy the handoff
 contract? It does not predict which indicators the report will publish.

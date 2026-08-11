@@ -6,328 +6,79 @@ editor_options:
 
 # Runbook de maintenance
 
-Ce document sert aux opérations de maintenance courante et au rendu.
+Ce document possède les commandes de maintenance, les gates et le dépannage.
+Les procédures opérateur et les schémas de données vivent dans
+`documentation/external_bundle/`.
 
-## Point d'entrée de rendu par défaut
+## Séquence normale
 
-Utiliser le wrapper plutôt que des commandes de rendu ad hoc :
+1.  Vérifier la branche et les changements déjà présents.
+2.  Identifier le propriétaire de la logique dans
+    [`architecture.md`](architecture.md).
+3.  Exécuter les tests source.
+4.  Utiliser la plus petite cible de rendu valide.
+5.  Pour un changement sans effet attendu sur les résultats, exécuter le gate
+    v2.
+6.  Relire le diff et les artefacts concernés avant intégration.
 
-```powershell
-& .\scripts\render_orchidee.ps1 -Target <cible>
-```
+## Environnement R
 
-Cibles disponibles :
-
--   `memo`
--   `indicators`
--   `full`
-
-Le wrapper affiche les exécutables R et Quarto résolus. Pour `indicators` et
-`full`, il affiche aussi le bundle, le workspace et la provenance de leur
-sélection. Une installation Quarto non standard peut être indiquée avec
-`ORCHIDEE_QUARTO`.
-
-## Point d'entrée des réglages
-
-Un build Rouen ordinaire ne modifie aucune configuration : ses deux entrées et
-sa destination sont les paramètres `-Bact`, `-Pmsi` et `-Output`.
-
-La classification maintenue avec le code est portée par les sous-listes et
-commentaires de `config/pipeline.R` :
-
--   `runtime` et `paths` résolvent les emplacements ;
--   `cache` et `report` portent les contrôles de maintenance et d'affichage ;
--   `ratb` appartient au contrat analytique et de publication, pas aux
-    préférences d'un run.
-
-La fenêtre, les codes de screening et les sources versionnées de l'adaptateur
-Rouen vivent séparément dans `config/rouen_raw_handoff.R`. Une modification de
-ce fichier exige un nouveau build audité et le gate opérationnel pertinent.
-Les chemins BACT et PMSI n'appartiennent à aucun de ces deux fichiers.
-
-Les tables de règles analytiques maintenues par le projet doivent rester
-dans `rules/` lorsqu'elles existent.
-Les transformations de normalisation restent dans `mappings/`. Les faits de
-référence importés restent dans `ref/` : catalogues TA/DE partagés sous
-`ref/consores/`, références d'unités et structure interne de l'établissement
-sous `ref/rouen/`. Ces références Rouen sont versionnées, non sensibles et
-chargées automatiquement par l'adaptateur Rouen.
-Un référentiel ou snapshot sans consumer actif doit être archivé hors du dépôt,
-pas conservé dans `ref/` par précaution.
-Les fichiers de présentation Quarto restent dans `assets/`.
-
-Une structure Rouen explicitement sélectionnée peut remplacer la référence
-versionnée sans modifier le code :
-
-```powershell
-$env:ORCHIDEE_ROUEN_STRUCTURE_PATH = "C:\chemin\structure.xlsx"
-```
-
-## Dépendances R
-
-Les dépendances sont enregistrées dans `renv.lock`.
-
-Pour restaurer l'environnement d'un clone frais :
+Restaurer un clone frais avec la version R et les dépendances de `renv.lock` :
 
 ```powershell
 & .\scripts\setup.ps1
 ```
 
-Le setup trouve la version exacte de R déclarée dans le lockfile, sans exiger
-`Rscript` dans le `PATH`, restaure la bibliothèque de projet sous `renv/` et
-vérifie les versions et les sources enregistrées sans charger les 111 paquets
-dans la session de setup. `.Rprofile` et
-`renv/activate.R` assurent l'activation standard de cette bibliothèque pour les
-commandes lancées depuis la racine. `scripts/setup.ps1 -DryRun` contrôle
-seulement R et le lockfile.
+Vérifier la résolution sans installer :
 
-Le patch R exact est une contrainte volontaire du pipeline clinique gelé. Le
-lock courant exige R 4.5.3 ; sous Windows, son installateur reste disponible
-dans
-[les archives officielles CRAN](https://cran.r-project.org/bin/windows/base/old/4.5.3/).
-Une évolution de R ou du lock doit être traitée comme un changement
-d'environnement : restauration depuis un cache vide, tests source et gate
-opérationnel complet avant acceptation.
+```powershell
+& .\scripts\setup.ps1 -DryRun
+```
 
-Pendant le setup Windows seulement, `.Rprofile` peut annoncer l'usage de
-Schannel avec `--ssl-revoke-best-effort` lorsque le service de révocation est
-indisponible. La validation de la chaîne de certificats reste active. Cette
-exception qualifiée et son gate sont consignés dans
+Lancer les commandes R par le runner du dépôt :
+
+```powershell
+& .\scripts\run_r.ps1 -Expression "renv::status()"
+```
+
+`ORCHIDEE_R` peut désigner un autre exécutable de la version exacte demandée
+par le lockfile. La qualification datée de l'environnement courant est dans
 `documentation/r_environment_baseline_2026-07-26.md`.
 
-Après ajout, suppression ou mise à jour volontaire d'une dépendance, vérifier
-l'état puis mettre à jour le lockfile :
+Après une modification volontaire des dépendances :
 
 ```powershell
 & .\scripts\run_r.ps1 -Expression `
   "renv::status(); renv::snapshot(prompt = FALSE)"
 ```
 
-Ne pas snapshotter après avoir seulement chargé des artefacts locaux ou rendu un
-rapport : `renv.lock` doit représenter les dépendances du code, pas l'état d'une
-session de travail.
+Ne pas snapshotter l'état accidentel d'une session ou d'un rendu.
 
-## Frontière EDSaN / redsan
-
-`redsan` possède l'interrogation EDSaN, le batching et la normalisation des
-modules PMSI/BIOL. ORCHIDEE ne duplique plus ces fonctions. Pour le chemin
-Rouen, partir de l'export bactériologique long et de l'objet PMSI produit par
-`redsan`, puis utiliser `scripts/build_rouen.ps1`. Toute évolution du contrat
-source EDSaN doit donc être réalisée et testée dans `redsan` avant son adoption
-par ORCHIDEE.
-
-## Tests R autonomes
-
-Exécuter les tests source depuis la racine du dépôt :
+## Tests source
 
 ```powershell
 & .\scripts\run_r.ps1 tests/run_tests.R
 ```
 
-Chaque fichier `tests/test_*.R` est exécuté dans un processus R distinct.
+Les fichiers `tests/test_*.R` sont exécutés dans des processus R distincts et
+le runner s'arrête au premier échec.
 
-## Construction d'un site externe depuis les six blocs
+## Rendu
 
-La procédure opérateur maintenue pour Rennes ou un autre site sans adaptateur
-local est
-[`external_bundle/site_handoff_inputs.md`](external_bundle/site_handoff_inputs.md).
-Ce runbook ne la reproduit pas. Pour la maintenance, retenir les invariants
-suivants :
-
--   `scripts/build_site.ps1` est l'unique point d'entrée opérateur ;
--   `-RunSmokeTest` vérifie l'installation en exécutant le parcours complet sur
-    la fixture synthétique versionnée, sans données cliniques ; c'est un
-    self-test, pas du matériel d'onboarding, et il ne doit pas être enrichi pour
-    imiter un site réel ;
--   `-DryRun` vérifie les six chemins nommés, R, les paquets et les colonnes
-    avant toute construction ; il reste volontairement économique et ne lit pas
-    le contenu ;
--   `-Diagnose` lit les six blocs une seule fois et écrit un rapport agrégé
-    `BLOCKING` / `WARNING` / `INFO` dans un sous-répertoire `diagnostics` de
-    `-Output` si l'on en passe un, sinon sous `outputs/site_diagnostics` ;
-    `-Report` a priorité sur les deux. Son statut de sortie vaut 1 tant qu'il
-    reste un `BLOCKING`, et 2 lorsque le diagnostic n'a pas pu s'exécuter ou
-    publier son rapport, ce qui n'est pas un verdict sur les blocs. Il ne couvre
-    que le contrat de handoff et ne dit rien du contrat de publication des
-    indicateurs ;
--   invariant de solidité : un `PASS` de `-Diagnose` doit impliquer que le
-    parcours opérateur complet aboutit, c'est-à-dire le bundle v3, sa projection
-    fermée `spares_current` vers le v2 opérationnel, et la validation stricte
-    des deux. Tout contrôle ajouté doit donc refléter une règle réellement
-    appliquée par le builder, par le contrat v3 ou par cette projection ;
-    `tests/test_site_input_diagnostics.R` le vérifie en exécutant ce même
-    parcours sur chaque fixture acceptée ;
--   un seul diagnostic publie à la fois dans un répertoire de rapport : il y
-    prend `.orchidee_diagnostics.lock`, marqué par un jeton, et un second
-    diagnostic lancé entre-temps sort en 2 au lieu d'entrelacer ses fichiers.
-    Un verrou laissé par une exécution tuée est nommé dans le message de refus
-    et peut être supprimé une fois établi qu'aucune exécution n'est en cours.
-    Le supprimer sous une exécution vivante n'est pas supporté : le jeton
-    raccourcit la fenêtre pendant laquelle l'ancienne exécution effacerait le
-    verrou d'une nouvelle, il ne la ferme pas, et un verrou-répertoire ne peut
-    pas le garantir sans verrou système ;
--   `-EmitTemplates` produit les six en-têtes et `mapping_reference/`, sans
-    effectuer le mapping local ;
--   le wrapper conserve v3, matérialise et smoke le v2 opérationnel, puis écrit
-    les deux manifests en dernier avec le même `build_id` ;
--   `-Force` ne remplace qu'un layout complet issu du même workflow ;
--   pour des bundles partiels sans manifests valides, choisir un autre
-    `-Output` ou, après avoir confirmé qu'aucun build ne tourne, exécuter la
-    commande de nettoyage affichée par le wrapper avant de réutiliser la
-    destination ;
--   un layout provenant d'un autre workflow impose un nouveau `-Output`.
-
-La CLI positionnelle `scripts/build_external_bundle_from_site_inputs.R` reste
-un outil mainteneur pour les comparaisons explicites de contrats.
-
-## Construction locale Rouen de bout en bout
-
-Le parcours normal transforme les exports Rouen en six blocs complets, conserve
-le bundle v3 durable puis matérialise sa projection v2 opérationnelle :
-
-L'opérateur renseigne seulement les deux chemins d'entrée vers l'export BACT
-et l'objet PMSI `redsan` ; `-Output` permet éventuellement de changer la
-destination des résultats. Les mappings, catalogues TA/DE et références Rouen
-sont déjà présents dans le checkout.
+Utiliser exclusivement le wrapper :
 
 ```powershell
-& .\scripts\build_rouen.ps1 `
-  -Bact "data/bact22_24" `
-  -Pmsi "data/pmsi"
+& .\scripts\render_orchidee.ps1 -Target <cible>
 ```
 
-Le wrapper exige la version R déclarée dans `renv.lock`. `ORCHIDEE_R` permet
-seulement d'indiquer un autre exécutable de cette même version. Il utilise
-`outputs/rouen_current` par défaut et applique le parcours v3 + projection v2
-ratifié. Utiliser `-Output` pour une autre destination, `-DryRun` pour le
-préflight sans lecture des objets et `-Force` seulement pour remplacer des
-sorties existantes du même parcours. Le préflight vérifie aussi les paquets
-réellement requis par l'adaptateur ; il signale un output compatible existant
-sans échouer, puis rappelle si le build réel exige `-Force` ou un autre chemin.
-Un ancien layout de build direct fait échouer le préflight, car `-Force` ne peut
-pas le remplacer : choisir un autre `-Output`. Dans le checkout, la destination
-doit être un sous-répertoire dédié de `outputs/` ; un chemin protégé externe
-dédié reste accepté, mais pas une racine de disque ni un répertoire parent du
-checkout. La CLI R sous-jacente reste
-`scripts/build_rouen_external_bundle.R` pour les mainteneurs qui doivent
-comparer explicitement les contrats.
+| Cible | Quand l'utiliser |
+|---|---|
+| `memo` | Wording ou présentation de la méthodologie seulement. |
+| `indicators` | Affichage du rapport sans changement de logique amont. |
+| `full` | Périmètre, dénominateur, dédoublonnage, indicateurs, mappings ou autre logique amont. |
 
-La commande écrit les six blocs sous `site_inputs/`, les quatre fichiers v3 sous
-`bundle_v3/`, la projection courante sous `bundle_v2_operational/` et l'audit
-local dans `adapter_audit.rds`. `build_manifest.txt` donne les chemins, les hash,
-le HEAD, le profil de projection et les résultats de validation. L'audit peut
-contenir des identifiants patients. Le manifest est le marqueur de fin : son
-absence signifie que la construction est incomplète et ne doit pas être
-consommée. Conserver tout le répertoire sous
-`outputs/` ou dans un autre emplacement protégé et non versionné.
-
-La fenêtre versionnée par défaut est `[2022-01-01, 2025-01-01)` pour les deux
-sources. Toute modification se fait dans `config/rouen_raw_handoff.R` et
-doit rester visible dans les métadonnées d'audit.
-
-Le script valide strictement v3 et v2 puis exécute le smoke du runtime sur les
-deux. La projection applique `spares_current` et doit redériver exactement le
-total annuel v2. Le runtime reste strictement sur v2 : cette commande conserve
-v3 sans l'adopter comme entrée des notebooks.
-
-## Exécution opérationnelle sur un bundle v2
-
-Le bundle v2 strict est l'unique chemin opérationnel. Sans surcharge,
-`config/pipeline.R` cherche le bundle sous
-`outputs/rouen_current/bundle_v2_operational`. Après sa construction, lancer un
-rendu complet en liant explicitement le bundle construit et son workspace :
-
-```powershell
-& .\scripts\render_orchidee.ps1 -Target full `
-  -Bundle "outputs/rouen_current/bundle_v2_operational" `
-  -Workspace "outputs/rouen_current/runtime"
-```
-
-`full` construit le cache RATB brut canonique puis rend le rapport
-d'indicateurs. La complétion ne fait pas partie de ce chemin. Avant tout calcul,
-le wrapper contrôle Quarto, les paquets R réellement chargés et les quatre
-fichiers du bundle, puis affiche les chemins résolus.
-
-La complétion exploratoire n'est plus un target de rendu actif. Sa dernière
-implémentation cohérente est conservée au tag
-`archive/completion-chu-native-2026-07-22`.
-
-Pour utiliser un bundle ou un workspace protégé situé ailleurs :
-
-```powershell
-& .\scripts\render_orchidee.ps1 -Target full `
-  -Bundle "C:\chemin\protege\bundle" `
-  -Workspace "C:\chemin\protege\runtime"
-```
-
-Les variables `ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR` et
-`ORCHIDEE_EXTERNAL_WORKSPACE_DIR` restent disponibles pour une session répétée.
-Le wrapper signale un override bundle actif quand `-Bundle` n'est pas fourni,
-afin qu'un réglage persistant ne change jamais silencieusement la source. Les
-paramètres explicites ne modifient ces variables que pendant l'invocation.
-
-Le loader exige les quatre fichiers préférés du contrat v2 et échoue sans
-fallback. Cache brut, dédoublonnage et téléchargements sont écrits sous le
-workspace externe, pas dans `data/` ni `downloads/`.
-
-Pour revenir aux chemins configurés par défaut dans la même session PowerShell :
-
-```powershell
-Remove-Item Env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR -ErrorAction SilentlyContinue
-Remove-Item Env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR -ErrorAction SilentlyContinue
-```
-
-## Gate de non-régression du runtime v2
-
-Après un changement qui ne doit pas modifier les résultats opérationnels,
-exécuter d'abord un rendu `full`, puis comparer un rendu v2 accepté au rendu
-candidat avec le gate read-only :
-
-```powershell
-$baseline = "C:\chemin\protege\validation-v2"
-$candidate = "C:\chemin\protege\rouen-current"
-& .\scripts\run_r.ps1 scripts/compare_operational_v2_gate.R `
-  "$baseline\bundle-v2-projected" `
-  "$baseline\runtime" `
-  "$candidate\bundle_v2_operational" `
-  "$candidate\runtime"
-```
-
-Le gate exige l'identité des trois objets canoniques, de `sir_wide_meta` en
-ignorant uniquement la valeur de `created_at`, du dédoublonnage brut, de son
-audit et des valeurs de toutes les feuilles XLSX publiées. Il ne compare pas
-`dedup_cache_meta`, qui
-porte des chemins et timestamps de run, ni les PDF/PNG, qui ne constituent pas
-le gate numérique. Baseline et candidat restent dans un emplacement privé hors
-Git ; le script ne les modifie pas et ne publie aucune valeur clinique.
-Une baseline acceptée doit être conservée comme un oracle immuable.
-
-## Matrice de rendu
-
-Pour les cibles qui consomment les données, les exemples ci-dessous nomment la
-sortie Rouen par défaut. Adapter les deux chemins si le build utilisait un autre
-`-Output` ; ne pas les omettre.
-
-### Si seule la méthodologie a changé
-
-Commande :
-
-```powershell
-& .\scripts\render_orchidee.ps1 -Target memo
-```
-
-### Si seule la couche d'affichage du rapport d'indicateurs a changé
-
-Exemples :
-
--   ordre des sections
--   titres
--   notes
--   mise en page des tableaux
--   dimensions des graphiques
--   présentation des phénotypes
-
-Commande :
+Pour les cibles qui consomment les données, lier explicitement le bundle et le
+workspace au build voulu :
 
 ```powershell
 & .\scripts\render_orchidee.ps1 -Target indicators `
@@ -335,17 +86,69 @@ Commande :
   -Workspace "outputs/rouen_current/runtime"
 ```
 
-### Si la logique amont a changé
+Remplacer `indicators` par `full` lorsque la logique amont a changé. `full`
+construit d'abord le cache brut canonique, puis rend le rapport.
 
-Exemples :
+Le wrapper résout R et Quarto, vérifie les paquets et le bundle, affiche les
+chemins consommés et échoue sur toute étape invalide. `ORCHIDEE_QUARTO` reste
+disponible pour une installation Quarto non standard.
 
--   dédoublonnage
--   dénominateur / périmètre
--   calcul des indicateurs
--   construction de l'artefact large
--   modification de la spec des indicateurs qui affecte la QA du workflow
+## Site externe sans adaptateur
 
-Commande :
+La procédure maintenue est
+[`external_bundle/site_handoff_inputs.md`](external_bundle/site_handoff_inputs.md).
+Ne pas recopier ses commandes ici.
+
+Invariants de maintenance :
+
+-   `scripts/build_site.ps1` est l'unique point d'entrée opérateur ;
+-   l'ordre est smoke d'installation, templates si nécessaires, `-DryRun`,
+    `-Diagnose`, puis build ;
+-   un `PASS` de `-Diagnose` promet que v3, sa projection v2 et leurs
+    validations aboutissent sur les mêmes blocs ;
+-   le build conserve v3 et matérialise un v2 séparé ;
+-   les deux manifests sont écrits en dernier et portent le même `build_id` ;
+-   `-Force` n'appartient pas à la première commande de build.
+
+La CLI positionnelle `scripts/build_external_bundle_from_site_inputs.R` est
+réservée aux comparaisons explicites de contrats par un maintainer.
+
+## Construction Rouen
+
+Vérifier les chemins sans lire les objets :
+
+```powershell
+& .\scripts\build_rouen.ps1 `
+  -Bact "C:\protected\bact22_24" `
+  -Pmsi "C:\protected\pmsi" `
+  -DryRun
+```
+
+Après le `PASS`, relancer sans `-DryRun`. Le parcours normal demande seulement
+BACT, PMSI et éventuellement `-Output`. Il écrit par défaut :
+
+```text
+outputs/rouen_current/
+  site_inputs/
+  bundle_v3/
+  bundle_v2_operational/
+  adapter_audit.rds
+```
+
+Le manifest marque la fin du build. Son absence signifie que la sortie est
+incomplète. `adapter_audit.rds` peut contenir des identifiants patients : tout
+le répertoire reste sous `outputs/` ou dans un emplacement protégé hors Git.
+
+La fenêtre, le screening et les références versionnées de l'adaptateur vivent
+dans `config/rouen_raw_handoff.R`. Les chemins cliniques restent des paramètres
+CLI.
+
+La procédure détaillée est
+[`external_bundle/rouen_raw_handoff.md`](external_bundle/rouen_raw_handoff.md).
+
+## Exécution sur le bundle v2
+
+Le runtime consomme uniquement le bundle v2 projeté :
 
 ```powershell
 & .\scripts\render_orchidee.ps1 -Target full `
@@ -353,70 +156,76 @@ Commande :
   -Workspace "outputs/rouen_current/runtime"
 ```
 
-`full` exécute dans cet ordre :
+Les variables `ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR` et
+`ORCHIDEE_EXTERNAL_WORKSPACE_DIR` restent disponibles pour une session
+répétée, mais les paramètres explicites rendent mieux la provenance d'un run.
 
-1.  `scripts/build_ratb_raw_runtime.R`
-2.  `orchidee_ratb_indicators.qmd`
+## Gate de non-régression v2
 
-## Règles courantes de maintenance
+Après le rendu `full` d'un changement qui ne doit pas modifier les résultats :
 
--   Traiter le checkout Git sous `~/Documents/Git/orchidee` comme la
-    source de vérité locale de travail ; `main` reflète le travail accepté
-    sur GitHub.
--   Créer une branche `task/<slug>` pour les changements significatifs et
-    garder `main` propre.
--   Traiter les sorties HTML comme des artefacts dérivés, pas comme la
-    source.
--   Garder `data/` comme zone locale facultative pour les inputs d'une
-    exécution. Les scripts acceptent aussi des chemins protégés externes.
--   Garder `downloads/` pour les artefacts d'export produits par les
-    rapports.
--   Garder les bundles, caches, audits, brouillons et inspections générés sous
-    `outputs/` ou dans le workspace externe configuré.
--   Passer les chemins d'un run par les paramètres CLI. Modifier les
-    configurations versionnées seulement lorsqu'un contrat de maintenance ou
-    d'analyse doit réellement changer.
--   Préférer de petits diffs.
--   Éviter de mélanger nettoyage structurel et changements de logique
-    scientifique.
+```powershell
+$baseline = "C:\protected\validation-v2"
+$candidate = "C:\protected\rouen-current"
+& .\scripts\run_r.ps1 scripts/compare_operational_v2_gate.R `
+  "$baseline\bundle-v2-projected" `
+  "$baseline\runtime" `
+  "$candidate\bundle_v2_operational" `
+  "$candidate\runtime"
+```
 
-## Pièges fréquents
+Le gate compare les objets canoniques, les résultats de dédoublonnage, leur
+audit et les cellules XLSX publiées. Il ignore seulement les métadonnées de run
+explicitement non déterministes. La baseline reste privée, immuable et hors
+Git.
 
-### Le rapport semble faux, mais le pipeline peut être correct
+## Configuration et emplacements
 
-Vérifier si le problème se situe dans :
+-   `config/pipeline.R` : chemins runtime, cache, affichage et contrat de
+    publication ;
+-   `config/rouen_raw_handoff.R` : réglages versionnés propres à l'adaptateur ;
+-   `data/` : entrées locales facultatives ;
+-   `outputs/` : bundles, caches, audits et inspections ;
+-   `downloads/` : exports destinés au lecteur ;
+-   `mappings/`, `ref/`, `rules/` : transformations, faits et décisions.
 
--   la logique amont ou les données
--   la spec des indicateurs
--   ou seulement la couche de restitution
+Un run ordinaire ne modifie aucun fichier de configuration. Changer un réglage
+analytique, une fenêtre ou une règle de screening exige la vérification
+correspondante.
 
-Une valeur absente du HTML n'implique pas automatiquement qu'elle est
-absente du pipeline.
+## Dépannage
 
-### Les dénominateurs de résistance et d'incidence sont des objets différents
+### Un rapport semble faux
 
-Ne pas supposer qu'un changement de l'un explique automatiquement
-l'autre.
+Déterminer d'abord si le problème appartient aux données ou à la logique amont,
+au catalogue des indicateurs, ou uniquement à la restitution. Une valeur
+absente du HTML n'est pas nécessairement absente du pipeline.
 
-### Les sorties phénotypiques sont particulières
+### Un build est refusé sur une sortie existante
 
-Les indicateurs phénotypiques sont des sorties dérivées, pas de simples
-lignes molécule. Le rapport d'indicateurs comporte désormais une section
-dédiée aux phénotypes en plus du catalogue.
+Lire le manifest et le message du wrapper. Utiliser un autre `-Output`, ou
+`-Force` seulement après avoir confirmé que la sortie complète vient du même
+workflow et qu'aucun build n'est actif.
 
-### Les comparaisons CONSORES ne sont pas automatiquement comparables
+### Un diagnostic trouve un verrou résiduel
 
-Des pourcentages qui se ressemblent peuvent malgré tout reposer sur des
-dénominateurs, des filtres ou des prétraitements différents.
+Ne supprimer `.orchidee_diagnostics.lock` qu'après avoir établi qu'aucun
+diagnostic n'utilise encore ce répertoire.
 
-## Premières étapes de dépannage
+### Le runtime charge la mauvaise donnée
 
-1.  Vérifier le répertoire de travail.
-2.  Confirmer quel fichier porte réellement la logique que l'on veut
-    modifier.
-3.  Confirmer si le changement porte sur la logique, la spec ou
-    l'affichage seulement.
-4.  Utiliser le wrapper avec la plus petite cible valide.
-5.  Si la sortie reste incorrecte, inspecter le manifest, l'audit et les caches
-    sous `outputs/` ou dans le workspace externe avant de modifier davantage de
-    code.
+Relancer avec `-Bundle` et `-Workspace` explicites et vérifier les chemins
+affichés par le wrapper.
+
+### Une comparaison externe semble différente
+
+Vérifier le périmètre, le grain, le dénominateur et le prétraitement avant de
+comparer des pourcentages ou des densités.
+
+## Hygiène du dépôt
+
+-   Les HTML et fichiers intermédiaires Quarto sont dérivés.
+-   Les données patient, bundles, audits et caches ne sont jamais versionnés.
+-   Les snapshots sans consumer actif sont archivés hors du dépôt.
+-   Les changements scientifiques restent séparés des nettoyages structurels.
+-   Avant de finir, relire `git status`, le diff et la vérification exécutée.
