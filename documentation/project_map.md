@@ -1,469 +1,118 @@
 ---
 editor_options:
   markdown:
-    wrap: 80
+    wrap: 72
 ---
 
-# Cartographie du projet
-
-Ce document s'adresse aux mainteneurs. Il répond à deux questions :
-
-1.  où se trouve chaque partie du workflow Orchidee ?
-2.  où faut-il modifier le code ou la documentation quand on veut changer quelque chose ?
-
-## Chaîne de traitement de haut niveau
-
-1.  Normaliser les champs microbiologiques sources et construire
-    l'artefact S/I/R large.
-2.  Construire le périmètre analytique d'hospitalisation et les objets
-    annuels de dénominateur en nuits d'hospitalisation.
-3.  Exécuter le dédoublonnage SPARES brut, global et par type de prélèvement.
-4.  Calculer les panels annuels d'indicateurs RATB.
-5.  Rendre le rapport produit et les documents méthodologiques de
-    support.
-
-Le rendu `full` construit uniquement le cache brut. La complétion exploratoire
-a été retirée du chemin actif ; sa dernière implémentation cohérente reste
-disponible au tag `archive/completion-chu-native-2026-07-22`. La vue d'ensemble
-est documentée dans `documentation/operational_flow.md`.
-
-## Frontière opérationnelle vers le coeur ORCHIDEE
-
-Les notebooks chargent un bundle externe v2 strict et le projettent vers les
-trois objets runtime avant le contrôle de plausibilité, le dédoublonnage et les
-indicateurs. `external_bundle_v2` est l'unique entrée opérationnelle ; il n'y a
-aucun autodétecteur ni fallback. La décision d'adoption et ses éléments agrégés
-sont consignés dans
-`documentation/external_bundle/operational_v2_adoption_2026-07-19.md`.
-
-La règle d'architecture est donc : plusieurs adaptateurs locaux peuvent
-produire les six blocs de handoff, mais tous passent par le builder partagé et
-le même bundle v2 avant le coeur RATB.
-
-```text
-Exports bactériologie + PMSI Rouen       Six blocs d'un autre site
-                |                                  |
-                v                                  |
-       Adaptateur Rouen                            |
-                |                                  |
-                +----------> six blocs <-----------+
-                                  |
-                                  v
-                         Builder partagé
-                                  |
-                                  v
-                       bundle v3 conservé
-                                  |
-                    projection spares_current
-                                  |
-                                  v
-                      bundle v2 opérationnel
-                                                        |
-                                                        v
-                                           Objets runtime partagés
-                                          - sir_wide_ratb_scope
-                                          - sir_wide_ratb_analytic_scope
-                                          - incidence_denominator_by_year
-                                                        |
-                                                        v
-                                            Coeur RATB et notebooks
-```
-
-Le chemin Rouen et le handoff d'un autre site sont donc deux façons de produire
-les mêmes six blocs. Le runtime ne connaît pas leur origine locale.
-
-Le dénominateur du contrat opérationnel v2 reste annuel. Le contrat externe v3
-transporte une table d'exposition profilée à année + UM + UF + TA + DE, y
-compris l'activité mappée hors périmètre. Le runtime applique
-`spares_current` et en dérive exactement le total annuel v2. v3 n'est pas
-encore la valeur opérationnelle par défaut et ne publie pas encore de panels
-stratifiés.
-
-Pour brancher Rennes ou un autre entrepôt, ne pas utiliser cette carte comme
-contrat d'onboarding. La source de vérité est
-`documentation/external_bundle/site_handoff_inputs.md`.
-
-## Notebooks principaux
-
-### `orchidee_ratb_indicators.qmd`
-
-Rôle :
-
--   rapport RATB orienté produit
--   catalogue des indicateurs
--   restitutions annuelles de proportions et d'incidence
--   section de restitution des phénotypes
-
-À utiliser quand on veut modifier :
-
--   la structure du rapport
--   l'ordre des sections
--   les réglages d'affichage
--   la présentation des phénotypes
-
-### `documentation/ratb_methodology.qmd`
-
-Rôle :
-
--   méthode analytique des indicateurs RATB publiés
--   conventions communes d'interprétation des résultats
-
-## Fichiers R principaux
-
-Les notebooks chargent ces fichiers en deux temps : `R/setup.R` est sourcé
-en tête (librairies, bootstrap portable, lecture de `config/pipeline.R`),
-puis chaque notebook source explicitement les scripts de logique dont il a
-besoin via `orchidee_source_required_script()`.
-
-Quelques helpers R autonomes sourcent aussi `R/bootstrap.R` directement
-pour accéder aux mêmes fonctions de résolution de chemins lorsqu'ils sont
-chargés hors notebook.
-
-### Bootstrap
-
--   `.Rprofile`
-    -   délègue à l'autoloader standard versionné `renv/activate.R`
--   `renv/activate.R`
-    -   initialise puis active la version de `renv` enregistrée dans le lockfile
--   `scripts/setup.ps1`
-    -   résout la version R du lockfile, restaure la bibliothèque `renv/` et
-        vérifie les versions et sources installées
--   `scripts/run_r.ps1`
-    -   lance un script ou une expression avec la version R exacte et la
-        bibliothèque `renv` du dépôt
--   `scripts/orchidee_environment.ps1`
-    -   resolver PowerShell partagé de R et du lockfile, utilisé par le setup,
-        le runner R, le builder Rouen et le wrapper de rendu
--   `documentation/r_environment_baseline_2026-07-26.md`
-    -   preuve versionnée du bootstrap froid et du gate fonctionnel ayant
-        qualifié le lock R courant
--   `R/setup.R`
-    -   bootstrap portable : chargement des librairies, sourcing de
-        `R/bootstrap.R`, lecture de la config et helpers communs ; sourcé
-        en tête des notebooks
--   `R/bootstrap.R`
-    -   helpers légers de résolution de chemins et de sourcing partagés
-        entre notebooks, scripts CLI et helpers R
--   `R/helpers.R`
-    -   utilitaires généraux partagés
--   `R/zzz.R`
-    -   déclarations `globalVariables`
-
-### Adaptateur Rouen / extraction amont
-
-L'acquisition EDSaN et la normalisation PMSI/BIOL appartiennent à `redsan`.
-ORCHIDEE ne conserve pas de copie de ces helpers : son chemin Rouen commence à
-l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
-
-### Normalisation et artefact amont
-
--   `R/normalisation_atb.R`
-    -   normalisation des antibiotiques
--   `R/normalisation_bact.R`
-    -   normalisation des bactéries
--   `R/phenotype_flag_helpers.R`
-    -   parsing et propagation des phénotypes BLSE / carbapénèmase
-    -   statuts internes à quatre états, flags publics binaires (positif
-        uniquement)
--   `R/rouen_microbiology_handoff_adapter.R`
-    -   transforme l'export bactériologique long Rouen en quatre blocs de
-        handoff : observations, mappings bactéries, prélèvements et antibiotiques
-    -   porte les décisions locales versionnées de screening, mapping unordered,
-        expansion des classes ATB et attribution exacte des phénotypes
--   `R/rouen_pmsi_handoff_adapter.R`
-    -   applique la politique PMSI `C > DW` via `redsan`, attribue l'UF
-        d'hébergement au prélèvement et construit mapping TA/DE et dénominateur
-    -   compose les six blocs en bundle v3 complet, puis projette la forme v2
-        opérationnelle, sans fallback vers l'UF microbiologique
-
-### Dédoublonnage
-
--   `R/spares_shared_primitives.R`
-    -   primitives de conflit et d'ordonnancement
--   `R/spares_dedup.R`
-    -   classes de compatibilité de type SPARES et sélection du
-        représentant
-
-### Contrôle qualité
-
--   `R/ratb_plausibility_qc_helpers.R`
-    -   construction des flags de plausibilité (QC) sur l'artefact S/I/R
-    -   utilisés dans la QA du notebook socle
-
-### Dénominateur / périmètre
-
--   `R/ratb_canonical_runtime_helpers.R`
-    -   coeur aval indépendant de l'entrepôt : applique
-        `sample_scope_reference` à `sir_wide`
-    -   construit le périmètre microbiologique analytique et expose la
-        table annuelle de dénominateur au workflow RATB
-    -   sous contrat v3, sélectionne le profil et le contexte TA/DE courants
-        dans la table d'exposition année + UM + UF + TA + DE, puis conserve
-        aussi cette table complète dans les entrées runtime
-    -   valide les invariants minimaux des entrées runtime canoniques
--   `R/ratb_hospital_days_helpers.R`
-    -   helpers PMSI Rouen pour les audits de séjour et le
-        dénominateur local
-    -   produit les nuits éligibles v2 et, séparément, l'exposition v3 de toute
-        l'activité mappée par année, UM, UF, TA et DE
-    -   combinaison de la structure d'établissement Rouen avec les catalogues
-        CONSORES TA/DE vers la `sample_scope_reference` canonique
-    -   découpage inter-annuel
--   `R/external_handoff_helpers.R`
-    -   helpers de handoff pour un site externe : dérive les métadonnées
-        de `sir_wide`, construit `sir_wide` depuis des observations
-        microbiologiques longues et des mappings locaux, construit la
-        `sample_scope_reference` depuis un mapping simple UF/TA-DE et
-        enveloppe le dénominateur annuel v2 ou l'exposition profilée v3 en
-        `denominator_bundle`
-    -   ne constitue pas un connecteur universel d'entrepôt ; il attend
-        des blocs locaux déjà compréhensibles et mappés par le site
--   `R/site_input_report_publication_helpers.R`
-    -   propriété du répertoire de rapport de `scripts/diagnose_site_inputs.R` :
-        verrou `.orchidee_diagnostics.lock` marqué par un jeton, suivi du
-        répertoire de composition, et libération définitive de l'un et de
-        l'autre
-
-### Indicateurs et couche rapport
-
--   `R/ratb_indicator_helpers.R`
-    -   parsing et validation de la spec des indicateurs
-    -   calcul des panels annuels
-    -   exécution des indicateurs phénotypiques
--   `R/ratb_report_helpers.R`
-    -   helpers d'affichage partagés par le notebook socle et le rapport
-        d'indicateurs
-    -   wrappers de tableaux et graphiques
-    -   builders de sorties par taxon
-    -   builders de la section phénotypes
-
-## Mappings, références et contrat de publication
-
--   `assets/`
-    -   feuilles de style et fragments HTML utilisés par les rendus
-        Quarto
--   `config/pipeline.R`
-    -   sous-listes nommées pour les chemins runtime, contrôles de cache,
-        paramètres d'affichage et contrat analytique/de publication
-    -   les commentaires du fichier distinguent les contrôles de maintenance
-        des réglages qui exigent un gate complet
--   `config/rouen_raw_handoff.R`
-    -   configuration mainteneur de l'adaptateur Rouen : fenêtre
-        d'extraction, codes de screening et chemins des entrées versionnées
-    -   ne reçoit jamais les chemins cliniques BACT ou PMSI
--   `ref/rouen/establishment_structure_2025.xlsx`
-    -   structure interne non sensible de l'établissement, versionnée et
-        consommée uniquement par l'adaptateur Rouen
-    -   son chemin peut être remplacé avec
-        `ORCHIDEE_ROUEN_STRUCTURE_PATH`
--   `ref/rouen/ref_uf.txt`, `ref/rouen/ref_um.txt`,
-    `ref/rouen/ref_uf2um.txt`
-    -   références d'unités propres à Rouen, versionnées et chargées
-        automatiquement par l'adaptateur
--   `ref/consores/codes_ta.csv`, `ref/consores/codes_de.csv`
-    -   listes de codes CONSORES tabulaires versionnées pour l'éligibilité
-        TA/DE du périmètre RATB d'hospitalisation
-    -   les anciens snapshots textuels sans consumer ne sont pas des sources
-        versionnées
--   `rules/`
-    -   emplacement réservé aux tables de règles analytiques maintenues
-        par le projet
-    -   `couples_species_atb.csv` porte l'univers espèces/antibiotiques
-        supporté par l'adaptateur Rouen
-    -   ne contient plus de table active pour le périmètre RATB ; ce
-        périmètre repose sur la structure de l'établissement Rouen, les listes
-        de codes TA/DE versionnées et `R/ratb_hospital_days_helpers.R`
--   `documentation/ratb_indicator_spec.csv`
-    -   contrat de publication des indicateurs
-    -   premier endroit à vérifier quand on ajoute ou retire des sorties
--   `mappings/atb_regex_map.csv`
-    -   table de normalisation regex des antibiotiques
--   `mappings/rouen_naturepvt_regex.csv`
-    -   règles Rouen évaluées sans utiliser leur ordre pour départager les cibles
--   `mappings/rouen_naturepvt_exact_decisions.csv`
-    -   décisions humaines exactes, motivées, pour les conflits ou reports connus
-
-### Contrat externe et validation
-
--   `R/external_bundle_validation_helpers.R`
-    -   helpers de validation réutilisables pour le contrat d'entrée
-        externe
-    -   porte les contrats exécutables v2 et v3 via
-        `orchidee_external_contract_v2()` et
-        `orchidee_external_contract_v3()`
-    -   ferme actuellement le contexte `spares_current` et le seul profil
-        de dénominateur `midnight_presence`
-    -   charge aussi un bundle validé via
-        `load_validated_external_input_bundle()`
--   `R/ratb_hospital_days_helpers.R`
-    -   contient les primitives temporelles et d'exposition partagées par le
-        builder v3 et l'adaptateur PMSI Rouen
--   `R/ratb_canonical_runtime_helpers.R`
-    -   contient le helper de frontière
-        `build_ratb_downstream_scope_from_canonical_inputs()` qui applique
-        une référence de périmètre canonique à `sir_wide`
-    -   projette aussi un bundle v3 validé vers la forme v2 opérationnelle
-        fermée avec `project_external_bundle_v3_to_operational_v2()`
--   `R/ratb_operational_input_helpers.R`
-    -   charge strictement `external_bundle_v2`
-    -   garde cache et téléchargements séparés des chemins locaux protégés et
-        expose seulement les trois objets runtime partagés aux notebooks
--   `scripts/validate_external_bundle.R`
-    -   validateur CLI autonome pour les bundles externes
--   `scripts/build_site.ps1`
-    -   point d'entrée opérateur Rennes/autre site : six chemins nommés,
-        préflight `-DryRun`, diagnostic agrégé `-Diagnose`, bundle v3 conservé,
-        projection v2 opérationnelle et smoke automatique sous
-        `outputs/site_current`
-    -   `-RunSmokeTest` exécute ce même parcours sur la fixture synthétique
-        versionnée sous `examples/site_handoff_minimal/` ; c'est le self-test
-        d'installation, à garder minimal
--   `scripts/check_site_environment.R`
-    -   vérifie les paquets et le contrat de colonnes des six blocs sans
-        construire de bundle ; lit seulement les en-têtes délimités
--   `scripts/diagnose_site_inputs.R`
-    -   lit les six blocs une seule fois et produit un rapport agrégé des
-        problèmes de contrat de handoff, classés `BLOCKING`, `WARNING` et
-        `INFO`, au lieu de s'arrêter à la première erreur
-    -   couverture de mapping par libellé local avec `n_rows` et
-        `n_document_occurrences`, couverture des UF, cohérence TA/DE entre les
-        blocs 5 et 6, exclusion screening au niveau de l'occurrence et totaux
-        d'exposition avant et après la projection `spares_current`
-    -   reste strictement dans le contrat de handoff : il ne charge ni la spec
-        des indicateurs ni la taxonomie et ne préjuge pas des indicateurs
-        publiés
--   `scripts/emit_site_handoff_templates.R`
-    -   génère les six CSV vides et le kit de références de mapping depuis les
-        contrats, la taxonomie, les réglages de publication et catalogues TA/DE
-        autoritaires ; refuse toute réécriture
--   `scripts/build_external_bundle_from_site_inputs.R`
-    -   CLI R positionnelle sous-jacente pour construire le bundle v3 depuis
-        les six blocs, puis matérialiser séparément sa projection v2
-        `spares_current` avec `--operational-v2-output`
-    -   dérive `sir_wide.rds`, `sir_wide_meta.rds`,
-        `sample_scope_reference.rds` et `denominator_bundle.rds`, puis
-        publie après validation stricte avec un manifest par bundle
--   `scripts/build_rouen.ps1`
-    -   point d'entrée opérateur Rouen : demande seulement les chemins BACT et
-        PMSI, résout R, choisit le parcours v3 + projection v2 ratifié et utilise
-        `outputs/rouen_current` par défaut
--   `scripts/render_orchidee.ps1`
-    -   point d'entrée de rendu : accepte un bundle et un workspace explicites,
-        affiche leur provenance et préflight Quarto, R, paquets et fichiers
-        avant le calcul
--   `scripts/build_rouen_external_bundle.R`
-    -   CLI R sous-jacente pour la construction Rouen v3 et les comparaisons
-        explicites de sorties
-    -   le parcours recommandé écrit les six blocs, conserve le bundle v3,
-        projette `spares_current` vers un bundle v2 opérationnel et produit
-        un manifest lisible, puis valide et smoke les deux contrats
--   `scripts/smoke_external_runtime_inputs.R`
-    -   smoke test CLI vérifiant qu'un bundle validé peut construire les
-        entrées aval minimales du coeur RATB
--   `documentation/external_bundle/`
-    -   documentation du handoff site externe, du contrat pour les
-        entrées canoniques, de `sir_wide`, de la référence de périmètre au
-        prélèvement et du bundle de dénominateur
-    -   à maintenir en cohérence avec
-        `R/external_bundle_validation_helpers.R` quand les schémas v2 ou v3
-        changent
-    -   `rouen_raw_handoff.md` documente le chemin local A vers B sans en
-        faire le contrat d'onboarding d'un autre établissement
-### Scripts de contrôle local
-
--   `scripts/compare_operational_v2_gate.R`
-    -   compare une baseline v2 immuable et un candidat sur les objets
-        canoniques, le dédoublonnage brut, son audit et les cellules XLSX
-        publiées
-    -   constitue le gate de non-régression du runtime opérationnel
-
-## Artefacts générés
-
-Les artefacts générés vivent sous `outputs/` ou dans le workspace externe
-configuré. `data/` est uniquement une zone locale facultative pour déposer les
-inputs d'une exécution.
-
--   `outputs/rouen_current/bundle_v3/` et
-    `outputs/rouen_current/bundle_v2_operational/`
-    -   bundles validés générés par l'adaptateur Rouen
--   `sir_wide.rds`, `sir_wide_meta.rds` dans chaque bundle
-    -   artefact microbiologique canonique normalisé, utilisé comme point
-        de départ amont du workflow aval
-    -   le fichier `meta` porte les métadonnées de validation,
-        d'empreinte et de reproductibilité de cet artefact
-
--   `dedup_results`, `dedup_cache_meta`, `ratb_raw_runtime_audit`
-    -   cache opérationnel brut, structuré par scope (`global`, `by_type`)
-    -   le fichier `meta` lie les résultats à l'entrée opérationnelle et aux
-        scripts actifs ; l'audit résume population, plausibilité et validation
-    -   écrits dans le workspace externe, par défaut
-        `outputs/external_bundle_v2_runtime/`
-
-Les artefacts d'export destinés au lecteur et générés par le rapport
-vivent dans `downloads/`.
-
-Les bundles, caches, audits, brouillons et inspections sous `outputs/` sont
-ignorés par Git. Le manifest du build, et non le répertoire source, indique
-qu'un bundle local est complet.
-
-## Si vous devez changer X, commencez ici
-
-### Changer la définition d'un indicateur publié
-
-Commencer par :
-
--   `documentation/ratb_indicator_spec.csv`
--   puis vérifier si l'univers de molécules porté doit aussi changer
-    dans `rules/couples_species_atb.csv`
-
-### Changer une composition de famille ou une règle de normalisation antibiotique
-
-Commencer par :
-
--   `mappings/atb_regex_map.csv`
--   `rules/couples_species_atb.csv`
--   puis vérifier la spec des indicateurs
-
-### Changer un réglage opérationnel du pipeline
-
-Commencer par :
-
--   `config/pipeline.R` pour chemins runtime, cache et affichage ;
--   `config/rouen_raw_handoff.R` pour la fenêtre ou le screening de
-    l'adaptateur Rouen.
-
-Les sous-listes et commentaires de ces fichiers indiquent si le réglage relève
-d'un run, de la maintenance ou du contrat analytique. Une modification de
-`ratb`, de la fenêtre Rouen ou du screening exige une validation complète.
-
-### Changer le comportement de dédoublonnage
-
-Commencer par :
-
--   `R/spares_dedup.R`
--   `R/spares_shared_primitives.R`
--   puis rerendre `full`
-
-### Changer la logique de périmètre d'hospitalisation ou de dénominateur d'incidence
-
-Commencer par :
-
--   `R/ratb_hospital_days_helpers.R`
--   puis rerendre `full`
--   puis vérifier si la méthode doit aussi être
-    mis à jour
-
-### Changer uniquement l'affichage du rapport
-
-Commencer par :
-
--   `R/ratb_report_helpers.R`
--   `orchidee_ratb_indicators.qmd`
--   en général, rerendre `indicators`
-
-### Changer uniquement le wording méthodologique
-
-Commencer par :
-
--   `documentation/ratb_methodology.qmd`
--   rerendre `memo`
+# Où vit la logique
+
+Cet index de fichiers répond à une seule question : **quel fichier possède la
+logique à modifier ?** Le chemin de données est décrit dans
+[`operational_flow.md`](operational_flow.md) et les commandes dans
+[`maintenance_runbook.md`](maintenance_runbook.md).
+
+## Environnement et bootstrap
+
+| Fichier | Responsabilité |
+|---|---|
+| `.Rprofile`, `renv/activate.R` | Activation standard de la bibliothèque du projet. |
+| `scripts/setup.ps1` | Résolution de la version R du lockfile et restauration de `renv`. |
+| `scripts/run_r.ps1` | Exécution d'un script ou d'une expression dans l'environnement verrouillé. |
+| `scripts/orchidee_environment.ps1` | Résolution PowerShell commune utilisée par les wrappers. |
+| `R/setup.R` | Bootstrap des notebooks, bibliothèques et configuration. |
+| `R/bootstrap.R` | Résolution légère des chemins et sourcing partagé. |
+| `R/helpers.R` | Utilitaires R généraux encore partagés. |
+
+La qualification datée du lock courant est conservée dans
+`documentation/r_environment_baseline_2026-07-26.md` ; `renv.lock` reste
+l'autorité exécutable.
+
+## Configuration
+
+| Fichier | Responsabilité |
+|---|---|
+| `config/pipeline.R` | Chemins runtime, cache, affichage et paramètres analytiques/de publication. |
+| `config/rouen_raw_handoff.R` | Fenêtre source, screening et références de l'adaptateur Rouen. |
+
+Les chemins cliniques BACT et PMSI sont des paramètres CLI, jamais des
+réglages versionnés.
+
+## Adaptateur Rouen
+
+| Fichier | Responsabilité |
+|---|---|
+| `R/normalisation_atb.R` | Normalisation des antibiotiques. |
+| `R/normalisation_bact.R` | Normalisation des bactéries. |
+| `R/phenotype_flag_helpers.R` | Interprétation et propagation des phénotypes. |
+| `R/rouen_microbiology_handoff_adapter.R` | Export BACT vers les quatre blocs microbiologiques. |
+| `R/rouen_pmsi_handoff_adapter.R` | PMSI vers attribution d'UF, mapping TA/DE et exposition. |
+| `R/chu_sample_hospitalization_unit_attribution.R` | Attribution temporelle de l'UF d'hébergement au prélèvement. |
+| `scripts/build_rouen.ps1` | Point d'entrée opérateur à deux chemins. |
+| `scripts/build_rouen_external_bundle.R` | CLI R avancée utilisée par le wrapper. |
+
+Les décisions locales consommées par cet adaptateur vivent dans
+`mappings/`, `ref/rouen/` et `config/rouen_raw_handoff.R`.
+
+## Handoff et contrats de bundle
+
+| Fichier | Responsabilité |
+|---|---|
+| `R/external_handoff_helpers.R` | Six blocs vers les quatre artefacts canoniques v3. |
+| `R/external_bundle_validation_helpers.R` | Contrats exécutables et validation stricte v2/v3. |
+| `R/ratb_canonical_runtime_helpers.R` | Périmètre canonique et projection fermée v3 vers v2. |
+| `R/ratb_operational_input_helpers.R` | Chargement strict du bundle v2 opérationnel. |
+| `R/ratb_hospital_days_helpers.R` | Primitives temporelles, exposition et dénominateur Rouen. |
+| `scripts/build_site.ps1` | Point d'entrée opérateur pour les six blocs. |
+| `scripts/build_external_bundle_from_site_inputs.R` | CLI R avancée du builder partagé. |
+| `scripts/diagnose_site_inputs.R` | Diagnostic agrégé du contrat des six blocs. |
+| `scripts/validate_external_bundle.R` | Validation autonome d'un bundle construit. |
+| `scripts/smoke_external_runtime_inputs.R` | Vérification du passage bundle vers runtime. |
+
+Les schémas et la procédure site sont sous
+`documentation/external_bundle/`. Une modification du validateur impose une
+revue des documents de contrat correspondants.
+
+## Coeur RATB
+
+| Fichier | Responsabilité |
+|---|---|
+| `R/ratb_plausibility_qc_helpers.R` | Contrôles de plausibilité biologique. |
+| `R/spares_shared_primitives.R` | Conflits et ordre déterministe partagés. |
+| `R/spares_dedup.R` | Classes SPARES et sélection des représentants. |
+| `R/ratb_raw_runtime_helpers.R` | Construction et cache du runtime brut canonique. |
+| `R/ratb_indicator_helpers.R` | Validation du catalogue et calcul des indicateurs. |
+| `R/ratb_report_helpers.R` | Tableaux, graphiques et sorties de restitution. |
+| `orchidee_ratb_indicators.qmd` | Rapport produit. |
+
+## Méthode et décisions versionnées
+
+| Emplacement | Responsabilité |
+|---|---|
+| `documentation/ratb_methodology.qmd` | Méthode analytique publiée. |
+| `documentation/ratb_indicator_spec.csv` | Catalogue et règles de publication. |
+| `mappings/` | Transformations source vers valeurs canoniques. |
+| `ref/consores/` | Catalogues TA/DE importés. |
+| `ref/rouen/` | Références non sensibles propres à Rouen. |
+| `rules/` | Décisions analytiques produites par ORCHIDEE. |
+| `assets/` | Présentation des rendus Quarto. |
+
+Un mapping, un fait de référence et une règle analytique ne sont pas
+interchangeables. Les README de ces répertoires précisent leur frontière.
+
+## Si vous devez changer X
+
+| Changement | Commencer par | Vérification |
+|---|---|---|
+| Méthode ou indicateur publié | `ratb_methodology.qmd`, `ratb_indicator_spec.csv` | `full` et revue des sorties |
+| Normalisation antibiotique/bactérie | `mappings/`, `R/normalisation_*.R` | tests puis `full` |
+| Contrat des six blocs ou bundle | `external_handoff_helpers.R`, `external_bundle_validation_helpers.R` | tests onboarding et contrats |
+| Adaptateur Rouen | `config/rouen_raw_handoff.R`, adaptateurs Rouen | nouveau build Rouen et gate v2 |
+| Dédoublonnage | `spares_shared_primitives.R`, `spares_dedup.R` | `full` et gate v2 |
+| Périmètre ou dénominateur | `ratb_canonical_runtime_helpers.R`, `ratb_hospital_days_helpers.R` | `full` et gate v2 |
+| Calcul des indicateurs | `ratb_indicator_helpers.R`, catalogue | `full` |
+| Affichage seulement | `ratb_report_helpers.R`, rapport QMD | `indicators` |
+| Wording méthodologique seulement | `ratb_methodology.qmd` | `memo` |
+| Environnement R | `renv.lock`, scripts de setup | restauration propre, tests et gate pertinent |
+
+Les commandes exactes et la matrice de rendu vivent uniquement dans le
+[`runbook de maintenance`](maintenance_runbook.md).

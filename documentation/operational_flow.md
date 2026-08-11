@@ -6,166 +6,105 @@ editor_options:
 
 # Flux opérationnel ORCHIDEE
 
-## Pourquoi cette page existe
-
-Cette page donne une seule vue du chemin actuellement ratifié, depuis les
-exports locaux jusqu'aux indicateurs. Elle distingue le flux opérationnel, les
-diagnostics et les extensions qui nécessitent encore un nouveau contrat.
-
-Les contrats détaillés restent autoritaires pour leurs schémas respectifs. Cette
-page explique comment ils s'enchaînent.
+Cette page décrit uniquement le chemin actuellement ratifié. Les procédures
+opérateur et les schémas détaillés restent autoritaires pour leurs périmètres.
 
 ## Flux canonique
 
 ```text
 ROUEN                                  RENNES / AUTRE SITE
-Adaptateur fourni                      Pas d'adaptateur fourni
+export BACT + PMSI redsan              six blocs préparés par le site
         |                                       |
-        | deux chemins :                        | six blocs préparés
-        | - export BACT brut                    | par le site
-        | - RDS PMSI redsan                     |
         v                                       |
-Adaptateur Rouen versionné                      |
+adaptateur Rouen versionné                      |
         |                                       |
-        +--------------+------------------------+
-                       |
-                       v
-Six blocs de handoff complets (artefacts de données non versionnés)
-        |
-        +--> microbiology_observations
-        +--> bacteria_mapping
-        +--> sample_type_mapping
-        +--> antibiotic_mapping
-        +--> unit_mapping
-        +--> incidence_exposure_by_year_um_uf_ta_de_profile
-        |
-        v
-Builder partagé ORCHIDEE
-        |
-        +--> bundle v3 durable et validé
-        |       (quatre fichiers canoniques)
-        |
-        v
-Projection fermée spares_current
-        |
-        +--> bundle v2 opérationnel et validé
-        |       (quatre fichiers canoniques dans un répertoire distinct)
-        |
-        v
-Runtime canonique v2
-        |
-        +--> périmètre TA/DE
-        +--> plausibilité biologique RATB
-        +--> dédoublonnage SPARES brut, global et par type de prélèvement
-        +--> catalogue fermé de 140 indicateurs
-        +--> proportions et densités d'incidence annuelles
-        +--> rapport
+        +---------------+-----------------------+
+                        |
+                        v
+             six blocs de handoff complets
+                        |
+                        v
+               builder partagé ORCHIDEE
+                        |
+                        +--> bundle v3 complet et conservé
+                        |           |
+                        |     projection fermée
+                        |       spares_current
+                        |           |
+                        |           v
+                        +--> bundle v2 opérationnel
+                                    |
+                                    v
+                         runtime RATB partagé
+                                    |
+                       périmètre et plausibilité
+                       dédoublonnage SPARES
+                       indicateurs annuels
+                       rapport
 ```
 
-L'opérateur Rouen renseigne seulement les deux chemins d'entrée. L'adaptateur
-déjà versionné génère les six blocs. Rennes, ou un autre site sans adaptateur
-fourni, prépare directement ces six blocs. Les deux entrées convergent avant le
-builder partagé.
-
-Le chemin analytique canonique utilise les données brutes, sans complétion. Les
-stratégies de complétion ne définissent ni l'entrée du bundle ni la méthode RATB
-ratifiée.
+Rouen et un site externe diffèrent seulement avant les six blocs. Ils utilisent
+ensuite le même builder, le même runtime et la même méthode.
 
 ## Responsabilités
 
-`redsan` possède l'accès à EDSaN, la normalisation des tables sources et la
-politique PMSI `C > DW`. Il conserve les intervalles PMSI retenus ; il ne décide
-pas du périmètre scientifique RATB.
+-   **`redsan`** possède l'accès EDSaN, le batching, la normalisation PMSI/BIOL
+    et la politique source PMSI `C > DW`.
+-   **L'adaptateur local** possède les décisions dépendantes du site :
+    screening, mappings, attribution de l'UF d'hébergement et construction de
+    l'exposition.
+-   **Le builder partagé** valide les six blocs, construit le bundle v3 et
+    matérialise sa projection v2.
+-   **Le runtime RATB** applique le périmètre, la plausibilité biologique, le
+    dédoublonnage et le catalogue d'indicateurs.
+-   **Le rapport** restitue les résultats ; il ne redéfinit ni la méthode ni le
+    périmètre.
 
-L'adaptateur local possède les décisions qui dépendent du site : screening,
-mappings microbiologiques, attribution de l'unité d'hébergement et construction
-du dénominateur. À Rouen, un prélèvement est attribué à l'intervalle PMSI actif
-selon `DATENT <= prélèvement < DATSORT`. Une attribution non résolue ne retombe
-pas silencieusement sur l'UF microbiologique.
+## Frontière v3 vers v2
 
-Le builder partagé transforme les six blocs lisibles du site en un bundle v3
-complet, puis en dérive séparément le bundle v2 accepté par le runtime actuel.
-Le runtime partagé applique ensuite le périmètre, le contrôle de plausibilité,
-le dédoublonnage et le catalogue d'indicateurs.
+`v2` et `v3` ne sont pas deux versions successives d'un protocole, et `v2`
+n'est pas un état ancien resté en place. Ce sont deux formes du même bundle,
+produites ensemble par le même build.
 
-`orchideecore` n'est pas une dépendance d'exécution. Il reste un oracle
-indépendant et gelé qui a démontré, sur le même bundle v2 et sans complétion,
-l'identité des représentants, partitions SPARES, résultats par isolat et panels
-annuels.
+Le bundle v3 est le contrat de construction complet. Il conserve les quatre
+fichiers canoniques et l'exposition profilée au grain année + UM + UF + TA + DE.
 
-## Sémantique v2 de l'unité
+Le contexte fermé `spares_current` sélectionne le périmètre TA/DE ratifié et le
+profil `midnight_presence`, puis produit un bundle v2 distinct. Le v3 n'est ni
+écrasé ni utilisé directement par les notebooks.
 
-Dans un bundle v2, `sir_wide$SEJUF` désigne l'UF d'hébergement active au moment
-du prélèvement. Cette UF reçoit ensuite ses codes TA et DE via la référence
-d'unité. Les unités non attribuées ou ambiguës restent auditables mais sont hors
-du périmètre analytique fondé sur l'hébergement.
-
-Cette décision explique les différences ratifiées avec l'ancien chemin
-`chu_native`. Elle ne modifie pas le catalogue biologique ni les règles de
-dédoublonnage. Le chemin historique reste consultable au tag
-`archive/completion-chu-native-2026-07-22`.
-
-## Dénominateur : contrat opérationnel et extension v3
-
-Le bundle v2 opérationnel transporte uniquement :
+Le bundle v2 est l'unique entrée opérationnelle. Il transporte le dénominateur
+annuel requis par les indicateurs actuels :
 
 ```text
 calendar_year + hospital_nights
 ```
 
-Ce grain suffit pour publier une densité d'incidence annuelle globale. Il ne
-permet pas de calculer correctement une densité par UM, UF, TA ou DE.
+Le détail v3 permet de conserver une exposition plus riche, mais ORCHIDEE ne
+publie pas encore de densités stratifiées par UM, UF, TA ou DE. Une telle
+publication demanderait aussi les numérateurs, le dédoublonnage contextuel et
+les unités correspondantes ; elle ne s'active pas par configuration.
 
-Le contrat externe v3 transporte désormais l'exposition profilée calculée par
-l'adaptateur Rouen au grain :
+## Sémantique de l'unité
 
-```text
-calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + de_domain_ref +
-denominator_profile_id + exposure_value + exposure_unit
-```
+Dans les deux contrats, `sir_wide$SEJUF` désigne l'UF d'hébergement active au
+moment du prélèvement. L'adaptateur doit établir cette attribution avant le
+handoff. Une attribution absente ou ambiguë reste auditée et ne retombe pas
+silencieusement sur l'UF microbiologique.
 
-La table conserve toute contribution d'exposition positive issue d'une
-activité valide dont TA/DE sont mappés, même hors du périmètre actuel. Le
-runtime applique le contexte fermé `spares_current`
-(TA 03/20, domaines DE ratifiés, `midnight_presence`) et en dérive le total
-annuel v2. Il vérifie aussi la concordance TA/DE avec la référence de périmètre
-des prélèvements.
+Le runtime vérifie également que les codes TA, DE et domaine DE de l'exposition
+v3 concordent avec la référence de périmètre des prélèvements avant de produire
+le total annuel v2.
 
-Cette promotion ne modifie pas v2 et v3 n'est pas encore la valeur
-opérationnelle par défaut. Elle prépare le contrat et le runtime ; les panels
-stratifiés, leurs numérateurs, leur dédoublonnage contextuel et leurs unités de
-publication restent une étape séparée. Les comptages à midi, par durée exacte
-ou par dates civiles touchées restent des options conceptuelles sans
-identificateur réservé ni implémentation exécutable.
+## Chemin analytique actif
 
-## Chemin analytique brut
-
-La complétion a servi à comparer quatre stratégies exploratoires aux données
-brutes, mais elle n'a pas été retenue dans la méthode active. Le runtime exécute
-et publie uniquement le chemin brut. Sa dernière implémentation cohérente,
-notebook et helpers compris, est conservée au tag
+Le runtime calcule uniquement le chemin brut, sans complétion. La complétion
+exploratoire et `chu_native` sont retirés de l'arbre actif ; leur dernière
+implémentation cohérente reste consultable au tag
 `archive/completion-chu-native-2026-07-22`.
 
-`scripts/render_orchidee.ps1 -Target full` construit le cache brut puis rend le
-rapport d'indicateurs. Le wrapper affiche toujours le bundle et le workspace
-effectifs ; `-Bundle` et `-Workspace` permettent de les lier explicitement au
-build que l'on veut consommer.
-
-Le gate Rouen réel du 2026-07-20 a confirmé que le nouveau chemin brut reproduit
-exactement les objets ratifiés : `dedup`, `class_map`, `episode_summary` et
-`audit`, pour les scopes global et par type. Les 36 classeurs du rapport brut
-étaient également identiques cellule par cellule aux lignes `brut` du runtime
-précédent.
-
-## Comparaisons à ne pas confondre
-
-1. Un nouveau rendu v2 comparé au gate v2 précédent doit être identique.
-2. ORCHIDEE et `orchideecore`, exécutés sur le même bundle v2 brut, doivent être
-   identiques à tolérance zéro.
-
-La comparaison historique entre `external_bundle_v2` et `chu_native` n'était
-pas attendue identique : v2 applique l'UF d'hébergement sans fallback et
-modifie donc intentionnellement une partie du périmètre et des numérateurs. Les
-écarts agrégés ayant justifié cette adoption sont consignés dans
-`documentation/external_bundle/operational_v2_adoption_2026-07-19.md` ; ce
-troisième chemin n'est plus un mode exécutable de `main`.
+Un rendu complet passe par `scripts/render_orchidee.ps1`, qui construit le cache
+brut canonique puis rend le rapport. Il affiche les chemins effectivement
+consommés et échoue avant le calcul si le bundle ou l'environnement est
+invalide. Les commandes et la matrice de rendu vivent dans le
+[`runbook de maintenance`](maintenance_runbook.md).
