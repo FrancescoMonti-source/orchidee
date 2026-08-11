@@ -279,8 +279,6 @@ bundle <- orchidee_handoff_build_external_bundle_from_site_inputs(
   sample_type_mapping = sample_type_mapping,
   antibiotic_mapping = antibiotic_mapping,
   unit_mapping = unit_mapping,
-  denominator_by_year = NULL,
-  contract = contract,
   incidence_exposure_by_year_um_uf_ta_de_profile = denominator_input
 )
 
@@ -370,8 +368,7 @@ stage_bundle <- function(
 
   report <- validate_external_input_bundle(
     bundle_dir = staging_dir,
-    contract = contract,
-    strict_preferred = TRUE
+    contract = contract
   )
   print_external_input_bundle_validation(report)
   if (!isTRUE(report$ok)) {

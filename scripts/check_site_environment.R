@@ -63,13 +63,10 @@ if (length(missing_packages) > 0L) {
 
 source("R/external_handoff_helpers.R")
 
-block_names <- names(orchidee_handoff_site_input_spec("v3"))
+block_names <- names(orchidee_handoff_site_input_spec())
 names(args) <- block_names
 input_schemas <- lapply(args, orchidee_handoff_read_table_schema)
-orchidee_handoff_validate_site_input_columns(
-  input_schemas,
-  contract_version = "v3"
-)
+orchidee_handoff_validate_site_input_columns(input_schemas)
 
 if (any(tolower(tools::file_ext(args)) == "rds")) {
   cat(

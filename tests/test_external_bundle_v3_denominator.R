@@ -32,8 +32,7 @@ exposure <- data.frame(
 )
 
 denominator_bundle <- orchidee_handoff_build_denominator_bundle(
-  incidence_exposure_by_year_um_uf_ta_de_profile = exposure,
-  contract = contract_v3
+  incidence_exposure_by_year_um_uf_ta_de_profile = exposure
 )
 denominator_validation <- external_bundle_validate_denominator_bundle(
   denominator_bundle,
@@ -136,15 +135,6 @@ mismatch_error <- capture_error(
     denominator_bundle = denominator_bundle
   )
 )
-unknown_context_error <- capture_error(
-  build_ratb_downstream_scope_from_canonical_inputs(
-    sir_wide = sir_wide,
-    sample_scope_reference = sample_scope_reference,
-    denominator_bundle = denominator_bundle,
-    analysis_context_id = "emergency_future"
-  )
-)
-
 bundle_dir <- tempfile("orchidee-v3-cross-artifact-")
 dir.create(bundle_dir)
 saveRDS(sir_wide, file.path(bundle_dir, "sir_wide.rds"))
@@ -159,8 +149,7 @@ saveRDS(
 saveRDS(denominator_bundle, file.path(bundle_dir, "denominator_bundle.rds"))
 valid_bundle_report <- validate_external_input_bundle(
   bundle_dir,
-  contract = contract_v3,
-  strict_preferred = TRUE
+  contract = contract_v3
 )
 saveRDS(
   sample_scope_reference[sample_scope_reference$SEJUF != "UF2", ],
@@ -168,8 +157,7 @@ saveRDS(
 )
 missing_exposure_scope_report <- validate_external_input_bundle(
   bundle_dir,
-  contract = contract_v3,
-  strict_preferred = TRUE
+  contract = contract_v3
 )
 operational_v2_dir <- tempfile("orchidee-v3-projected-v2-")
 dir.create(operational_v2_dir)
@@ -183,8 +171,7 @@ invisible(Map(
 ))
 operational_v2_report <- validate_external_input_bundle(
   operational_v2_dir,
-  contract = orchidee_external_contract_v2(),
-  strict_preferred = TRUE
+  contract = orchidee_external_contract_v2()
 )
 unlink(operational_v2_dir, recursive = TRUE)
 unlink(bundle_dir, recursive = TRUE)
@@ -195,8 +182,7 @@ missing_v3_code_de_error <- capture_error(
       CODE_TA = "03",
       de_domain_ref = "MÉDECINE",
       stringsAsFactors = FALSE
-    ),
-    contract = contract_v3
+    )
   )
 )
 missing_v3_direct_domain_error <- capture_error(
@@ -206,8 +192,7 @@ missing_v3_direct_domain_error <- capture_error(
       CODE_TA = "03",
       CODE_DE = "D03",
       stringsAsFactors = FALSE
-    ),
-    contract = contract_v3
+    )
   )
 )
 
@@ -285,13 +270,11 @@ cli_status <- attr(cli_output, "status")
 if (is.null(cli_status)) cli_status <- 0L
 cli_v3_report <- validate_external_input_bundle(
   cli_v3_dir,
-  contract = contract_v3,
-  strict_preferred = TRUE
+  contract = contract_v3
 )
 cli_v2_report <- validate_external_input_bundle(
   cli_v2_dir,
-  contract = orchidee_external_contract_v2(),
-  strict_preferred = TRUE
+  contract = orchidee_external_contract_v2()
 )
 cli_v3_sir_wide <- readRDS(file.path(cli_v3_dir, "sir_wide.rds"))
 cli_v2_sir_wide <- readRDS(file.path(cli_v2_dir, "sir_wide.rds"))
@@ -545,8 +528,7 @@ stopifnot(
     runtime_inputs$incidence_exposure_by_year_um_uf_ta_de_profile,
     denominator_bundle$incidence_exposure_by_year_um_uf_ta_de_profile
   ),
-  grepl("disagrees with sample scope TA/DE mapping", mismatch_error),
-  grepl("Unsupported RATB analysis context", unknown_context_error)
+  grepl("disagrees with sample scope TA/DE mapping", mismatch_error)
 )
 
 # Why: protects the v3-to-v2 projection contract: the durable profiled bundle

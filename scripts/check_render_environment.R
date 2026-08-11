@@ -93,8 +93,7 @@ if (target %in% c("indicators", "full")) {
   )
   bundle_validation <- validation_environment$validate_external_input_bundle(
     bundle_dir = context$bundle_dir,
-    contract = validation_environment$orchidee_external_contract_v2(),
-    strict_preferred = TRUE
+    contract = validation_environment$orchidee_external_contract_v2()
   )
   if (!isTRUE(bundle_validation$ok)) {
     stop(

@@ -34,7 +34,6 @@ orchidee_source_required_script(
 )
 
 args <- commandArgs(trailingOnly = TRUE)
-strict_preferred <- "--strict-preferred" %in% args
 help <- any(args %in% c("-h", "--help"))
 contract_args <- grep("^--contract=", args, value = TRUE)
 if (length(contract_args) > 1L) {
@@ -48,16 +47,15 @@ contract_version <- if (length(contract_args) == 0L) {
 if (!is.na(contract_version) && !contract_version %in% c("v2", "v3")) {
   stop("--contract must be v2 or v3.", call. = FALSE)
 }
-args <- setdiff(args, c("--strict-preferred", "-h", "--help", contract_args))
+args <- setdiff(args, c("-h", "--help", contract_args))
 
 if (help || length(args) != 1L) {
   cat(
     "Usage (PowerShell): & .\\scripts\\run_r.ps1 ",
     "scripts/smoke_external_runtime_inputs.R ",
-    "<bundle_dir> --contract=v2|v3 [--strict-preferred]\n",
+    "<bundle_dir> --contract=v2|v3\n",
     sep = ""
   )
-  cat("--strict-preferred requires sample_scope_reference.rds and denominator_bundle.rds\n")
   quit(status = if (help) 0L else 1L)
 }
 if (is.na(contract_version)) {
@@ -72,8 +70,7 @@ contract <- switch(
 )
 path_report <- validate_external_input_bundle(
   bundle_dir = bundle_dir,
-  contract = contract,
-  strict_preferred = strict_preferred
+  contract = contract
 )
 if (!isTRUE(path_report$ok)) {
   print_external_input_bundle_validation(path_report)
@@ -83,7 +80,6 @@ if (!isTRUE(path_report$ok)) {
 bundle <- load_validated_external_input_bundle(
   bundle_dir = bundle_dir,
   contract = contract,
-  strict_preferred = strict_preferred,
   validation_report = path_report
 )
 

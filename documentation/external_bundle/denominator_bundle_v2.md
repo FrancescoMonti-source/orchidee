@@ -13,24 +13,14 @@ The external contract is a bundle because the incidence runtime uses a named
 annual nights table. A local adapter can carry additional denominator audit
 tables, but those are not required from another hospital.
 
-## Preferred file
+## Canonical file
 
-The preferred external file is:
+The external file is:
+
 - `denominator_bundle.rds`
 
 It must be an R list containing one required table:
 - `incidence_denominator_by_year`
-
-## Compatibility source
-
-For compatibility with previously materialized local artifacts, the validator
-also accepts `ratb_scope_cache` when it contains the required runtime table.
-It also accepts the older runtime table
-`hospital_days_year_summary_provisional` and maps it to the canonical
-external table.
-
-That compatibility path is for validation convenience only.
-The preferred external contract remains `denominator_bundle.rds`.
 
 ## Required table: `incidence_denominator_by_year`
 
@@ -69,23 +59,8 @@ The validator ignores extra list elements and warns about extra columns.
 The canonical loader retains only the required v2 columns at the
 portable ORCHIDEE boundary.
 
-## Compatibility aliases
+## Local audit data
 
-Legacy local artifacts may still expose:
-
-- table: `hospital_days_year_summary_provisional`
-- night column: `hospital_nights_provisional`
-
-The loader accepts that shape and converts it to
-`incidence_denominator_by_year$hospital_nights` before data crosses the
-portable ORCHIDEE boundary. The shared runtime helper expects the canonical
-table after this conversion. Legacy local QA code may still carry the
-legacy table as an optional alias, but it is outside the shared runtime
-validation surface.
-
-## Optional local audit table
-
-Legacy local caches may also contain `hospital_days_year_summary`, a generic
-annual hospital-days audit summary. It remains useful for local QA, but another
-hospital does not need to provide it to satisfy the portable ORCHIDEE v2 input
-contract.
+The Rouen adapter audit may contain `hospital_days_year_summary`, a generic
+annual hospital-days summary. It remains useful for local QA, but it is not
+part of the portable ORCHIDEE v2 input contract.

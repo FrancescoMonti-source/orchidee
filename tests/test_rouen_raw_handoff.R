@@ -173,8 +173,7 @@ sir_wide <- orchidee_handoff_build_sir_wide_from_microbiology(
   microbiology_observations = observations,
   bacteria_mapping = handoff$site_inputs$bacteria_mapping,
   sample_type_mapping = sample_mapping,
-  antibiotic_mapping = handoff$site_inputs$antibiotic_mapping,
-  contract = orchidee_external_contract_v2()
+  antibiotic_mapping = handoff$site_inputs$antibiotic_mapping
 )
 
 p1 <- sir_wide[sir_wide$PATID == "P1", , drop = FALSE]
@@ -338,7 +337,7 @@ pmsi_main <- tibble::tibble(
 # Why: protects the Rouen adapter integration contract that redsan-normalized
 # PMSI produces the two remaining site inputs, clips the denominator window,
 # assigns the hospitalization UF without fallback, and the generic composer
-# builds both explicit bundle contracts.
+# builds the durable v3 bundle.
 pmsi_handoff <- build_rouen_pmsi_handoff(
   sample_context = handoff$sample_context,
   pmsi_main = pmsi_main,
@@ -347,46 +346,28 @@ pmsi_handoff <- build_rouen_pmsi_handoff(
   target_start = as.Date("2024-01-01"),
   target_end_exclusive = as.Date("2025-01-01")
 )
-composed <- compose_rouen_external_bundle(
-  handoff,
-  pmsi_handoff,
-  contract = orchidee_external_contract_v2()
-)
 composed_v3 <- compose_rouen_external_bundle(
   handoff,
-  pmsi_handoff,
-  contract = orchidee_external_contract_v3()
+  pmsi_handoff
 )
 projected_v2 <- project_external_bundle_v3_to_operational_v2(
   composed_v3$bundle
 )
 
-bundle_p1 <- composed$bundle$sir_wide[
-  composed$bundle$sir_wide$PATID == "P1",
+bundle_p1 <- composed_v3$bundle$sir_wide[
+  composed_v3$bundle$sir_wide$PATID == "P1",
   ,
   drop = FALSE
 ]
-bundle_p3 <- composed$bundle$sir_wide[
-  composed$bundle$sir_wide$PATID == "P3",
+bundle_p3 <- composed_v3$bundle$sir_wide[
+  composed_v3$bundle$sir_wide$PATID == "P3",
   ,
   drop = FALSE
 ]
 
 stopifnot(
   identical(
-    names(composed$site_inputs),
-    c(
-      "microbiology_observations",
-      "bacteria_mapping",
-      "sample_type_mapping",
-      "antibiotic_mapping",
-      "unit_mapping",
-      "denominator_by_year"
-    )
-  ),
-  identical(composed$bundle$sir_wide_meta$contract_version, "v2"),
-  identical(
-    composed$bundle$sir_wide_meta$sejuf_semantics,
+    composed_v3$bundle$sir_wide_meta$sejuf_semantics,
     "hospitalization_unit_at_sampling"
   ),
   nrow(bundle_p1) == 1L,
@@ -394,7 +375,7 @@ stopifnot(
   nrow(bundle_p3) == 1L,
   is.na(bundle_p3$SEJUF),
   identical(
-    pmsi_handoff$site_inputs$denominator_by_year$hospital_nights,
+    pmsi_handoff$audit$denominator_identity$hospital_nights,
     31L
   ),
   identical(pmsi_handoff$audit$source_policy_summary$value, c(6L, 5L)),
@@ -403,7 +384,7 @@ stopifnot(
     c(0L, 0L, 1L, 4L)
   ),
   nrow(pmsi_handoff$audit$hospital_nights_by_year_unit) == 2L,
-  all(vapply(composed$validation, function(x) isTRUE(x$ok), logical(1)))
+  all(vapply(composed_v3$validation, function(x) isTRUE(x$ok), logical(1)))
 )
 
 incidence_exposure <- composed_v3$bundle$denominator_bundle$
@@ -459,7 +440,7 @@ stopifnot(
   sum(incidence_exposure$exposure_value) == 32L,
   identical(
     current_profile_annual$hospital_nights,
-    pmsi_handoff$site_inputs$denominator_by_year$hospital_nights
+    pmsi_handoff$audit$v3_current_profile_identity$hospital_nights
   ),
   all(pmsi_handoff$audit$v3_current_profile_identity$difference == 0L),
   all(c(
@@ -473,18 +454,17 @@ stopifnot(
 # scope and annual denominator without introducing a second adapter path.
 stopifnot(
   identical(projected_v2$sir_wide, composed_v3$bundle$sir_wide),
-  identical(projected_v2$sir_wide, composed$bundle$sir_wide),
   identical(projected_v2$sir_wide_meta$contract_version, "v2"),
   identical(
-    projected_v2$sample_scope_reference,
-    composed$bundle$sample_scope_reference
+    names(projected_v2$sample_scope_reference),
+    orchidee_external_contract_v2()$sample_scope_reference$required_columns
   ),
   identical(
     tibble::as_tibble(
       projected_v2$denominator_bundle$incidence_denominator_by_year
     ),
     tibble::as_tibble(
-      composed$bundle$denominator_bundle$incidence_denominator_by_year
+      current_profile_annual
     )
   )
 )

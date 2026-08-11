@@ -19,9 +19,10 @@ restait disponible explicitement pour la comparaison historique et le
 rollback, sans fallback entre les deux chemins. Il a depuis été retiré du
 chemin actif comme indiqué dans la note de statut ci-dessus.
 
-Cette décision concerne le runtime des notebooks. Les builders demandent
-désormais explicitement v2 ou v3 : un site ne doit déclarer aucun de ces
-contrats avant d'avoir attribué à `SEJUF` l'UF d'hébergement active au
+Cette décision concerne le runtime des notebooks. Les builders construisent
+désormais uniquement le bundle v3 complet, puis matérialisent le bundle v2
+opérationnel par une projection fermée. Un site ne doit fournir les six blocs
+d'entrée qu'après avoir attribué à `SEJUF` l'UF d'hébergement active au
 prélèvement, conformément à `sir_wide.md`.
 
 ## Éléments observés avant adoption

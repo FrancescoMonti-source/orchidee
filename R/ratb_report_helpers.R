@@ -159,127 +159,13 @@ resolve_table_title <- function(file_stem, caption = NULL) {
   caption_text
 }
 
-resolve_table_note_lines <- function(file_stem, caption = NULL) {
+resolve_table_note_lines <- function(file_stem) {
   stem <- slugify_filename(file_stem)
 
-  exact_map <- list(
-    res_class_availability = c(
-      "This table shows which antibiotic classes are supported by the configured molecule universe.",
-      "Read it as coverage metadata for downstream indicators rather than as a substantive analytical result; a supported molecule can still be absent from the current extract."
-    ),
-    ratb_scope_exclusion_summary = c(
-      "This table summarizes PMSI status context before the TA/DE analytical perimeter is applied.",
-      "Use it to separate rows with PMSI episode structure from unmatched rows; mixed status is audit context, not an exclusion by itself."
-    ),
-    ratb_scope_join_audit = c(
-      "This table audits the `(PATID, EVTID)` join between microbiology rows and PMSI stays.",
-      "Focus on missing PMSI matches, mixed statuses, and `evtid_multi_pat` to understand where TA/DE scope assignment can fail or need review."
-    ),
-    ratb_indicator_spec = c(
+  if (identical(stem, "ratb_indicator_spec")) {
+    return(c(
       "Cette table présente une synthèse du catalogue des indicateurs publiés dans ce rapport RATB.",
       "Une ligne correspond à une combinaison taxon / métrique / vue / signal ; la colonne `Indicateurs publiés` regroupe les indicateurs couverts par cette même logique de lecture."
-    ),
-    ratb_indicator_spec_validation = c(
-      "This table checks each spec row against the current artifact, mappings, and supported rule families.",
-      "Treat hard-validation failures as blockers; partial molecule availability can still matter even when execution stays allowed."
-    ),
-    ratb_indicator_coverage_audit = c(
-      "This table turns the spec and validation results into separate publication statuses for annual proportions and annual incidence.",
-      "Use `proportion_execution_status`, `incidence_execution_status`, and `coverage_note` to distinguish what is published, what is intentionally not requested for one metric family, and what is truly blocked."
-    ),
-    ratb_indicator_panel_global = c(
-      "This table is the common annual indicator panel after sample-level TA/DE scoping and deduplication.",
-      "Compare `n_tested`, `n_resistant`, and `pct_resistant` within the same taxon and year; low denominators need caution."
-    ),
-    ratb_indicator_panel_by_type = c(
-      "This table is the common annual indicator panel split by sample type.",
-      "Read `sample_type` and `n_tested` first; percentage differences without comparable denominators are easy to over-interpret."
-    ),
-    ratb_perimeter_rules = c(
-      "This table contains the current rules used to apply the TA/DE perimeter to microbiology samples and PMSI activity.",
-      "Read it as the TA/DE policy surface: eligible UFs are defined positively from CONSORES `CODE_TA` and `CODE_DE`, while `PMSISTATUT` remains audit context."
-    ),
-    ratb_episode_exclusion_summary = c(
-      "This table summarizes how PMSI episodes move through the TA/DE denominator perimeter.",
-      "Use it to see which exclusion reasons dominate before interpreting incidence denominators."
-    ),
-    incidence_denominator_pmsi_ta_de_audit = c(
-      "This table reports annual eligible hospital nights from PMSI intervals retained after the explicit C > DW source rule, independently from microbiology rows.",
-      "Use it to inspect the denominator magnitude by year after TA/DE is applied at the stay-unit level."
-    ),
-    hospital_nights_by_year_unit = c(
-      "This table keeps the annual incidence denominator stratified by PMSI SEJUM and SEJUF before global aggregation.",
-      "Use it to find which hospitalization units contribute nights and to support future unit-level incidence views."
-    ),
-    ratb_numerator_scope_impact_audit = c(
-      "This table quantifies how many microbiology rows are retained or removed when the TA/DE analytical perimeter is applied.",
-      "Use it as an impact audit for the perimeter correction before interpreting changes in proportions or incidence."
-    ),
-    ratb_episode_scope_audit = c(
-      "This table keeps complete event bounds while summarizing the unit stays that contribute to the TA/DE denominator.",
-      "Use it to review event-level eligibility and unit-bound issues rather than as a source for unit durations."
-    ),
-    ratb_unit_stay_scope_audit = c(
-      "This table lists PMSI interval groups retained after the explicit C > DW source rule, by PATID, EVTID, SEJUM and SEJUF, with their own time bounds and TA/DE decision.",
-      "Use it to review missing or conflicting unit intervals before interpreting annual unit-level hospital nights."
-    ),
-    hospital_stay_validation_summary = c(
-      "This table summarizes stay-level validation results before annual splitting.",
-      "Check missing bounds, negative elapsed time, and cross-year counts here before trusting any hospital-day denominator."
-    ),
-    hospital_days_year_summary = c(
-      "This table compares annual hospital-day aggregates across the candidate counting conventions.",
-      "Use it to understand how elapsed-day, rounded-day, and period-split views differ before fixing the final denominator rule."
-    ),
-    hospital_stays_validation_audit = c(
-      "This table lists raw stays that are invalid or cross-year in the generic hospital-day validation layer.",
-      "Review these rows when denominator counts look surprising; they are the main edge cases driving validation risk."
-    )
-  )
-
-  if (!is.null(exact_map[[stem]])) {
-    return(exact_map[[stem]])
-  }
-
-  if (grepl("_structural_distribution$", stem)) {
-    return(c(
-      "This table shows how many groups share the same structural profile at the current grain.",
-      "Use the frequency and cumulative columns to see whether structure is concentrated in a few simple profiles or spread across a long tail."
-    ))
-  }
-
-  if (grepl("_structural_outliers$", stem)) {
-    return(c(
-      "This table lists groups with unusual structural patterns or linkage inconsistencies.",
-      "Treat it as a review queue: the point is to inspect unusual cases, not to estimate prevalence from these rows."
-    ))
-  }
-
-  if (startsWith(stem, "res_indicator_") && grepl("_global$", stem)) {
-    return(c(
-      "This table reports class-indicator counts and resistance percentages by dataset, year, and species.",
-      "Check `n_tested` before comparing `pct_resistant`, so small denominators do not dominate the interpretation."
-    ))
-  }
-
-  if (startsWith(stem, "res_indicator_") && grepl("_by_type$", stem)) {
-    return(c(
-      "This table reports class-indicator counts and resistance percentages by dataset, year, type, and species.",
-      "Use it to compare type-specific patterns, and read `n_tested` before treating percentage differences as meaningful."
-    ))
-  }
-
-  if (startsWith(stem, "ratb_pending_")) {
-    return(c(
-      "This table lists the rows in the current organism section that are not published in at least one metric family.",
-      "Use `proportion_execution_status`, `incidence_execution_status`, and `coverage_note` to distinguish an intentional metric restriction from a real support gap."
-    ))
-  }
-
-  if (startsWith(stem, "ratb_cov_")) {
-    return(c(
-      "This table summarizes wave-1 coverage status for one reported taxon.",
-      "Read it before the taxon-specific panels so you know which indicators are fully supported versus only partially covered."
     ))
   }
 
@@ -310,10 +196,7 @@ resolve_table_note_lines <- function(file_stem, caption = NULL) {
 build_table_heading_block <- function(file_stem, caption = NULL) {
   table_number <- next_table_number()
   title_text <- resolve_table_title(file_stem = file_stem, caption = caption)
-  note_lines <- resolve_table_note_lines(
-    file_stem = file_stem,
-    caption = caption
-  )
+  note_lines <- resolve_table_note_lines(file_stem)
   note_block <- if (length(note_lines) > 0L) {
     htmltools::tags$div(
       class = "orchidee-table-note",
@@ -341,7 +224,7 @@ next_figure_number <- function() {
   figure_counter_env$n
 }
 
-resolve_plot_note_lines <- function(file_stem, caption = NULL) {
+resolve_plot_note_lines <- function(file_stem) {
   stem <- slugify_filename(file_stem)
 
   if (startsWith(stem, "ratb_global_heatmap_")) {
@@ -371,10 +254,7 @@ resolve_plot_note_lines <- function(file_stem, caption = NULL) {
 build_plot_heading_block <- function(file_stem, caption = NULL) {
   figure_number <- next_figure_number()
   title_text <- resolve_table_title(file_stem = file_stem, caption = caption)
-  note_lines <- resolve_plot_note_lines(
-    file_stem = file_stem,
-    caption = caption
-  )
+  note_lines <- resolve_plot_note_lines(file_stem)
   note_block <- if (length(note_lines) > 0L) {
     htmltools::tags$div(
       class = "orchidee-table-note",

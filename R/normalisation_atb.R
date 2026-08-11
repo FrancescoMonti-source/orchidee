@@ -6,17 +6,9 @@ normalise_atb <- function(bact, atb_regex_map) {
     distinct(atb_norm, .keep_all = TRUE)         # opzionale ma consigliato
 
   normalize_atb_label <- function(x) {
-    strip_accents <- function(y) {
-      y <- as.character(y)
-      if (exists("rm_accent", mode = "function")) {
-        return(rm_accent(y))
-      }
-      iconv(y, from = "", to = "ASCII//TRANSLIT")
-    }
-
     x %>%
       as.character() %>%
-      strip_accents() %>%
+      rm_accent() %>%
       stringr::str_to_lower() %>%
       stringr::str_replace_all("\\p{Pd}+", "-") %>%
       stringr::str_squish()

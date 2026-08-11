@@ -6,12 +6,7 @@
 # - dedup treats absent phenotype signal as phenotype-negative
 
 normalize_phenotype_text <- function(x) {
-  x_chr <- as.character(x)
-  if (exists("rm_accent", mode = "function")) {
-    x_chr <- rm_accent(x_chr)
-  } else {
-    x_chr <- iconv(x_chr, from = "", to = "ASCII//TRANSLIT")
-  }
+  x_chr <- rm_accent(as.character(x))
   x_chr <- stringr::str_squish(tolower(x_chr))
   x_chr[x_chr %in% c("", "na", "n/a")] <- NA_character_
   x_chr

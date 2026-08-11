@@ -81,7 +81,10 @@ Rouen bacteriology export ──> four microbiology blocks ─┐
 redsan PMSI output ─────────> two PMSI blocks ──────────┘
                                                                   |
                                                                   v
-                                                  canonical bundle v2 or v3
+                                             complete v3 bundle
+                                                    |
+                                                    v
+                                             operational v2 projection
 ```
 
 The shared builder still owns `sir_wide`, its metadata, the sample-scope

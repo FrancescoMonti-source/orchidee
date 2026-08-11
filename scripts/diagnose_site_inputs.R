@@ -120,7 +120,7 @@ orchidee_source_required_script("external_handoff_helpers.R")
 orchidee_source_required_script("site_input_report_publication_helpers.R")
 
 contract <- orchidee_external_contract_v3()
-spec <- orchidee_handoff_site_input_spec("v3")
+spec <- orchidee_handoff_site_input_spec()
 block_names <- names(spec)
 input_paths <- args[seq_along(block_names)]
 names(input_paths) <- block_names
@@ -1407,7 +1407,7 @@ if (!is.null(obs_in_scope)) {
 ## ---------------------------------------------------------------------------
 
 unit <- NULL
-context <- ratb_analysis_context_profile("spares_current")
+context <- ratb_analysis_context_profile()
 
 if (block_ok[["unit_mapping"]]) {
   unit_mapping <- blocks$unit_mapping

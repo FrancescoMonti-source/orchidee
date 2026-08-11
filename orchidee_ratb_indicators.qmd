@@ -4,6 +4,7 @@ lang: fr
 engine: knitr
 format:
   html:
+    embed-resources: true
     theme:
       light: flatly
       dark: darkly
@@ -64,7 +65,6 @@ options(
   OutDec = ".",
   knitr.kable.NA = ""
 )
-
 ```
 
 <!-- Report display helpers are sourced from R/ratb_report_helpers.R. -->
@@ -122,9 +122,23 @@ orchidee_source_required_script(
 #| label: initialize_ratb_report_helpers
 #| include: false
 #| echo: false
-ratb_operational_context <- resolve_ratb_operational_context(orchidee_config)
-dir.create(ratb_operational_context$cache_dir, recursive = TRUE, showWarnings = FALSE)
-dir.create(ratb_operational_context$download_dir, recursive = TRUE, showWarnings = FALSE)
+operational_runtime <- load_ratb_operational_runtime(config = orchidee_config)
+ratb_operational_context <- operational_runtime$context
+cache_dir <- ratb_operational_context$cache_dir
+mappings_dir <- orchidee_config$paths$mappings_dir
+sir_wide_meta <- operational_runtime$sir_wide_meta
+sir_wide <- operational_runtime$sir_wide
+
+dir.create(
+  ratb_operational_context$cache_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+dir.create(
+  ratb_operational_context$download_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
 initialize_ratb_report_helpers(
   download_dir = ratb_operational_context$download_dir,
   datatable_digits = orchidee_config$report$datatable_digits,
@@ -134,29 +148,6 @@ initialize_ratb_report_helpers(
 )
 ```
 
-<!-- Operator-only artifact loading section kept in source, not rendered. -->
-
-
-```{r}
-#| label: load_sir_wide_artifact
-#| include: false
-#| echo: false
-
-orchidee_source_required_script("helpers.R", "helpers script")
-
-mappings_dir <- orchidee_config$paths$mappings_dir
-
-operational_runtime <- load_ratb_operational_runtime(config = orchidee_config)
-ratb_operational_context <- operational_runtime$context
-cache_dir <- ratb_operational_context$cache_dir
-sir_wide_meta <- operational_runtime$sir_wide_meta
-sir_wide <- operational_runtime$sir_wide
-
-if (!exists("filtre_atb") && !is.null(sir_wide_meta$filtre_atb)) {
-  filtre_atb <- sir_wide_meta$filtre_atb
-}
-```
-
 <!-- Operator-only cache-loading section kept in source, not rendered. -->
 
 ```{r}
@@ -164,49 +155,30 @@ if (!exists("filtre_atb") && !is.null(sir_wide_meta$filtre_atb)) {
 #| include: false
 #| echo: false
 
-dedup_cache_candidates <- list(
-  list(
-    results = file.path(cache_dir, "dedup_results"),
-    meta = file.path(cache_dir, "dedup_cache_meta")
-  )
-)
-
-dedup_cache_source <- NA_character_
-dedup_results <- NULL
-dedup_cache_meta <- NULL
-
-for (candidate in dedup_cache_candidates) {
-  cache_paths <- unlist(candidate, use.names = FALSE)
-  if (!all(file.exists(cache_paths))) {
-    next
-  }
-
-  loaded_results <- tryCatch(readRDS(candidate$results), error = function(e) {
-    NULL
-  })
-  loaded_meta <- tryCatch(readRDS(candidate$meta), error = function(e) NULL)
-  if (!is.list(loaded_results) || !is.list(loaded_meta)) {
-    next
-  }
-
-  dedup_results <- loaded_results
-  dedup_cache_meta <- loaded_meta
-  dedup_cache_source <- candidate$results
-  break
-}
-
-if (is.null(dedup_results) || is.null(dedup_cache_meta)) {
+dedup_results_path <- file.path(cache_dir, "dedup_results")
+dedup_cache_meta_path <- file.path(cache_dir, "dedup_cache_meta")
+if (!all(file.exists(c(dedup_results_path, dedup_cache_meta_path)))) {
   stop(
     "Missing canonical raw dedup cache. Run scripts/build_ratb_raw_runtime.R first.",
     call. = FALSE
   )
 }
+dedup_results <- readRDS(dedup_results_path)
+dedup_cache_meta <- readRDS(dedup_cache_meta_path)
+if (!is.list(dedup_results) || !is.list(dedup_cache_meta)) {
+  stop(
+    "Invalid canonical raw dedup cache. Run scripts/build_ratb_raw_runtime.R first.",
+    call. = FALSE
+  )
+}
 
-if (!"runtime_input_signature" %in% names(dedup_cache_meta) ||
+if (
+  !"runtime_input_signature" %in% names(dedup_cache_meta) ||
     !identical(
       dedup_cache_meta$runtime_input_signature,
       operational_runtime$runtime_input_signature
-    )) {
+    )
+) {
   stop(
     "Dedup cache does not match the selected RATB operational input. ",
     "Run scripts/build_ratb_raw_runtime.R first.",
@@ -219,23 +191,14 @@ sir_wide_ratb_scope <- runtime_inputs$sir_wide_ratb_scope
 incidence_denominator_by_year <-
   runtime_inputs$incidence_denominator_by_year
 
-stop_if_invalid_ratb_canonical_runtime_inputs(
-  runtime_inputs = runtime_inputs,
-  sir_wide = sir_wide
-)
-
 stopifnot(
-  is.list(dedup_results),
   identical(names(dedup_results), "sir_wide_raw"),
   all(vapply(
     dedup_results,
     function(x) is.list(x) && all(c("global", "by_type") %in% names(x)),
     logical(1)
-  )),
-  exists("sir_wide_ratb_scope"),
-  exists("incidence_denominator_by_year")
+  ))
 )
-
 ```
 
 # Rapport indicateurs RATB

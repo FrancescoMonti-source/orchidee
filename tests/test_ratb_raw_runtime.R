@@ -7,6 +7,7 @@ suppressPackageStartupMessages({
   library(tibble)
 })
 
+source("R/helpers.R")
 source("R/spares_shared_primitives.R")
 source("R/phenotype_flag_helpers.R")
 source("R/spares_dedup.R")

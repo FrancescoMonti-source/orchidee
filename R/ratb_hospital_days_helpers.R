@@ -13,9 +13,9 @@
 ## in `R/ratb_canonical_runtime_helpers.R`.
 ##
 ## Naming note: objects with `provisional` in their name are the current
-## runtime-compatible incidence denominator artifacts. The name is kept for
-## cache and external-contract compatibility while the night-count convention
-## remains reviewable.
+## Rouen calculation and audit artifacts. The name records that the
+## night-count convention remains reviewable; portable bundles use their
+## canonical contract names.
 
 ratb_default_rouen_structure_path <- function() {
   current <- Sys.getenv("ORCHIDEE_ROUEN_STRUCTURE_PATH", unset = "")
@@ -528,83 +528,6 @@ build_pmsi_status_lookup <- function(pmsi_main) {
       n_patid_for_evtid = dplyr::coalesce(n_patid_for_evtid, 0L),
       evtid_multi_pat = dplyr::coalesce(evtid_multi_pat, FALSE)
     )
-}
-
-build_chu_microbiology_pmsi_join_audit <- function(sir_wide, pmsi_main) {
-  stopifnot(is.data.frame(sir_wide), is.data.frame(pmsi_main))
-  stopifnot(all(c("PATID", "EVTID", "ELTID") %in% names(sir_wide)))
-
-  pmsi_status_lookup <- build_pmsi_status_lookup(pmsi_main)
-
-  sir_base <- sir_wide %>%
-    mutate(
-      PATID = as.character(PATID),
-      EVTID = as.character(EVTID)
-    )
-
-  ratb_scope_join_audit <- sir_base %>%
-    group_by(PATID, EVTID) %>%
-    summarise(
-      n_micro_rows = n(),
-      n_eltid = n_distinct(ELTID, na.rm = TRUE),
-      n_bact_norm = n_distinct(bact_norm, na.rm = TRUE),
-      n_naturepvt_norm = n_distinct(naturepvt_norm, na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
-    left_join(pmsi_status_lookup, by = c("PATID", "EVTID")) %>%
-    mutate(
-      ratb_scope_status = dplyr::coalesce(ratb_scope_status, "no_pmsi_match"),
-      included_in_ratb_scope = ratb_scope_status != "no_pmsi_match",
-      n_status_non_missing = dplyr::coalesce(n_status_non_missing, 0L),
-      n_distinct_status = dplyr::coalesce(n_distinct_status, 0L),
-      n_pmsi_rows = dplyr::coalesce(n_pmsi_rows, 0L),
-      n_patid_for_evtid = dplyr::coalesce(n_patid_for_evtid, 0L),
-      evtid_multi_pat = dplyr::coalesce(evtid_multi_pat, FALSE)
-    ) %>%
-    arrange(desc(included_in_ratb_scope), ratb_scope_status, PATID, EVTID)
-
-  ratb_scope_exclusion_summary <- ratb_scope_join_audit %>%
-    group_by(ratb_scope_status, included_in_ratb_scope) %>%
-    summarise(
-      n_patid_evtid = n(),
-      n_micro_rows = sum(n_micro_rows, na.rm = TRUE),
-      n_eltid = sum(n_eltid, na.rm = TRUE),
-      n_evtid_multi_pat = sum(evtid_multi_pat, na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
-    mutate(
-      pct_patid_evtid = 100 * n_patid_evtid / sum(n_patid_evtid),
-      pct_micro_rows = 100 * n_micro_rows / sum(n_micro_rows)
-    ) %>%
-    arrange(desc(included_in_ratb_scope), desc(n_micro_rows), ratb_scope_status)
-
-  sir_wide_ratb_scope <- sir_base %>%
-    left_join(
-      ratb_scope_join_audit %>%
-        select(
-          PATID, EVTID, ratb_scope_status, included_in_ratb_scope,
-          pmsi_status_values, n_status_non_missing, n_distinct_status,
-          n_pmsi_rows, n_patid_for_evtid, evtid_multi_pat
-        ),
-      by = c("PATID", "EVTID")
-    ) %>%
-    mutate(
-      ratb_scope_status = dplyr::coalesce(ratb_scope_status, "no_pmsi_match"),
-      included_in_ratb_scope = dplyr::coalesce(included_in_ratb_scope, FALSE),
-      n_status_non_missing = dplyr::coalesce(n_status_non_missing, 0L),
-      n_distinct_status = dplyr::coalesce(n_distinct_status, 0L),
-      n_pmsi_rows = dplyr::coalesce(n_pmsi_rows, 0L),
-      n_patid_for_evtid = dplyr::coalesce(n_patid_for_evtid, 0L),
-      evtid_multi_pat = dplyr::coalesce(evtid_multi_pat, FALSE)
-    ) %>%
-    select(-included_in_ratb_scope)
-
-  list(
-    sir_wide_ratb_scope = sir_wide_ratb_scope,
-    ratb_scope_join_audit = ratb_scope_join_audit,
-    ratb_scope_exclusion_summary = ratb_scope_exclusion_summary,
-    pmsi_status_lookup = pmsi_status_lookup
-  )
 }
 
 ratb_split_stays_days_by_year <- function(stays) {
@@ -1203,108 +1126,6 @@ build_ratb_pmsi_ta_de_denominator <- function(
     incidence_exposure_by_year_um_uf_ta_de_profile =
       incidence_exposure_by_year_um_uf_ta_de_profile,
     hospital_days_year_summary_provisional = hospital_days_year_summary_provisional
-  )
-}
-
-build_ratb_provisional_perimeter_audit <- function(
-    sir_wide_ratb_scope,
-    pmsi_main,
-    pmsi_event_bounds,
-    status_lookup = NULL,
-    structure_path = ratb_default_rouen_structure_path(),
-    codes_ta_path = file.path("ref", "consores", "codes_ta.csv"),
-    codes_de_path = file.path("ref", "consores", "codes_de.csv"),
-    ref_dir = file.path("ref", "rouen")
-  ) {
-  stopifnot(
-    is.data.frame(sir_wide_ratb_scope),
-    is.data.frame(pmsi_main),
-    is.data.frame(pmsi_event_bounds)
-  )
-  stopifnot(all(c("PATID", "EVTID", "ELTID", "SEJUF", "SEJUM") %in% names(sir_wide_ratb_scope)))
-  stopifnot(all(c("PATID", "EVTID", "DATENT", "DATSORT", "SEJUM", "SEJUF", "GHM") %in% names(pmsi_main)))
-
-  if (is.null(status_lookup) && !"PMSISTATUT" %in% names(pmsi_main)) {
-    stop(
-      "PMSISTATUT is required only when status_lookup must be built for QA.",
-      call. = FALSE
-    )
-  }
-
-  if (is.null(status_lookup)) {
-    status_lookup <- build_pmsi_status_lookup(pmsi_main)
-  }
-
-  refs <- load_ratb_unit_references(ref_dir = ref_dir)
-  consores_ta_de_ref <- load_ratb_consores_ta_de_reference(
-    structure_path = structure_path,
-    codes_ta_path = codes_ta_path,
-    codes_de_path = codes_de_path
-  )
-  ratb_perimeter_rules <- build_ratb_ta_de_policy_table()
-
-  sample_uf_ta_de_reference <- build_ratb_sample_scope_reference(consores_ta_de_ref)
-  sir_wide_ratb_scope <- apply_ratb_sample_ta_de_scope(
-    sir_wide = sir_wide_ratb_scope,
-    sample_scope_reference = sample_uf_ta_de_reference
-  )
-
-  denominator_objects <- build_ratb_pmsi_ta_de_denominator(
-    pmsi_main = pmsi_main,
-    pmsi_event_bounds = pmsi_event_bounds,
-    status_lookup = status_lookup,
-    refs = refs,
-    consores_ta_de_ref = consores_ta_de_ref
-  )
-
-  ratb_episode_scope_audit <- denominator_objects$ratb_episode_scope_audit
-  ratb_unit_stay_scope_audit <- denominator_objects$ratb_unit_stay_scope_audit
-  ratb_episode_exclusion_summary <- denominator_objects$ratb_episode_exclusion_summary
-  hospital_days_year_split_provisional <- denominator_objects$hospital_days_year_split_provisional
-  hospital_nights_by_year_unit <- denominator_objects$hospital_nights_by_year_unit
-  hospital_nights_by_year_um_uf_ta_de <-
-    denominator_objects$hospital_nights_by_year_um_uf_ta_de
-  incidence_exposure_by_year_um_uf_ta_de_profile <-
-    denominator_objects$incidence_exposure_by_year_um_uf_ta_de_profile
-  hospital_days_year_summary_provisional <- denominator_objects$hospital_days_year_summary_provisional
-
-  ratb_numerator_scope_impact_audit <- sir_wide_ratb_scope %>%
-    mutate(
-      PATID = as.character(PATID),
-      EVTID = as.character(EVTID)
-    ) %>%
-    group_by(
-      sample_uf_ta_de_status,
-      sample_uf_is_eligible_by_ta_de,
-      sample_uf_ta_de_reason
-    ) %>%
-    summarise(
-      n_micro_rows = n(),
-      n_eltid = n_distinct(ELTID, na.rm = TRUE),
-      n_patid_evtid = n_distinct(paste(PATID, EVTID, sep = "\r")),
-      .groups = "drop"
-    ) %>%
-    mutate(
-      pct_micro_rows = 100 * n_micro_rows / sum(n_micro_rows),
-      pct_eltid = 100 * n_eltid / sum(n_eltid)
-    ) %>%
-    arrange(desc(sample_uf_is_eligible_by_ta_de), desc(n_micro_rows), sample_uf_ta_de_status)
-
-  list(
-    sir_wide_ratb_scope = sir_wide_ratb_scope,
-    ratb_perimeter_rules = ratb_perimeter_rules,
-    ratb_uf_ta_de_reference = consores_ta_de_ref,
-    ratb_episode_scope_audit = ratb_episode_scope_audit,
-    ratb_unit_stay_scope_audit = ratb_unit_stay_scope_audit,
-    ratb_episode_exclusion_summary = ratb_episode_exclusion_summary,
-    hospital_days_year_split_provisional = hospital_days_year_split_provisional,
-    hospital_nights_by_year_unit = hospital_nights_by_year_unit,
-    hospital_nights_by_year_um_uf_ta_de =
-      hospital_nights_by_year_um_uf_ta_de,
-    incidence_exposure_by_year_um_uf_ta_de_profile =
-      incidence_exposure_by_year_um_uf_ta_de_profile,
-    hospital_days_year_summary_provisional = hospital_days_year_summary_provisional,
-    ratb_numerator_scope_impact_audit = ratb_numerator_scope_impact_audit
   )
 }
 

@@ -63,25 +63,6 @@ saveRDS(
   file.path(bundle_dir, "denominator_bundle.rds")
 )
 
-compat_bundle_dir <- tempfile("orchidee_external_bundle_v2_compat_")
-dir.create(compat_bundle_dir)
-on.exit(unlink(compat_bundle_dir, recursive = TRUE), add = TRUE)
-invisible(file.copy(
-  file.path(bundle_dir, c("sir_wide.rds", "sir_wide_meta.rds")),
-  compat_bundle_dir
-))
-saveRDS(
-  list(
-    sample_scope_reference = readRDS(
-      file.path(bundle_dir, "sample_scope_reference.rds")
-    ),
-    incidence_denominator_by_year = readRDS(
-      file.path(bundle_dir, "denominator_bundle.rds")
-    )$incidence_denominator_by_year
-  ),
-  file.path(compat_bundle_dir, "ratb_scope_cache")
-)
-
 config <- list(
   runtime = list(
     external_bundle_v2_dir = bundle_dir,
@@ -94,8 +75,7 @@ context <- resolve_ratb_operational_context(config)
 runtime <- load_ratb_operational_runtime(config = config)
 bundle_validation <- validate_external_input_bundle(
   bundle_dir = bundle_dir,
-  contract = contract,
-  strict_preferred = TRUE
+  contract = contract
 )
 
 missing_v2_metadata_error <- tryCatch(
@@ -124,16 +104,6 @@ missing_v2_metadata_error <- tryCatch(
   error = function(condition) conditionMessage(condition)
 )
 
-compatibility_error <- tryCatch(
-  {
-    compatibility_config <- config
-    compatibility_config$runtime$external_bundle_v2_dir <- compat_bundle_dir
-    load_ratb_operational_runtime(compatibility_config)
-    NA_character_
-  },
-  error = function(condition) conditionMessage(condition)
-)
-
 workspace_collision_error <- tryCatch(
   {
     collision_config <- config
@@ -154,7 +124,7 @@ stopifnot(
   !"chu_native_qa" %in% names(runtime)
 )
 
-# Why: protects the external-v2 input/cache contract: four strict artifacts
+# Why: protects the external-v2 input/cache contract: four canonical artifacts
 # feed the canonical objects and runtime outputs stay outside protected paths.
 stopifnot(
   identical(runtime$input_source, "external_bundle_v2"),
@@ -175,7 +145,6 @@ stopifnot(
   ),
   nrow(runtime$runtime_inputs$sir_wide_ratb_analytic_scope) == 1L,
   grepl("missing required fields", missing_v2_metadata_error),
-  grepl("Strict preferred mode requires", compatibility_error),
   grepl("must keep external cache and downloads separate", workspace_collision_error)
 )
 

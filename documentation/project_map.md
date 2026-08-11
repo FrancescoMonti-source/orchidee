@@ -173,8 +173,8 @@ l'export bactériologique long et à l'objet PMSI déjà produit par `redsan`.
 -   `R/rouen_pmsi_handoff_adapter.R`
     -   applique la politique PMSI `C > DW` via `redsan`, attribue l'UF
         d'hébergement au prélèvement et construit mapping TA/DE et dénominateur
-    -   compose les six blocs avec le builder partagé sous contrat v2
-        opérationnel ou v3 complet, sans fallback vers l'UF microbiologique
+    -   compose les six blocs en bundle v3 complet, puis projette la forme v2
+        opérationnelle, sans fallback vers l'UF microbiologique
 
 ### Dédoublonnage
 

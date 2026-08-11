@@ -6,29 +6,20 @@ editor_options:
 
 # Sample Scope Reference Contract
 
-This document defines the external compatibility contract for the
+This document defines the external contract for the
 sample-level RATB TA/DE scope reference.
 
 The reference is the bridge between local hospital unit mapping and the
 shared ORCHIDEE core. A site adapter maps local unit information into this
 table; ORCHIDEE applies the table to `sir_wide` rows through `SEJUF`.
 
-## Preferred file
+## Canonical file
 
-The preferred external file is:
+The external file is:
 
 - `sample_scope_reference.rds`
 
 It must be an R data frame or tibble.
-
-## Compatibility source
-
-For compatibility with previously materialized local artifacts, the validator
-also accepts `ratb_scope_cache` when it contains
-`ratb_uf_ta_de_reference`.
-
-That compatibility path is for validation convenience only. The preferred
-external contract remains `sample_scope_reference.rds`.
 
 ## Required row grain
 

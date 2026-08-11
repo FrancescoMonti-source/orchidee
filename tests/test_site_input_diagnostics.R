@@ -13,7 +13,7 @@ source("R/ratb_hospital_days_helpers.R")
 source("R/external_handoff_helpers.R")
 source("R/site_input_report_publication_helpers.R")
 
-block_names <- names(orchidee_handoff_site_input_spec("v3"))
+block_names <- names(orchidee_handoff_site_input_spec())
 
 rscript_path <- file.path(
   R.home("bin"),
