@@ -88,7 +88,7 @@ Ce document ne consigne que la mécanique commune.
 
 | Décision | Implémentation | Effet |
 |------------------------|------------------------|------------------------|
-| Les années 2021 et 2025 sont exclues de l'incidence | `config/pipeline.R` → `ratb$incidence_excluded_years`, filtre appliqué dans `orchidee_ratb_indicators.qmd` | Incidences publiées. Raison non consignée : voir Points ouverts |
+| Le rapport publie les années déclarées, et s'arrête si les données en portent une autre. L'incidence n'a pas d'exclusion propre : le dénominateur voit des années de bord parce qu'un séjour à cheval sur la borne de la fenêtre y dépose des nuits, et seules les années déclarées sont publiées | `config/pipeline.R` → `ratb$report_years` ; filtre et contrôle dans `orchidee_ratb_indicators.qmd` | Années publiées, proportions et incidences |
 | Les vues par type affichées sont limitées à la liste configurée, intersectée avec les types présents | `config/pipeline.R` → `ratb$indicator_sample_types` | Hémoculture et urines aujourd'hui |
 | Le seuil `n` masque des cellules de la carte de chaleur, pas des lignes de tableau | `config/pipeline.R` → `ratb$indicator_min_n` ; `R/ratb_report_helpers.R` → `prepare_ratb_indicator_heatmap()` | À 0, rien n'est masqué |
 
@@ -97,8 +97,6 @@ Ce document ne consigne que la mécanique commune.
 Ces points sont des trous connus, pas des décisions. Les laisser visibles évite
 qu'une lecture les prenne pour un choix motivé.
 
--   **Exclusion de 2021 et 2025 de l'incidence.** La règle est appliquée, sa
-    raison n'est écrite nulle part dans le dépôt. À consigner par le mainteneur.
 -   **Convention des nuits.** Les artefacts portent `provisional` parce que la
     convention reste révisable, d'après le commentaire de
     `R/ratb_hospital_days_helpers.R`. Son statut pour la publication n'est pas

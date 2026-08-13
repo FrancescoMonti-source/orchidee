@@ -50,7 +50,7 @@ correspondante de [`methods.md`](methods.md).
 
 | Réglage | Où | Ce qu'il déplace |
 |--------------------|--------------------|-----------------------------|
-| `ratb$incidence_excluded_years` | `config/pipeline.R` | Quelles années publient une incidence |
+| `ratb$report_years` | `config/pipeline.R` | Les années publiées. Une année présente dans les données mais non déclarée arrête le rendu |
 | `ratb$indicator_sample_types` | `config/pipeline.R` | Quelles vues par type sont publiées |
 | `ratb$indicator_min_n` | `config/pipeline.R` | Le masquage des cellules de carte de chaleur |
 | `target_start`, `target_end_exclusive` | `config/rouen_raw_handoff.R` | La fenêtre source Rouen, donc la population |

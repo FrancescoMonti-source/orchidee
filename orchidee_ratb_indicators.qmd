@@ -256,7 +256,7 @@ ratb_indicator_sample_types <- orchidee_config$ratb$indicator_sample_types
 ratb_indicator_show_full_spec <- orchidee_config$ratb$indicator_show_full_spec
 ratb_indicator_min_n <- orchidee_config$ratb$indicator_min_n
 recompute_incidence_pipeline <- orchidee_config$cache$recompute_incidence_pipeline
-ratb_incidence_excluded_years <- orchidee_config$ratb$incidence_excluded_years
+ratb_report_years <- as.integer(orchidee_config$ratb$report_years)
 
 ratb_dataset_display_map <- c(
   sir_wide_raw = "brut"
@@ -406,6 +406,23 @@ ratb_indicator_panel_annual <- build_ratb_indicator_panel_annual(
 )
 
 stopifnot(nrow(ratb_indicator_panel_annual) > 0L)
+
+# The analytical population must not carry a year the report does not declare:
+# an undeclared year means config/pipeline.R and the data disagree, and the
+# render says so instead of publishing part of the data silently.
+undeclared_years <- setdiff(
+  unique(ratb_indicator_panel_annual$dedup_year),
+  ratb_report_years
+)
+if (length(undeclared_years) > 0L) {
+  stop(
+    "Analytical data covers years absent from ratb$report_years: ",
+    paste(sort(undeclared_years), collapse = ", "),
+    ". Update the knob or the source window.",
+    call. = FALSE
+  )
+}
+
 stopifnot(all(
   ratb_indicator_panel_annual$n_tested ==
     ratb_indicator_panel_annual$n_r + ratb_indicator_panel_annual$n_s
@@ -540,7 +557,7 @@ ratb_indicator_panel_incidence_annual <- build_ratb_indicator_panel_incidence_an
 )
 
 ratb_indicator_panel_incidence_annual <- ratb_indicator_panel_incidence_annual %>%
-  filter(!(dedup_year %in% ratb_incidence_excluded_years))
+  filter(dedup_year %in% ratb_report_years)
 
 stopifnot(nrow(ratb_indicator_panel_incidence_annual) > 0L)
 stopifnot(all(ratb_indicator_panel_incidence_annual$scope == "global"))
