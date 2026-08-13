@@ -1,12 +1,29 @@
 # Helpers for the canonical raw RATB operational path.
+#
+# The canonical antibiotic value alphabet belongs to the external bundle
+# contract. This layer reads it from there instead of restating it, so the
+# runtime cannot recognize a value the contract refuses.
 
-ratb_raw_is_atb_column <- function(x) {
+source("R/bootstrap.R")
+
+orchidee_source_script_if_missing(
+  "external_bundle_validation_helpers.R",
+  "orchidee_external_contract_v2",
+  "external bundle validation helpers"
+)
+
+ratb_raw_allowed_atb_values <- function() {
+  orchidee_external_contract_v2()$sir_wide$allowed_atb_values
+}
+
+ratb_raw_is_atb_column <- function(x, allowed_values = ratb_raw_allowed_atb_values()) {
   values <- unique(stats::na.omit(as.character(x)))
-  length(values) > 0L && all(values %in% c("S", "R", "ZIT"))
+  length(values) > 0L && all(values %in% allowed_values)
 }
 
 resolve_ratb_raw_atb_columns <- function(sir_wide, sir_wide_meta) {
   stopifnot(is.data.frame(sir_wide), is.list(sir_wide_meta))
+  allowed_values <- ratb_raw_allowed_atb_values()
 
   candidates <- sir_wide_meta$filtre_atb
   if (is.null(candidates) || length(candidates) == 0L) {
@@ -24,10 +41,16 @@ resolve_ratb_raw_atb_columns <- function(sir_wide, sir_wide_meta) {
   atb_cols <- candidates[vapply(
     sir_wide[candidates],
     ratb_raw_is_atb_column,
-    logical(1)
+    logical(1),
+    allowed_values = allowed_values
   )]
   if (length(atb_cols) == 0L) {
-    stop("No observed S/R/ZIT antibiotic column is available for raw RATB deduplication.", call. = FALSE)
+    stop(
+      "No observed ",
+      paste(allowed_values, collapse = "/"),
+      " antibiotic column is available for raw RATB deduplication.",
+      call. = FALSE
+    )
   }
   atb_cols
 }

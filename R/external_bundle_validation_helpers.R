@@ -72,6 +72,8 @@ orchidee_external_contract_v2 <- function() {
       ),
       atb_cols = atb_cols,
       derived_columns = c("nb_resultats"),
+      # Single definition of the canonical antibiotic value alphabet. Read it
+      # from the contract; do not restate these values elsewhere.
       allowed_atb_values = c("S", "R", "ZIT"),
       row_grain_key = c(
         "PATID",

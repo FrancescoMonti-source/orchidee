@@ -524,9 +524,11 @@ build_rouen_microbiology_handoff <- function(
       source_row_order = .data$source_row_order
     )
 
+  # The alphabet is defined once by the v2 contract; v3 inherits it unchanged.
+  allowed_sir_values <- orchidee_external_contract_v2()$sir_wide$allowed_atb_values
   unsupported_sir <- sort(unique(observations$sir_result[
     !is.na(observations$sir_result) &
-      !observations$sir_result %in% c("S", "R", "ZIT")
+      !observations$sir_result %in% allowed_sir_values
   ]))
   if (length(unsupported_sir) > 0L) {
     stop(
