@@ -34,7 +34,8 @@ séparer, soit une duplication dans le code.
 | Décision | Implémentation | Effet |
 |------------------------|------------------------|------------------------|
 | Le périmètre est défini positivement par les codes TA/DE éligibles | `ref/consores/codes_ta.csv`, `ref/consores/codes_de.csv` ; application `R/ratb_canonical_runtime_helpers.R` | Numérateurs et dénominateurs |
-| L'unité d'un prélèvement est le `SEJUF` porté par la ligne de microbiologie ; l'établissement décide comment il est rempli | contrat `sample_scope_reference`, `orchidee_external_contract_v2()` | Quels prélèvements entrent au numérateur |
+| Pour un site, l'unité d'un prélèvement est le `SEJUF` qu'il fournit sur la ligne de microbiologie | contrat `sample_scope_reference`, `orchidee_external_contract_v2()` | Quels prélèvements entrent au numérateur |
+| Pour Rouen, ce `SEJUF` est réécrit : l'unité retenue est l'unité d'hébergement PMSI active à l'heure du prélèvement. Une attribution ambiguë ou absente donne `NA`, donc le prélèvement sort du périmètre au lieu d'être rattaché au hasard | `R/chu_sample_hospitalization_unit_attribution.R` → `build_chu_sample_hospitalization_unit_attribution()`, appliqué par `R/rouen_pmsi_handoff_adapter.R` ; audit `sample_attribution` | Le périmètre Rouen, donc tous les numérateurs |
 | Le dépistage est exclu au niveau du document, pas de la ligne de résultat | `config/rouen_raw_handoff.R` → `screening_typeana_codes` ; exclusion dans `R/external_handoff_helpers.R` | Population analytique avant déduplication |
 | Une source qui porte `EVTID` doit le porter sur chaque ligne : un trou dans une colonne par ailleurs remplie est une anomalie du système hospitalier et la ligne est écartée. Une colonne absente ou entièrement vide n'est pas une anomalie : la source garde ses lignes sur la clé `PATID` + `ELTID` | `R/external_handoff_helpers.R` → `orchidee_handoff_evtid_anomaly_rows()`, appliqué aux deux frontières d'entrée ; audit Rouen `rows_dropped_without_evtid` | Population analytique. Un marqueur de dépistage porté par une ligne écartée disparaît avec elle, donc le document cesse d'être marqué |
 | Une valeur `sir_result` hors vocabulaire arrête le build au lieu d'être lue comme absente ; seul le vide devient absent | `R/external_handoff_helpers.R` → `orchidee_handoff_normalize_sir()` ; refus dans l'adaptateur et à la frontière du bundle | Toutes les voies d'entrée |
@@ -108,10 +109,10 @@ qu'une lecture les prenne pour un choix motivé.
 -   **Aucun seuil effectif.** `indicator_min_n` vaut 0 : aucune proportion n'est
     masquée, y compris sur très petit dénominateur. Aucun intervalle de
     confiance ni test de tendance n'est publié.
--   **Attribution unité/prélèvement.**
-    `R/chu_sample_hospitalization_unit_attribution.R` implémente un contrat
-    amont mais n'est pas branché au runtime actif ; son propre commentaire le
-    précise. Le chemin actif utilise le `SEJUF` de la ligne.
+-   **Commentaire d'en-tête périmé.**
+    `R/chu_sample_hospitalization_unit_attribution.R` déclare ne pas être
+    branché ; il l'est, par `R/rouen_pmsi_handoff_adapter.R`, et il décide du
+    périmètre Rouen. Le commentaire est à corriger dans le fichier, pas ici.
 -   **Proportion carbapénémase sur hémoculture.** Le catalogue la marque comme
     indicateur de compatibilité, pour préserver une sortie demandée. La raison
     de fond n'est pas consignée.

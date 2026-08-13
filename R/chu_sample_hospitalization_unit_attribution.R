@@ -1,10 +1,13 @@
 # CHU sample-to-hospitalization-unit attribution.
 #
-# This helper implements the upstream attribution contract without wiring it
-# into the legacy CHU cache, canonical bundle, or indicator runtime. Source
-# R/ratb_hospital_days_helpers.R first for the shared local time and trimming
-# primitives used below. Pass the uncollapsed `pmsi$main` returned by `redsan`
-# with `source_policy = "c_over_dw"`.
+# This decides which hospitalization unit a sample belongs to for Rouen:
+# R/rouen_pmsi_handoff_adapter.R overwrites the microbiology SEJUF with the
+# hebergement unit active at sampling time, and leaves NA when the attribution
+# is ambiguous or absent, which drops the sample out of the eligible perimeter.
+# It therefore decides the Rouen numerators, and is not an unused contract.
+# Source R/ratb_hospital_days_helpers.R first for the shared local time and
+# trimming primitives used below. Pass the uncollapsed `pmsi$main` returned by
+# `redsan` with `source_policy = "c_over_dw"`.
 
 build_chu_sample_hospitalization_unit_attribution <- function(
     sir_wide,
