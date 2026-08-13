@@ -83,6 +83,7 @@ Ce document ne consigne que la mécanique commune.
 | Un séjour à cheval sur deux années est réparti selon le chevauchement réel | `R/ratb_hospital_days_helpers.R` → `ratb_split_stays_nights_by_year()` | Aucune année ne reçoit un séjour entier qui la dépasse |
 | Les nuits sont comptées par unité puis sommées sur les unités éligibles de l'épisode | `R/ratb_hospital_days_helpers.R` | Un transfert entre unités éligibles ne compte pas deux fois |
 | Le dénominateur est calculé indépendamment de la microbiologie | `R/ratb_hospital_days_helpers.R` | Un séjour sans prélèvement contribue aux nuits |
+| La définition d'exposition est un profil déclaré, pas une convention implicite : `midnight_presence`, en `patient_days`. Le contrat v3 porte l'axe du profil sur chaque ligne, et le registre n'en contient qu'un | `R/external_bundle_validation_helpers.R` → `ratb_denominator_profile_registry()` | Une définition alternative s'ajouterait au registre sans changer le contrat |
 
 ## Publication et affichage
 
@@ -97,10 +98,13 @@ Ce document ne consigne que la mécanique commune.
 Ces points sont des trous connus, pas des décisions. Les laisser visibles évite
 qu'une lecture les prenne pour un choix motivé.
 
--   **Convention des nuits.** Les artefacts portent `provisional` parce que la
-    convention reste révisable, d'après le commentaire de
-    `R/ratb_hospital_days_helpers.R`. Son statut pour la publication n'est pas
-    tranché.
+-   **Convention des nuits.** La définition publiée est tranchée et nommée :
+    `midnight_presence`, une seule entrée du registre des profils. Ce qui reste
+    provisoire est le nom des objets d'audit Rouen, qui portent encore
+    `provisional`, et la question ouverte n'est plus « quelle convention »
+    mais « faut-il en calculer une seconde en parallèle ». Le contrat v3 le
+    permet sans modification : le profil est une dimension de la table
+    d'exposition, pas une hypothèse cachée dans le calcul.
 -   **Aucun seuil effectif.** `indicator_min_n` vaut 0 : aucune proportion n'est
     masquée, y compris sur très petit dénominateur. Aucun intervalle de
     confiance ni test de tendance n'est publié.
