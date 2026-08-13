@@ -28,6 +28,11 @@
 Thumbs.db
 Desktop.ini
 
+# Local agent and audit state
+/.agents/
+/.claude/
+/audit_orchidee.md
+
 # Local secrets and credentials
 .env
 .env.*

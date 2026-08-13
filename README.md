@@ -34,9 +34,7 @@ Les détails de restauration et de qualification sont dans le
 
 Vous fournissez deux chemins : l'export BACT et l'objet PMSI produit par
 `redsan`. L'adaptateur Rouen, ses mappings et ses références sont déjà
-versionnés dans le dépôt et génèrent eux-mêmes les six blocs de handoff ; vous
-ne préparez aucun autre fichier. Dans ce parcours, `redsan` possède l'accès
-EDSaN, le batching et la normalisation PMSI/BIOL.
+versionnés dans le dépôt.
 
 Après l'installation, contrôler les deux chemins sans lire les objets
 cliniques :
@@ -55,9 +53,18 @@ rapport :
 
 ## Autre établissement
 
-Vous fournissez les six blocs de handoff. Votre équipe possède l'extraction
-depuis son entrepôt, l'identification du périmètre de dépistage et les mappings
-locaux.
+ORCHIDEE attend six fichiers. Il en définit le contenu et le format ; votre
+équipe décide comment les produire à partir de ses propres systèmes :
+
+1.  les résultats de microbiologie : prélèvement, bactérie, antibiotique,
+    résultat S/I/R et indication diagnostic ou dépistage ;
+2.  la traduction de vos noms de bactéries vers les noms ORCHIDEE ;
+3.  la traduction de vos types de prélèvement ;
+4.  la traduction de vos noms d'antibiotiques ;
+5.  la correspondance entre vos unités d'hospitalisation et les codes TA/DE ;
+6.  les journées d'hospitalisation, par année et par unité.
+
+Ces fichiers peuvent être des CSV ou des objets RDS. 
 
 Avant d'introduire des données locales, vérifier l'installation sur la fixture
 synthétique versionnée :
@@ -66,8 +73,9 @@ synthétique versionnée :
 & .\scripts\build_site.ps1 -RunSmokeTest
 ```
 
-Ce smoke test qualifie l'installation, pas vos données. La procédure site décrit
-les six blocs, les templates, le diagnostic, le build et le rendu :
+Ce smoke test qualifie l'installation, pas vos données. La procédure site donne
+le nom et la structure attendue de chaque fichier, les modèles à remplir et les
+commandes de vérification puis de calcul :
 
 [documentation/external_bundle/site_handoff_inputs.md](documentation/external_bundle/site_handoff_inputs.md)
 

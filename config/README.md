@@ -2,8 +2,10 @@
 
 This folder contains operational knobs for running Orchidee.
 
-Start with `pipeline.R` when you need to change cache recompute switches, date
-windows, common paths, or report display defaults.
+Use `pipeline.R` for runtime paths, cache controls, report display and the
+publication settings. Use `rouen_raw_handoff.R` for the Rouen source window,
+screening codes and versioned adapter references. Clinical input paths remain
+CLI parameters.
 
 Do not put normalization mappings or imported institutional references here:
 

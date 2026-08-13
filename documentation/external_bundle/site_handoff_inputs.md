@@ -4,53 +4,36 @@ editor_options:
     wrap: 72
 ---
 
-# Site Handoff Inputs
+# Données à préparer dans un autre établissement
 
-This is the sole maintained human-facing operator procedure for Rennes or
-another hospital that does not already have a packaged ORCHIDEE site adapter.
-The repository README only orients readers here; `Get-Help
-.\scripts\build_site.ps1 -Full` lists the current command parameters.
+Cette procédure concerne Rennes et tout établissement qui n'a pas d'adaptateur
+ORCHIDEE versionné. Elle décrit ce qu'ORCHIDEE attend en entrée. Chaque
+établissement reste libre de décider comment produire ces données depuis ses
+propres systèmes.
 
-Rouen operators should not prepare the six blocks below. Start with
-[rouen_raw_handoff.md](rouen_raw_handoff.md) and provide only the BACT and PMSI
-input paths; the versioned Rouen adapter generates the blocks.
+Pour Rouen, ne pas suivre cette procédure : fournir uniquement les chemins BACT
+et PMSI décrits dans la
+[procédure Rouen](rouen_raw_handoff.md).
 
-You do not need to reproduce the Rouen adapter. You prepare the simple input
-blocks below; ORCHIDEE turns them into its internal validated bundles.
+## Les six fichiers attendus
 
-## What you need to provide
+| Fichier | Contenu |
+|---|---|
+| `microbiology_observations` | Résultats de microbiologie : prélèvement, bactérie, antibiotique, résultat S/I/R et indication diagnostic ou dépistage. |
+| `bacteria_mapping` | Correspondance entre les noms locaux des bactéries et les noms ORCHIDEE. |
+| `sample_type_mapping` | Correspondance entre les types locaux de prélèvement et les types ORCHIDEE. |
+| `antibiotic_mapping` | Correspondance entre les noms locaux des antibiotiques et les noms ORCHIDEE. |
+| `unit_mapping` | Correspondance entre les unités d'hospitalisation et les codes TA/DE. |
+| `incidence_exposure_by_year_um_uf_ta_de_profile` | Journées d'hospitalisation par année et par unité. |
 
-The maintained handoff contains exactly these six blocks:
+Les noms ci-dessus ne portent pas de numéro de version. ORCHIDEE produit
+lui-même ses fichiers internes v2 et v3 ; l'établissement ne doit pas les
+construire.
 
-1. `microbiology_observations`
-2. `bacteria_mapping`
-3. `sample_type_mapping`
-4. `antibiotic_mapping`
-5. `unit_mapping`
-6. `incidence_exposure_by_year_um_uf_ta_de_profile`
-
-These are called **handoff blocks**: their names do not carry a bundle version.
-They contain all information needed to build bundle v3, even while the current
-notebook runtime still consumes bundle v2. In particular, `unit_mapping`
-contains TA, DE and DE-domain information directly, and the sixth block keeps
-profiled exposure instead of an already filtered annual total. There is no
-seventh handoff block.
-
-In plain language, the complete path is:
-
-```text
-six site-owned blocks
-    -> bundle v3: the complete validated copy to retain
-    -> bundle v2: the reduced operational view used by ORCHIDEE today
-    -> runtime: deduplication, indicators and report
-```
-
-Producing v2 from v3 does not overwrite or roll back v3. It creates a separate
-operational view that intentionally carries less denominator detail. Preserve
-the more detailed v3 bundle for future stratified analyses.
-
-Accepted formats are `.rds`, `.csv`, `.tsv`, `.tab`, or `.txt`. CSV files can
-use commas or semicolons. Text files must be UTF-8.
+Formats acceptés : `.rds`, `.csv`, `.tsv`, `.tab` ou `.txt`. Les CSV peuvent
+utiliser la virgule ou le point-virgule. Les fichiers texte doivent être en
+UTF-8. Les sections suivantes donnent les colonnes attendues dans chaque
+fichier.
 
 Before running ORCHIDEE commands on a fresh clone, restore the R environment
 from `renv.lock`:
