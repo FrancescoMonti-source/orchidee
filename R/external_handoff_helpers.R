@@ -711,7 +711,10 @@ orchidee_handoff_normalize_sir <- function(x) {
     x %in% c("S", "SFP", "---S") ~ "S",
     x %in% c("R", "---R") ~ "R",
     x %in% c("I", "ZIT") ~ "ZIT",
-    is.na(x) ~ NA_character_,
+    # NC is a source token, measured in the Rouen export; blank is the other way
+    # a result can be absent. Anything else must reach the caller unchanged so
+    # the frontier refuses it instead of reading it as "not tested".
+    x %in% "NC" | is.na(x) ~ NA_character_,
     TRUE ~ x
   )
 }

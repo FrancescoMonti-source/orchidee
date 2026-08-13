@@ -116,6 +116,12 @@ qu'une lecture les prenne pour un choix motivé.
 -   **Comparabilité.** Rien dans le code ne garantit qu'une année ou un site
     soit comparable à un autre : la normalisation locale, le périmètre et le
     vocabulaire peuvent avoir changé entre deux exécutions.
+-   **Vocabulaire source mesuré.** Sur les lignes `LBLRES = SIR` de la fenêtre
+    Rouen, `STRRES` ne prend que neuf valeurs : `S`, `R`, `SFP`, vide, `I`,
+    `ZIT`, `NC`, `---S`, `---R`. Toute autre valeur arrête le build. Mesurer ce
+    vocabulaire demande la source brute : le bloc de handoff ne contient que les
+    lignes déjà retenues, et lire celui-ci fait conclure à tort que `NC`
+    n'existe pas.
 -   **Branches jamais exercées.** Mesuré le 2026-08-13 sur la build
     `outputs/rouen_current`. Deux traitements subsistent sans qu'aucune donnée
     ne les déclenche, et sont conservés pour la même raison : ils rendent une

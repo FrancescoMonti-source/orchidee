@@ -178,7 +178,7 @@ Accepted `sir_result` values:
 - `S`, `SFP` and `---S` become `S`;
 - `R` and `---R` become `R`;
 - `I` and `ZIT` become `ZIT`;
-- blank values become missing.
+- `NC` and blank values become missing.
 
 Any other value is refused: the build stops instead of guessing what it meant.
 
