@@ -282,37 +282,47 @@ clean_result <- run_case("clean", clean_blocks)
 # report them together rather than one rebuild at a time.
 broken_blocks <- with_blocks(
   microbiology_observations = data.frame(
+    # PDIAG006 carries the EVTID anomaly: its row is dropped by the build, so
+    # the diagnostics must report it rather than let the rows vanish quietly.
     PATID = c(
-      "PDIAG001", "PDIAG001", "PDIAG002", "PDIAG003", "PDIAG004", "PDIAG005"
+      "PDIAG001", "PDIAG001", "PDIAG002", "PDIAG003", "PDIAG004", "PDIAG005",
+      "PDIAG006"
     ),
     EVTID = c(
-      "SDIAG001", "SDIAG001", "SDIAG002", "SDIAG003", "SDIAG004", NA_character_
+      "SDIAG001", "SDIAG001", "SDIAG002", "SDIAG003", "SDIAG004", "SDIAG005",
+      NA_character_
     ),
     ELTID = c(
-      "MDIAG001", "MDIAG001", "MDIAG002", "MDIAG003", "MDIAG004", "MDIAG005"
+      "MDIAG001", "MDIAG001", "MDIAG002", "MDIAG003", "MDIAG004", "MDIAG005",
+      "MDIAG006"
     ),
     DATEPRELEV = c(
       "2024-03-12", "2024-03-12", "2024-04-02", "2024-05-20", "2023-06-11",
-      "2024-07-01"
+      "2024-07-01", "2024-07-02"
     ),
-    HEUREPRELEV = c("09:15", "09:15", "10:00", "11:30", "08:00", "08:00"),
+    HEUREPRELEV = c(
+      "09:15", "09:15", "10:00", "11:30", "08:00", "08:00", "08:30"
+    ),
     SEJUF = c(
-      "UFDIAG1", "UFDIAG1", "UFDIAG1", "UFAUDIT", "UFDIAG1", "UFDIAG2"
+      "UFDIAG1", "UFDIAG1", "UFDIAG1", "UFAUDIT", "UFDIAG1", "UFDIAG2",
+      "UFDIAG1"
     ),
-    souche_id = rep("I1", 6L),
+    souche_id = rep("I1", 7L),
     bacteria_local = c(
       "E. coli", "E. coli", "E. coli", "Staphylococcus aureus", "E. coli",
-      "E. coli"
+      "E. coli", "E. coli"
     ),
-    sample_type_local = c("Urine", "Urine", "Urine", "Pus", "Urine", "Urine"),
+    sample_type_local = c(
+      "Urine", "Urine", "Urine", "Pus", "Urine", "Urine", "Urine"
+    ),
     antibiotic_local = c(
       "Cefotaxime", "Amoxicilline", "Cefotaxime", "Oxacilline", "Cefotaxime",
-      "Cefotaxime"
+      "Cefotaxime", "Cefotaxime"
     ),
-    sir_result = c("R", "S", "S", "R", "S", "ZZZ"),
-    ratb_diagnostic_scope = c(TRUE, FALSE, TRUE, TRUE, TRUE, TRUE),
-    blse_status_row = rep("no_signal", 6L),
-    carbapenemase_status_row = rep("no_signal", 6L),
+    sir_result = c("R", "S", "S", "R", "S", "ZZZ", "S"),
+    ratb_diagnostic_scope = c(TRUE, FALSE, TRUE, TRUE, TRUE, TRUE, TRUE),
+    blse_status_row = rep("no_signal", 7L),
+    carbapenemase_status_row = rep("no_signal", 7L),
     stringsAsFactors = FALSE
   ),
   sample_type_mapping = data.frame(
@@ -1358,6 +1368,16 @@ stopifnot(
       broken_result,
       "microbiology_observations",
       "screening_propagation"
+    ),
+    "WARNING"
+  ),
+  # Rows dropped for a missing EVTID leave the build, so they cannot block it;
+  # they must still be reported, or a site loses rows without being told.
+  identical(
+    severity_of(
+      broken_result,
+      "microbiology_observations",
+      "rows_without_evtid"
     ),
     "WARNING"
   ),

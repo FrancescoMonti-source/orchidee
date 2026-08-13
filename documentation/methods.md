@@ -36,7 +36,8 @@ séparer, soit une duplication dans le code.
 | Le périmètre est défini positivement par les codes TA/DE éligibles | `ref/consores/codes_ta.csv`, `ref/consores/codes_de.csv` ; application `R/ratb_canonical_runtime_helpers.R` | Numérateurs et dénominateurs |
 | L'unité d'un prélèvement est le `SEJUF` porté par la ligne de microbiologie ; l'établissement décide comment il est rempli | contrat `sample_scope_reference`, `orchidee_external_contract_v2()` | Quels prélèvements entrent au numérateur |
 | Le dépistage est exclu au niveau du document, pas de la ligne de résultat | `config/rouen_raw_handoff.R` → `screening_typeana_codes` ; exclusion dans `R/external_handoff_helpers.R` | Population analytique avant déduplication |
-| Un document est `PATID` + `EVTID` + `ELTID`. Des occurrences sans `EVTID` existent et retombent sur la clé `PATID` + `ELTID`, sans unité PMSI rattachée | `R/rouen_microbiology_handoff_adapter.R` → `build_rouen_microbiology_handoff()` ; audit `document_occurrences_without_evtid` | Identité des documents, donc le dépistage et l'unité |
+| Une source qui porte `EVTID` doit le porter sur chaque ligne : un trou dans une colonne par ailleurs remplie est une anomalie du système hospitalier et la ligne est écartée. Une colonne absente ou entièrement vide n'est pas une anomalie : la source garde ses lignes sur la clé `PATID` + `ELTID` | `R/external_handoff_helpers.R` → `orchidee_handoff_evtid_anomaly_rows()`, appliqué aux deux frontières d'entrée ; audit Rouen `rows_dropped_without_evtid` | Population analytique. Un marqueur de dépistage porté par une ligne écartée disparaît avec elle, donc le document cesse d'être marqué |
+| Une valeur `sir_result` hors vocabulaire arrête le build au lieu d'être lue comme absente ; seul le vide devient absent | `R/external_handoff_helpers.R` → `orchidee_handoff_normalize_sir()` ; refus dans l'adaptateur et à la frontière du bundle | Toutes les voies d'entrée |
 | Les couples espèce/antibiotique non plausibles sortent avant la déduplication | `rules/couples_species_atb.csv` ; `R/ratb_plausibility_qc_helpers.R` → `build_ratb_plausibility_qc()`, appelé par `R/ratb_raw_runtime_helpers.R` | Dénominateur des testés ; le résumé et les règles indisponibles restent auditables |
 
 ## Déduplication
@@ -116,13 +117,15 @@ qu'une lecture les prenne pour un choix motivé.
     soit comparable à un autre : la normalisation locale, le périmètre et le
     vocabulaire peuvent avoir changé entre deux exécutions.
 -   **Branches jamais exercées.** Mesuré le 2026-08-13 sur la build
-    `outputs/rouen_current`. Trois traitements existent dans le code sans
-    qu'aucune donnée ne les déclenche : les valeurs source `NC`, `NA` et `N/A`
-    n'apparaissent pas ; aucun statut phénotypique `unknown` n'est produit ;
-    la céfoxitine n'est jamais testée, donc `molecule_priority` retient
-    toujours l'oxacilline et n'arbitre jamais. Chacun est un candidat au
-    retrait, pas une décision. Le résultat `O`, lui, est massivement présent :
-    ce traitement est justifié.
+    `outputs/rouen_current`. Deux traitements subsistent sans qu'aucune donnée
+    ne les déclenche, et sont conservés pour la même raison : ils rendent une
+    dérive visible au lieu de la faire disparaître. Le statut phénotypique
+    `unknown` n'est jamais produit aujourd'hui, mais c'est lui qui empêchera
+    une formulation locale inconnue d'être comptée `negative` en silence. La
+    céfoxitine n'est jamais testée, donc `molecule_priority` retient toujours
+    l'oxacilline ; la règle reste écrite parce que la céfoxitine est le
+    marqueur correct, et son absence est une lacune des données, pas un choix.
+    Le résultat `O`, lui, est massivement présent : ce traitement est justifié.
 
 ## Gouvernance
 

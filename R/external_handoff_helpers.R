@@ -711,7 +711,7 @@ orchidee_handoff_normalize_sir <- function(x) {
     x %in% c("S", "SFP", "---S") ~ "S",
     x %in% c("R", "---R") ~ "R",
     x %in% c("I", "ZIT") ~ "ZIT",
-    x %in% c("NC", "NA", "N/A") | is.na(x) ~ NA_character_,
+    is.na(x) ~ NA_character_,
     TRUE ~ x
   )
 }
@@ -801,11 +801,24 @@ orchidee_handoff_map_values <- function(
   mapped
 }
 
-# Screening exclusion follows the most specific usable document identity.
-# Complete PATID + ELTID groups use PATID + EVTID + ELTID. If any row in a
-# PATID + ELTID group lacks EVTID, that group conservatively falls back to
-# PATID + ELTID. ELTID alone is never propagated across patients. Rows without
-# a usable PATID + ELTID pair receive NA and never carry screening.
+# A source that carries EVTID must carry it on every row: a gap in an otherwise
+# populated column is a hospital-system anomaly, and those rows are dropped
+# rather than kept on a degraded document key. A column that is absent, or
+# entirely empty, is not an anomaly: that source has no event identity to lose
+# and keeps every row on the PATID + ELTID key.
+orchidee_handoff_evtid_anomaly_rows <- function(EVTID) {
+  if (!any(!is.na(EVTID))) {
+    return(rep(FALSE, length(EVTID)))
+  }
+  is.na(EVTID)
+}
+
+# Screening exclusion follows the document identity the source can support:
+# PATID + EVTID + ELTID when it carries EVTID, PATID + ELTID when it does not.
+# Rows with a missing EVTID beside populated ones are dropped upstream, so a
+# partially filled EVTID is refused here instead of being silently degraded.
+# ELTID alone is never propagated across patients. Rows without a usable
+# PATID + ELTID pair receive NA and never carry screening.
 orchidee_handoff_document_occurrence_key <- function(PATID, EVTID, ELTID) {
   document_key <- rep(NA_character_, length(PATID))
   usable <- !is.na(PATID) & !is.na(ELTID)
@@ -814,32 +827,26 @@ orchidee_handoff_document_occurrence_key <- function(PATID, EVTID, ELTID) {
     return(document_key)
   }
 
-  patient_sample_key <- paste(
-    PATID[usable_rows],
-    ELTID[usable_rows],
-    sep = "\r"
-  )
-  fallback_to_patient_sample <- ave(
-    is.na(EVTID[usable_rows]),
-    patient_sample_key,
-    FUN = any
-  )
-  document_key[usable_rows] <- ifelse(
-    fallback_to_patient_sample,
-    paste(
-      "patient_sample",
-      PATID[usable_rows],
-      ELTID[usable_rows],
-      sep = "\r"
-    ),
+  event <- EVTID[usable_rows]
+  if (any(!is.na(event)) && any(is.na(event))) {
+    stop(
+      "Document identity needs EVTID on every row or on none; ",
+      "rows missing it must be dropped before this point.",
+      call. = FALSE
+    )
+  }
+
+  document_key[usable_rows] <- if (all(is.na(event))) {
+    paste("patient_sample", PATID[usable_rows], ELTID[usable_rows], sep = "\r")
+  } else {
     paste(
       "event_sample",
       PATID[usable_rows],
-      EVTID[usable_rows],
+      event,
       ELTID[usable_rows],
       sep = "\r"
     )
-  )
+  }
   document_key
 }
 
@@ -939,6 +946,12 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     rep(NA_character_, nrow(obs))
   }
   obs$ELTID <- orchidee_handoff_trim_or_na(obs$ELTID)
+
+  dropped <- orchidee_handoff_evtid_anomaly_rows(obs$EVTID)
+  if (any(dropped)) {
+    obs <- obs[!dropped, , drop = FALSE]
+    diagnostic_scope <- diagnostic_scope[!dropped]
+  }
 
   document_key <- orchidee_handoff_document_occurrence_key(
     obs$PATID,

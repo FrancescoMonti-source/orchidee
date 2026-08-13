@@ -128,15 +128,18 @@ bacteriology_raw <- bind_rows(
     "Positive", TRI = 4L
   ),
   raw_row(
-    "P2", NA_character_, "D2", "BGSAMR_R.BGSAMR_R2", "RECHERCHE SAMR",
+    "P2", "E2", "D2", "BGSAMR_R.BGSAMR_R2", "RECHERCHE SAMR",
     "Résultat", "Positive", TRI = 1L
   ),
   raw_row(
     "P2", "E2", "D2", "ATB", "Cefotaxime", "SIR", "S", TRI = 2L
   ),
   raw_row(
-    "P3", NA_character_, "D3", "ATB", "Cefotaxime", "SIR", "S",
+    "P3", "E3", "D3", "ATB", "Cefotaxime", "SIR", "S",
     NATUREPVT = "SONDE", TRI = 1L
+  ),
+  raw_row(
+    "P5", NA_character_, "D5", "ATB", "Cefotaxime", "SIR", "S", TRI = 1L
   ),
   raw_row(
     "P4", "E4", "D4", "ATB", "Cefotaxime", "SIR", "R",
@@ -199,7 +202,11 @@ stopifnot(
   identical(audit_value("screening_document_occurrences_with_sir"), 1L),
   identical(audit_value("screening_rows_all_raw"), 2L),
   identical(audit_value("screening_sir_rows"), 1L),
-  identical(audit_value("rows_evtid_filled_from_document"), 1L),
+  # Why: a document occurrence without EVTID cannot be attributed to a PMSI
+  # unit, so its rows leave the analysis instead of surviving on a degraded key.
+  identical(audit_value("rows_dropped_without_evtid"), 1L),
+  !"P5" %in% sir_wide$PATID,
+  !"P5" %in% observations$PATID,
   !"P2" %in% sir_wide$PATID,
   !"P4" %in% observations$PATID,
   nrow(p1) == 1L,

@@ -82,7 +82,10 @@ build_fixture <- function(observations) {
 
 # Why: protects the external-handoff engine invariant that screening propagates
 # within one source document without allowing reused ELTID values to suppress
-# unrelated patients or encounters; it also protects the EVTID-missing fallback.
+# unrelated patients or encounters. P5 covers the anomaly rule: its EVTID-less
+# row is dropped, so the screening it carried no longer suppresses its sibling.
+# The legacy fixture covers a source without the column at all, where every row
+# keeps the PATID + ELTID identity.
 sir_wide <- build_fixture(microbiology_observations)
 legacy_sir_wide <- build_fixture(
   microbiology_observations[, setdiff(names(microbiology_observations), "EVTID")]
@@ -90,9 +93,11 @@ legacy_sir_wide <- build_fixture(
 
 retained_keys <- sir_wide[, c("PATID", "EVTID", "ELTID")]
 expected_keys <- data.frame(
-  PATID = c("P2", "P3", "P6", "P7", "P8"),
-  EVTID = c("E_SHARED", "E_KEEP", "E_CONTROL", "E_OTHER", "E_MULTI"),
-  ELTID = c("REUSED", "SAME_PATIENT", "CONTROL", "LEGACY", "MULTI_ROW"),
+  PATID = c("P2", "P3", "P5", "P6", "P7", "P8"),
+  EVTID = c("E_SHARED", "E_KEEP", "E_LEGACY", "E_CONTROL", "E_OTHER", "E_MULTI"),
+  ELTID = c(
+    "REUSED", "SAME_PATIENT", "LEGACY", "CONTROL", "LEGACY", "MULTI_ROW"
+  ),
   stringsAsFactors = FALSE
 )
 
