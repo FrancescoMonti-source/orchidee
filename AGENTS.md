@@ -13,12 +13,14 @@
 Before substantial work, read:
 
 1. `README.md`
-2. `documentation/architecture.md`
-3. `documentation/maintenance_runbook.md`
+2. `documentation/methods.md`
+3. `documentation/knobs.md`
 
-For analytical or methodological changes, also consult
-`documentation/ratb_methodology.qmd` and
-`documentation/ratb_indicator_spec.csv` as relevant.
+`methods.md` records which decision this code makes and which file and
+function holds it; `knobs.md` records what is adjustable and what must be
+rerun afterwards. For analytical changes, also consult
+`documentation/ratb_indicator_spec.csv`, which owns the published indicators
+and their denominators.
 
 ## Repository Conventions
 
@@ -36,8 +38,8 @@ For analytical or methodological changes, also consult
   `rules/`. Rouen-only references belong under `ref/rouen/` and must be
   identified as adapter-specific rather than portable handoff requirements.
 - Archive snapshots with no active consumer outside the repository.
-- Update the corresponding methodological documentation when analytical
-  behavior changes.
+- Update the corresponding row of `documentation/methods.md` when analytical
+  behavior changes, and add a row when a new decision is made.
 
 ## Current Operational Boundaries
 
@@ -81,7 +83,7 @@ Notes:
 ## Rendering And Verification
 
 - Use `scripts/render_orchidee.ps1` for routine renders.
-- Available targets are `memo`, `indicators`, and `full`.
+- Available targets are `indicators` and `full`.
 - Use `full` after changes to upstream pipeline, raw deduplication, perimeter,
   denominator, or indicator logic; it builds the canonical raw cache and then
   renders the indicator report.

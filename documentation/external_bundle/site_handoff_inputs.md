@@ -12,8 +12,7 @@ ORCHIDEE versionné. Elle décrit ce qu'ORCHIDEE attend en entrée. Chaque
 propres systèmes.
 
 Pour Rouen, ne pas suivre cette procédure : fournir uniquement les chemins BACT
-et PMSI décrits dans la
-[procédure Rouen](rouen_raw_handoff.md).
+et PMSI, comme décrit dans la section Rouen du [README](../../README.md).
 
 ## Les six fichiers attendus
 
@@ -133,11 +132,12 @@ denominator needed by today's runtime.
 
 Both outputs declare the same semantic rule: `SEJUF` in microbiology is the
 hospitalization UF active at sampling. The site adapter must establish that
-attribution before handoff. See [bundle_schemas.md](bundle_schemas.md).
+attribution before handoff.
 
 Nothing here changes the runtime contract: v3 is retained for future use and
-does not by itself publish stratified indicators. Its exact schema is in
-[bundle_schemas.md](bundle_schemas.md).
+does not by itself publish stratified indicators. Its exact schema is the one
+enforced by `orchidee_external_contract_v3()` in
+`R/external_bundle_validation_helpers.R`.
 
 ## Block 1: microbiology_observations
 

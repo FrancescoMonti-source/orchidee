@@ -36,6 +36,7 @@ séparer, soit une duplication dans le code.
 | Le périmètre est défini positivement par les codes TA/DE éligibles | `ref/consores/codes_ta.csv`, `ref/consores/codes_de.csv` ; application `R/ratb_canonical_runtime_helpers.R` | Numérateurs et dénominateurs |
 | L'unité d'un prélèvement est le `SEJUF` porté par la ligne de microbiologie ; l'établissement décide comment il est rempli | contrat `sample_scope_reference`, `orchidee_external_contract_v2()` | Quels prélèvements entrent au numérateur |
 | Le dépistage est exclu au niveau du document, pas de la ligne de résultat | `config/rouen_raw_handoff.R` → `screening_typeana_codes` ; exclusion dans `R/external_handoff_helpers.R` | Population analytique avant déduplication |
+| Un document est `PATID` + `EVTID` + `ELTID`. La source Rouen ne contient pas de ligne sans `EVTID` : cet invariant est une propriété de la source, pas une décision de calcul | `R/rouen_microbiology_handoff_adapter.R` → `build_rouen_microbiology_handoff()` | Identité des documents |
 | Les couples espèce/antibiotique non plausibles sortent avant la déduplication | `rules/couples_species_atb.csv` ; `R/ratb_plausibility_qc_helpers.R` → `build_ratb_plausibility_qc()`, appelé par `R/ratb_raw_runtime_helpers.R` | Dénominateur des testés ; le résumé et les règles indisponibles restent auditables |
 
 ## Déduplication
@@ -114,6 +115,15 @@ qu'une lecture les prenne pour un choix motivé.
 -   **Comparabilité.** Rien dans le code ne garantit qu'une année ou un site
     soit comparable à un autre : la normalisation locale, le périmètre et le
     vocabulaire peuvent avoir changé entre deux exécutions.
+-   **Lignes à vérifier.** Certaines lignes ci-dessus décrivent peut-être un cas
+    qui ne se produit pas : le code le traite, ce qui n'établit pas qu'il ait
+    été décidé. À trancher, chacune par oui ou non sur les données réelles :
+    les valeurs `NC`, `NA`, `N/A` apparaissent-elles ? un résultat `O`, sans
+    aucune cellule testée, existe-t-il ? une formulation phénotypique ambiguë
+    est-elle déjà arrivée ? `molecule_priority` a-t-il un jour deux résultats à
+    départager, sachant que le catalogue note l'absence de céfoxitine dans les
+    données actuelles ? Chaque « non » retire du code, pas seulement une ligne
+    de ce document.
 
 ## Gouvernance
 

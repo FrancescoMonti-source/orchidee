@@ -27,8 +27,11 @@ Pour exécuter un script R dans cet environnement verrouillé :
 & .\scripts\run_r.ps1 tests/run_tests.R
 ```
 
-Les détails de restauration et de qualification sont dans le
-[runbook de maintenance](documentation/maintenance_runbook.md).
+Pour vérifier une installation :
+
+```powershell
+& .\scripts\run_r.ps1 tests/run_tests.R
+```
 
 ## Rouen
 
@@ -46,10 +49,26 @@ cliniques :
   -DryRun
 ```
 
-Après le `PASS`, la procédure Rouen mène du build aux sorties, puis au rendu du
-rapport :
+Après le `PASS`, retirer `-DryRun` pour lancer le build. Il peut durer une
+vingtaine de minutes et rester silencieux. La sortie par défaut est
+`outputs/rouen_current` ; `-Output` accepte un autre répertoire dédié, y compris
+protégé hors du dépôt. Une exécution réussie finit par `PASS` et écrit
+`build_manifest.txt` : sans ce fichier, ne pas utiliser la sortie.
 
-[documentation/external_bundle/rouen_raw_handoff.md](documentation/external_bundle/rouen_raw_handoff.md)
+Le build produit `site_inputs/` (les six blocs), `bundle_v3/` (le bundle
+complet, à conserver), `bundle_v2_operational/` (l'entrée du runtime) et
+`adapter_audit.rds`. Si l'objectif est le handoff, s'arrêter ici. Pour produire
+les indicateurs à partir du même build :
+
+```powershell
+& .\scripts\render_orchidee.ps1 -Target full `
+  -Bundle "outputs/rouen_current/bundle_v2_operational" `
+  -Workspace "outputs/rouen_current/runtime"
+```
+
+Adapter les deux chemins si le build utilisait `-Output`. Aucun fichier de
+configuration ou de mapping ne doit être préparé ou modifié pour un run
+ordinaire.
 
 ## Autre établissement
 
@@ -89,14 +108,9 @@ seule entrée du runtime et du rapport.
 | Question | Document |
 |---|---|
 | Quelles sont les conventions du dépôt et la collaboration ? | [`AGENTS.md`](AGENTS.md) |
-| Comment s'enchaîne la chaîne et quel fichier possède la logique ? | [`architecture.md`](documentation/architecture.md) |
-| Quelles décisions d'implémentation ont été prises, et où sont-elles dans le code ? | [`methods.md`](documentation/methods.md) |
-| Quels réglages existent, et que faut-il refaire après en avoir changé un ? | [`knobs.md`](documentation/knobs.md) |
-| Comment tester, rendre, comparer ou dépanner ? | [`maintenance_runbook.md`](documentation/maintenance_runbook.md) |
-| Quelle méthode est publiée ? | [`ratb_methodology.qmd`](documentation/ratb_methodology.qmd) |
+| Quelles décisions ont été prises, et où sont-elles dans le code ? | [`methods.md`](documentation/methods.md) |
+| Qu'est-ce qui est réglable, et que faut-il refaire après ? | [`knobs.md`](documentation/knobs.md) |
 | Quels indicateurs sont publiés ? | [`ratb_indicator_spec.csv`](documentation/ratb_indicator_spec.csv) |
-| Quels sont les schémas des bundles ? | [`bundle_schemas.md`](documentation/external_bundle/bundle_schemas.md) |
 
 La méthode et le périmètre publiés ne changent qu'après une décision explicite
-et la vérification correspondante. Les notes datées conservent des décisions ou
-des preuves historiques ; elles ne remplacent pas les documents ci-dessus.
+et la vérification correspondante.
