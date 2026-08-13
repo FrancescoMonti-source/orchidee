@@ -1,0 +1,123 @@
+---
+editor_options:
+  markdown:
+    wrap: 80
+---
+
+# Décisions d'implémentation RATB
+
+Ce document ne réécrit ni la méthode SPARES ni l'expression de besoins : elles
+existent hors de ce dépôt et ne sont pas maintenues ici. Il consigne ce que *ce*
+code a décidé, et où chaque décision est écrite.
+
+Trois règles le tiennent :
+
+-   une décision, une ligne, un seul renvoi ;
+-   aucune valeur n'est recopiée ici si elle vit dans
+    [`ratb_indicator_spec.csv`](ratb_indicator_spec.csv), dans un validateur ou
+    dans `config/` : ce document pointe, il ne duplique pas ;
+-   les renvois nomment un fichier et une fonction, jamais un numéro de ligne.
+
+Une ligne qui aurait besoin de deux renvois signale soit deux décisions à
+séparer, soit une duplication dans le code.
+
+## Vocabulaire d'entrée
+
+| Décision | Implémentation | Effet |
+|------------------------|------------------------|------------------------|
+| `I` et `ZIT` forment une seule classe de valeur | `R/external_handoff_helpers.R` → `orchidee_handoff_normalize_sir()` | Les deux voies d'entrée, Rouen et site |
+| `S`, `R`, `ZIT` est le seul alphabet accepté | `R/external_bundle_validation_helpers.R` → `orchidee_external_contract_v2()` | Définition unique ; les autres couches la lisent, la frontière refuse le reste |
+| `NC`, `NA`, `N/A` et le vide deviennent absents, et non `ZIT` | `orchidee_handoff_normalize_sir()` | Aucun effet sur les comptes : les deux restent hors dénominateur. La distinction sert l'audit |
+
+## Population analytique
+
+| Décision | Implémentation | Effet |
+|------------------------|------------------------|------------------------|
+| Le périmètre est défini positivement par les codes TA/DE éligibles | `ref/consores/codes_ta.csv`, `ref/consores/codes_de.csv` ; application `R/ratb_canonical_runtime_helpers.R` | Numérateurs et dénominateurs |
+| L'unité d'un prélèvement est le `SEJUF` porté par la ligne de microbiologie ; l'établissement décide comment il est rempli | contrat `sample_scope_reference`, `orchidee_external_contract_v2()` | Quels prélèvements entrent au numérateur |
+| Le dépistage est exclu au niveau du document, pas de la ligne de résultat | `config/rouen_raw_handoff.R` → `screening_typeana_codes` ; exclusion dans `R/external_handoff_helpers.R` | Population analytique avant déduplication |
+| Les couples espèce/antibiotique non plausibles sortent avant la déduplication | `rules/couples_species_atb.csv` ; `R/ratb_plausibility_qc_helpers.R` → `build_ratb_plausibility_qc()`, appelé par `R/ratb_raw_runtime_helpers.R` | Dénominateur des testés ; le résumé et les règles indisponibles restent auditables |
+
+## Déduplication
+
+| Décision | Implémentation | Effet |
+|------------------------|------------------------|------------------------|
+| Les groupes sont patient × année civile × bactérie normalisée, plus le type de prélèvement pour la vue par type | `R/spares_dedup.R` → `spares_dedup()` | Unité de résultat |
+| Deux lignes sont incompatibles s'il existe au moins un conflit `S`↔`R` sur un antibiotique informatif commun | `R/spares_shared_primitives.R` → `.spares_sr_conflict_pair()` | Composition des classes, donc le nombre d'isolats |
+| `ZIT` est non informatif : il ne crée jamais de conflit | `R/spares_shared_primitives.R` → `.spares_normalize_noninformative()` | Deux profils divergents uniquement sur `ZIT` fusionnent |
+| L'affectation aux classes est gloutonne au premier ajustement ; l'ordre fait donc partie de l'algorithme, pas de l'affichage | `R/spares_dedup.R` → `.spares_class_order_sort()` | Reproductibilité indépendante de l'ordre d'arrivée des lignes |
+| Le représentant est choisi par complétude, puis ordre d'événement, date et heure, document, ligne | `R/spares_dedup.R` → `.spares_order_keys()`, `spares_select_representatives()` | Quel antibiogramme représente l'isolat |
+| Un signal phénotypique absent est traité comme négatif dans la déduplication | `R/phenotype_flag_helpers.R` → `summarise_class_phenotype_status()` | Regroupement des classes phénotypiques |
+
+## Construction des indicateurs
+
+Le catalogue porte l'organisme, le marqueur, le périmètre et les dénominateurs.
+Ce document ne consigne que la mécanique commune.
+
+| Décision | Implémentation | Effet |
+|------------------------|------------------------|------------------------|
+| Testés = `S` + `R` ; `ZIT` et absent restent hors dénominateur | `R/ratb_indicator_helpers.R` → `compute_ratb_indicator_result()` | Toute proportion publiée |
+| Un résultat non testé devient `O`, jamais `R` : rien n'est imputé | `compute_ratb_indicator_result()` | Le numérateur n'est jamais gonflé par l'absence |
+| `class_any_r` : un seul `R` suffit ; un molécule directe est une classe à un élément et suit le même code | `compute_ratb_indicator_result()` | Fluoroquinolones, C3G, carbapénèmes, fosfomycine |
+| `molecule_priority` : la première molécule *testée* dans l'ordre déclaré au catalogue est retenue, sans comparaison des autres | `compute_ratb_indicator_result()` ; ordre dans `molecule_values` | Méticilline : céfoxitine si testée, sinon oxacilline |
+| `phenotype_flag` : chaque isolat éligible compte pour un testé | `compute_ratb_indicator_result()` | Le dénominateur inclut `unknown` et `no_signal`, qui diluent la proportion |
+| Les vues publiables sont décidées par `sample_type_mode` | `R/ratb_indicator_helpers.R` → `resolve_ratb_scope_names()` | Vue globale, par type, ou les deux |
+| Densité d'incidence = isolats × 1 000 / nuits éligibles de la même année | `R/ratb_indicator_helpers.R` | Incidences publiées |
+
+## Phénotypes
+
+| Décision | Implémentation | Effet |
+|------------------------|------------------------|------------------------|
+| Quatre états internes : `positive`, `negative`, `unknown`, `no_signal` | `R/phenotype_flag_helpers.R` | Vocabulaire interne |
+| Le drapeau public est binaire et vrai seulement pour `positive` | `R/phenotype_flag_helpers.R` | Numérateurs BLSE et carbapénémase |
+| Une formulation ambiguë reste `unknown` et n'est pas forcée | `R/phenotype_flag_helpers.R` | `unknown` compte au dénominateur, pas au numérateur |
+| Le statut est lu dans les champs structurés puis dans le texte libre | `R/phenotype_flag_helpers.R` | Un changement de vocabulaire local est détectable par les libellés résiduels |
+
+## Dénominateur d'incidence
+
+| Décision | Implémentation | Effet |
+|------------------------|------------------------|------------------------|
+| Une nuit est une différence de dates : entrée et sortie le même jour valent zéro | `R/ratb_hospital_days_helpers.R` | Séjours courts |
+| Un séjour à cheval sur deux années est réparti selon le chevauchement réel | `R/ratb_hospital_days_helpers.R` → `ratb_split_stays_nights_by_year()` | Aucune année ne reçoit un séjour entier qui la dépasse |
+| Les nuits sont comptées par unité puis sommées sur les unités éligibles de l'épisode | `R/ratb_hospital_days_helpers.R` | Un transfert entre unités éligibles ne compte pas deux fois |
+| Le dénominateur est calculé indépendamment de la microbiologie | `R/ratb_hospital_days_helpers.R` | Un séjour sans prélèvement contribue aux nuits |
+
+## Publication et affichage
+
+| Décision | Implémentation | Effet |
+|------------------------|------------------------|------------------------|
+| Les années 2021 et 2025 sont exclues de l'incidence | `config/pipeline.R` → `ratb$incidence_excluded_years`, filtre appliqué dans `orchidee_ratb_indicators.qmd` | Incidences publiées. Raison non consignée : voir Points ouverts |
+| Les vues par type affichées sont limitées à la liste configurée, intersectée avec les types présents | `config/pipeline.R` → `ratb$indicator_sample_types` | Hémoculture et urines aujourd'hui |
+| Le seuil `n` masque des cellules de la carte de chaleur, pas des lignes de tableau | `config/pipeline.R` → `ratb$indicator_min_n` ; `R/ratb_report_helpers.R` → `prepare_ratb_indicator_heatmap()` | À 0, rien n'est masqué |
+
+## Points ouverts
+
+Ces points sont des trous connus, pas des décisions. Les laisser visibles évite
+qu'une lecture les prenne pour un choix motivé.
+
+-   **Exclusion de 2021 et 2025 de l'incidence.** La règle est appliquée, sa
+    raison n'est écrite nulle part dans le dépôt. À consigner par le mainteneur.
+-   **Convention des nuits.** Les artefacts portent `provisional` parce que la
+    convention reste révisable, d'après le commentaire de
+    `R/ratb_hospital_days_helpers.R`. Son statut pour la publication n'est pas
+    tranché.
+-   **Aucun seuil effectif.** `indicator_min_n` vaut 0 : aucune proportion n'est
+    masquée, y compris sur très petit dénominateur. Aucun intervalle de
+    confiance ni test de tendance n'est publié.
+-   **Attribution unité/prélèvement.**
+    `R/chu_sample_hospitalization_unit_attribution.R` implémente un contrat
+    amont mais n'est pas branché au runtime actif ; son propre commentaire le
+    précise. Le chemin actif utilise le `SEJUF` de la ligne.
+-   **Proportion carbapénémase sur hémoculture.** Le catalogue la marque comme
+    indicateur de compatibilité, pour préserver une sortie demandée. La raison
+    de fond n'est pas consignée.
+-   **Comparabilité.** Rien dans le code ne garantit qu'une année ou un site
+    soit comparable à un autre : la normalisation locale, le périmètre et le
+    vocabulaire peuvent avoir changé entre deux exécutions.
+
+## Gouvernance
+
+Une modification qui touche une ligne de ce document est une modification
+méthodologique : elle exige les tests, un rendu `full`, la porte de comparaison
+opérationnelle et la mise à jour de la ligne concernée. Les réglages et ce qu'il
+faut refaire après chacun sont dans [`knobs.md`](knobs.md).

@@ -90,6 +90,8 @@ seule entrée du runtime et du rapport.
 |---|---|
 | Quelles sont les conventions du dépôt et la collaboration ? | [`AGENTS.md`](AGENTS.md) |
 | Comment s'enchaîne la chaîne et quel fichier possède la logique ? | [`architecture.md`](documentation/architecture.md) |
+| Quelles décisions d'implémentation ont été prises, et où sont-elles dans le code ? | [`methods.md`](documentation/methods.md) |
+| Quels réglages existent, et que faut-il refaire après en avoir changé un ? | [`knobs.md`](documentation/knobs.md) |
 | Comment tester, rendre, comparer ou dépanner ? | [`maintenance_runbook.md`](documentation/maintenance_runbook.md) |
 | Quelle méthode est publiée ? | [`ratb_methodology.qmd`](documentation/ratb_methodology.qmd) |
 | Quels indicateurs sont publiés ? | [`ratb_indicator_spec.csv`](documentation/ratb_indicator_spec.csv) |
