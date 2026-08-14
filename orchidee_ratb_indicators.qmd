@@ -255,7 +255,6 @@ ratb_indicator_spec_path <- orchidee_config$paths$ratb_indicator_spec_path
 ratb_indicator_sample_types <- orchidee_config$ratb$indicator_sample_types
 ratb_indicator_show_full_spec <- orchidee_config$ratb$indicator_show_full_spec
 ratb_indicator_min_n <- orchidee_config$ratb$indicator_min_n
-recompute_incidence_pipeline <- orchidee_config$cache$recompute_incidence_pipeline
 ratb_report_years <- as.integer(orchidee_config$ratb$report_years)
 
 ratb_dataset_display_map <- c(

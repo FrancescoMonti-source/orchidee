@@ -30,15 +30,6 @@ orchidee_config <- list(
       "ratb_indicator_spec.csv"
     )
   ),
-  cache = list(
-    # Maintainer controls for an intentional cache refresh.
-    # Force rebuild of dedup outputs.
-    # Turn on after dedup logic/scope changes, render once, then set back to FALSE.
-    recompute_dedup = FALSE,
-    # Force rebuild of incidence outputs in the product-facing indicator report.
-    # Turn on after incidence denominator/numerator changes, then set back to FALSE.
-    recompute_incidence_pipeline = FALSE
-  ),
   report = list(
     # Display-only settings.
     datatable_digits = 3L,
