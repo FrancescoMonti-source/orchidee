@@ -74,7 +74,7 @@ if (length(args) != 7L || "--help" %in% args || "-h" %in% args) {
     "[--no-next-steps]\n\n",
     "Inputs:\n",
     "  microbiology_observations: long local S/I/R observations with the\n",
-    "    columns documented in site_handoff_inputs.md.\n",
+    "    columns documented in site_contract.md.\n",
     "  bacteria_mapping: bacteria_local + bact_norm.\n",
     "  sample_type_mapping: sample_type_local + naturepvt_norm.\n",
     "  antibiotic_mapping: antibiotic_local + atb_norm.\n",

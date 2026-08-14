@@ -96,7 +96,7 @@ Ce smoke test qualifie l'installation, pas vos données. La procédure site donn
 le nom et la structure attendue de chaque fichier, les modèles à remplir et les
 commandes de vérification puis de calcul :
 
-[documentation/external_bundle/site_handoff_inputs.md](documentation/external_bundle/site_handoff_inputs.md)
+[documentation/site_contract.md](documentation/site_contract.md)
 
 ## Mainteneurs
 

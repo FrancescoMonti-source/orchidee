@@ -36,7 +36,7 @@ The commands that serve onboarding are:
   the site's own six blocks.
 
 The contract itself is documented in
-[site_handoff_inputs.md](../../documentation/external_bundle/site_handoff_inputs.md).
+[site_contract.md](../../documentation/site_contract.md).
 
 `tests/test_site_onboarding.R` consumes these same files, so the fixture cannot
 drift from the known-good build path. Do not replace them with local clinical

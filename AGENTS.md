@@ -46,8 +46,8 @@ and their denominators.
 - `redsan` owns EDSaN retrieval, batching, and PMSI/BIOL normalization.
   ORCHIDEE consumes its outputs and does not maintain a second source client.
 - The preferred site handoff contains exactly the six unversioned blocks in
-  `documentation/external_bundle/site_handoff_inputs.md`. Version labels apply
-  to materialized bundles, not to those site-owned blocks.
+  `documentation/site_contract.md`. Version labels apply to materialized
+  bundles, not to those site-owned blocks.
 - Bundle v3 is the complete durable construction contract. The notebook
   runtime remains on strict `external_bundle_v2`, produced through the closed
   `spares_current` projection when starting from v3.
