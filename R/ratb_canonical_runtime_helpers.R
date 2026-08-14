@@ -98,8 +98,7 @@ build_ratb_analytic_scope_dataset <- function(sir_wide_ratb_scope) {
 
 extract_incidence_denominator_by_year <- function(
     denominator_bundle,
-    sample_scope_reference = NULL,
-    analysis_context_id = "spares_current"
+    sample_scope_reference = NULL
   ) {
   stopifnot(is.list(denominator_bundle))
 
@@ -118,7 +117,7 @@ extract_incidence_denominator_by_year <- function(
         call. = FALSE
       )
     }
-    context <- ratb_analysis_context_profile(analysis_context_id)
+    context <- ratb_analysis_context_profile()
     required_scope_cols <- c(
       "SEJUF", "sample_CODE_TA", "sample_CODE_DE",
       "sample_de_domain_ref", "sample_uf_is_eligible_by_ta_de"
@@ -161,7 +160,7 @@ extract_incidence_denominator_by_year <- function(
     )) {
       stop(
         "v3 sample scope eligibility disagrees with analysis context ",
-        analysis_context_id,
+        context$analysis_context_id,
         ".",
         call. = FALSE
       )
@@ -193,10 +192,7 @@ extract_incidence_denominator_by_year <- function(
 
 # Internal construction bridge: keep the complete v3 bundle as the durable
 # handoff, while materializing the exact v2 shape accepted by today's runtime.
-project_external_bundle_v3_to_operational_v2 <- function(
-    external_bundle_v3,
-    analysis_context_id = "spares_current"
-  ) {
+project_external_bundle_v3_to_operational_v2 <- function(external_bundle_v3) {
   required_bundle_objects <- c(
     "sir_wide",
     "sir_wide_meta",
@@ -264,8 +260,7 @@ project_external_bundle_v3_to_operational_v2 <- function(
     denominator_bundle = list(
       incidence_denominator_by_year = extract_incidence_denominator_by_year(
         external_bundle_v3$denominator_bundle,
-        sample_scope_reference = external_bundle_v3$sample_scope_reference,
-        analysis_context_id = analysis_context_id
+        sample_scope_reference = external_bundle_v3$sample_scope_reference
       )
     )
   )
@@ -286,8 +281,7 @@ extract_incidence_exposure_by_year_um_uf_ta_de_profile <- function(
 build_ratb_downstream_scope_from_canonical_inputs <- function(
     sir_wide,
     sample_scope_reference,
-    denominator_bundle,
-    analysis_context_id = "spares_current"
+    denominator_bundle
   ) {
   stopifnot(
     is.data.frame(sir_wide),
@@ -297,8 +291,7 @@ build_ratb_downstream_scope_from_canonical_inputs <- function(
 
   incidence_denominator_by_year <- extract_incidence_denominator_by_year(
     denominator_bundle,
-    sample_scope_reference = sample_scope_reference,
-    analysis_context_id = analysis_context_id
+    sample_scope_reference = sample_scope_reference
   )
   incidence_exposure_by_year_um_uf_ta_de_profile <-
     extract_incidence_exposure_by_year_um_uf_ta_de_profile(

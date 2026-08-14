@@ -61,7 +61,7 @@ run_r_script <- function(script, args = character(), env = character()) {
   list(status = status, output = output)
 }
 
-spec <- orchidee_handoff_site_input_spec("v3")
+spec <- orchidee_handoff_site_input_spec()
 expected_blocks <- c(
   "microbiology_observations",
   "bacteria_mapping",
@@ -91,15 +91,14 @@ names(alias_blocks$microbiology_observations)[
   names(alias_blocks$microbiology_observations) == "ratb_diagnostic_scope"
 ] <- "is_diagnostic"
 alias_validation <- capture_error(
-  orchidee_handoff_validate_site_input_columns(alias_blocks, "v3")
+  orchidee_handoff_validate_site_input_columns(alias_blocks)
 )
 
 ambiguous_alias_blocks <- empty_blocks
 ambiguous_alias_blocks$microbiology_observations$is_diagnostic <- logical()
 ambiguous_alias_error <- capture_error(
   orchidee_handoff_validate_site_input_columns(
-    ambiguous_alias_blocks,
-    "v3"
+    ambiguous_alias_blocks
   )
 )
 
@@ -107,7 +106,7 @@ swapped_blocks <- empty_blocks
 swapped_blocks$bacteria_mapping <- empty_blocks$sample_type_mapping
 swapped_blocks$sample_type_mapping <- empty_blocks$bacteria_mapping
 swapped_error <- capture_error(
-  orchidee_handoff_validate_site_input_columns(swapped_blocks, "v3")
+  orchidee_handoff_validate_site_input_columns(swapped_blocks)
 )
 
 duplicate_column_blocks <- empty_blocks
@@ -115,8 +114,7 @@ names(duplicate_column_blocks$bacteria_mapping)[[2L]] <-
   names(duplicate_column_blocks$bacteria_mapping)[[1L]]
 duplicate_column_error <- capture_error(
   orchidee_handoff_validate_site_input_columns(
-    duplicate_column_blocks,
-    "v3"
+    duplicate_column_blocks
   )
 )
 

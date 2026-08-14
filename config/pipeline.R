@@ -53,9 +53,12 @@ orchidee_config <- list(
     indicator_sample_types = c("hemoculture", "urines"),
     indicator_show_full_spec = FALSE,
     indicator_min_n = 0L,
-    incidence_excluded_years = c(2021L, 2025L)
-    # Downstream incidence publication guard.
-    # This is separate from the sir_wide DATEPRELEV window because incidence
-    # also depends on hospital-stay/year splitting and may see boundary years.
+    # The calendar years the report publishes, stated positively.
+    # The denominator sees more years than these: a stay crossing the source
+    # window boundary contributes nights to the year outside it, so the
+    # incidence panel is restricted to the years declared here rather than
+    # listing the boundary years to remove. The render stops if the analytical
+    # data carries a year that is not declared.
+    report_years = 2022:2024
   )
 )

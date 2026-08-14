@@ -83,8 +83,7 @@ load_ratb_operational_runtime <- function(config) {
   context <- resolve_ratb_operational_context(config)
   bundle <- load_validated_external_input_bundle(
     bundle_dir = context$bundle_dir,
-    contract = orchidee_external_contract_v2(),
-    strict_preferred = TRUE
+    contract = orchidee_external_contract_v2()
   )
   sir_wide <- bundle$sir_wide
   sir_wide_meta <- bundle$sir_wide_meta

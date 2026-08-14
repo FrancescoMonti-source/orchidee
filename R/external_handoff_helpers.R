@@ -4,8 +4,7 @@
 ## site-owned input blocks. They deliberately sit upstream of the canonical
 ## runtime contract validated in `R/external_bundle_validation_helpers.R`.
 
-orchidee_handoff_site_input_spec <- function(contract_version = c("v3", "v2")) {
-  contract_version <- match.arg(contract_version)
+orchidee_handoff_site_input_spec <- function() {
   microbiology_required <- c(
     "PATID",
     "ELTID",
@@ -66,27 +65,18 @@ orchidee_handoff_site_input_spec <- function(contract_version = c("v3", "v2")) {
     )
   )
 
-  denominator_name <- if (identical(contract_version, "v3")) {
-    "incidence_exposure_by_year_um_uf_ta_de_profile"
-  } else {
-    "denominator_by_year"
-  }
-  denominator_columns <- if (identical(contract_version, "v3")) {
-    c(
-      "calendar_year",
-      "SEJUM",
-      "SEJUF",
-      "CODE_TA",
-      "CODE_DE",
-      "de_domain_ref",
-      "denominator_profile_id",
-      "exposure_value",
-      "exposure_unit"
-    )
-  } else {
-    c("calendar_year", "hospital_nights")
-  }
-  spec[[denominator_name]] <- list(
+  denominator_columns <- c(
+    "calendar_year",
+    "SEJUM",
+    "SEJUF",
+    "CODE_TA",
+    "CODE_DE",
+    "de_domain_ref",
+    "denominator_profile_id",
+    "exposure_value",
+    "exposure_unit"
+  )
+  spec$incidence_exposure_by_year_um_uf_ta_de_profile <- list(
     required_columns = denominator_columns,
     required_one_of = list(),
     template_columns = denominator_columns
@@ -94,12 +84,8 @@ orchidee_handoff_site_input_spec <- function(contract_version = c("v3", "v2")) {
   spec
 }
 
-orchidee_handoff_validate_site_input_columns <- function(
-    site_inputs,
-    contract_version = c("v3", "v2")
-  ) {
-  contract_version <- match.arg(contract_version)
-  spec <- orchidee_handoff_site_input_spec(contract_version)
+orchidee_handoff_validate_site_input_columns <- function(site_inputs) {
+  spec <- orchidee_handoff_site_input_spec()
   if (!is.list(site_inputs)) {
     stop("site_inputs must be a named list.", call. = FALSE)
   }
@@ -301,7 +287,7 @@ orchidee_handoff_require_functions <- function(required_funs) {
 
 orchidee_handoff_mapping_reference_tables <- function(project_root = ".") {
   orchidee_handoff_require_functions(c(
-    "orchidee_external_contract_v2",
+    "orchidee_external_contract_v3",
     "ratb_analysis_context_profile",
     "ratb_denominator_profile_registry",
     "ratb_normalize_code_ta",
@@ -313,8 +299,8 @@ orchidee_handoff_mapping_reference_tables <- function(project_root = ".") {
     winslash = "/",
     mustWork = TRUE
   )
-  contract <- orchidee_external_contract_v2()
-  context <- ratb_analysis_context_profile("spares_current")
+  contract <- orchidee_external_contract_v3()
+  context <- ratb_analysis_context_profile()
 
   species_taxonomy <- orchidee_handoff_read_table(file.path(
     project_root,
@@ -725,7 +711,10 @@ orchidee_handoff_normalize_sir <- function(x) {
     x %in% c("S", "SFP", "---S") ~ "S",
     x %in% c("R", "---R") ~ "R",
     x %in% c("I", "ZIT") ~ "ZIT",
-    x %in% c("NC", "NA", "N/A") | is.na(x) ~ NA_character_,
+    # NC is a source token, measured in the Rouen export; blank is the other way
+    # a result can be absent. Anything else must reach the caller unchanged so
+    # the frontier refuses it instead of reading it as "not tested".
+    x %in% "NC" | is.na(x) ~ NA_character_,
     TRUE ~ x
   )
 }
@@ -815,11 +804,24 @@ orchidee_handoff_map_values <- function(
   mapped
 }
 
-# Screening exclusion follows the most specific usable document identity.
-# Complete PATID + ELTID groups use PATID + EVTID + ELTID. If any row in a
-# PATID + ELTID group lacks EVTID, that group conservatively falls back to
-# PATID + ELTID. ELTID alone is never propagated across patients. Rows without
-# a usable PATID + ELTID pair receive NA and never carry screening.
+# A source that carries EVTID must carry it on every row: a gap in an otherwise
+# populated column is a hospital-system anomaly, and those rows are dropped
+# rather than kept on a degraded document key. A column that is absent, or
+# entirely empty, is not an anomaly: that source has no event identity to lose
+# and keeps every row on the PATID + ELTID key.
+orchidee_handoff_evtid_anomaly_rows <- function(EVTID) {
+  if (!any(!is.na(EVTID))) {
+    return(rep(FALSE, length(EVTID)))
+  }
+  is.na(EVTID)
+}
+
+# Screening exclusion follows the document identity the source can support:
+# PATID + EVTID + ELTID when it carries EVTID, PATID + ELTID when it does not.
+# Rows with a missing EVTID beside populated ones are dropped upstream, so a
+# partially filled EVTID is refused here instead of being silently degraded.
+# ELTID alone is never propagated across patients. Rows without a usable
+# PATID + ELTID pair receive NA and never carry screening.
 orchidee_handoff_document_occurrence_key <- function(PATID, EVTID, ELTID) {
   document_key <- rep(NA_character_, length(PATID))
   usable <- !is.na(PATID) & !is.na(ELTID)
@@ -828,32 +830,26 @@ orchidee_handoff_document_occurrence_key <- function(PATID, EVTID, ELTID) {
     return(document_key)
   }
 
-  patient_sample_key <- paste(
-    PATID[usable_rows],
-    ELTID[usable_rows],
-    sep = "\r"
-  )
-  fallback_to_patient_sample <- ave(
-    is.na(EVTID[usable_rows]),
-    patient_sample_key,
-    FUN = any
-  )
-  document_key[usable_rows] <- ifelse(
-    fallback_to_patient_sample,
-    paste(
-      "patient_sample",
-      PATID[usable_rows],
-      ELTID[usable_rows],
-      sep = "\r"
-    ),
+  event <- EVTID[usable_rows]
+  if (any(!is.na(event)) && any(is.na(event))) {
+    stop(
+      "Document identity needs EVTID on every row or on none; ",
+      "rows missing it must be dropped before this point.",
+      call. = FALSE
+    )
+  }
+
+  document_key[usable_rows] <- if (all(is.na(event))) {
+    paste("patient_sample", PATID[usable_rows], ELTID[usable_rows], sep = "\r")
+  } else {
     paste(
       "event_sample",
       PATID[usable_rows],
-      EVTID[usable_rows],
+      event,
       ELTID[usable_rows],
       sep = "\r"
     )
-  )
+  }
   document_key
 }
 
@@ -884,17 +880,14 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     microbiology_observations,
     bacteria_mapping,
     sample_type_mapping,
-    antibiotic_mapping,
-    contract = orchidee_external_contract_v2()
+    antibiotic_mapping
   ) {
   orchidee_handoff_require_functions("phenotype_status_to_flag")
   if (!is.data.frame(microbiology_observations)) {
     stop("microbiology_observations must be a data frame.", call. = FALSE)
   }
-  if (!is.list(contract)) {
-    stop("contract must be a list.", call. = FALSE)
-  }
-  site_spec <- orchidee_handoff_site_input_spec(contract$version)
+  contract <- orchidee_external_contract_v3()
+  site_spec <- orchidee_handoff_site_input_spec()
   microbiology_spec <- site_spec$microbiology_observations
 
   required_obs_cols <- microbiology_spec$required_columns
@@ -956,6 +949,12 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     rep(NA_character_, nrow(obs))
   }
   obs$ELTID <- orchidee_handoff_trim_or_na(obs$ELTID)
+
+  dropped <- orchidee_handoff_evtid_anomaly_rows(obs$EVTID)
+  if (any(dropped)) {
+    obs <- obs[!dropped, , drop = FALSE]
+    diagnostic_scope <- diagnostic_scope[!dropped]
+  }
 
   document_key <- orchidee_handoff_document_occurrence_key(
     obs$PATID,
@@ -1208,10 +1207,7 @@ orchidee_handoff_build_sir_wide_meta <- function(
   metadata
 }
 
-orchidee_handoff_build_sample_scope_reference <- function(
-    unit_mapping,
-    contract = orchidee_external_contract_v2()
-  ) {
+orchidee_handoff_build_sample_scope_reference <- function(unit_mapping) {
   orchidee_handoff_require_functions(c(
     "ratb_normalize_code_ta",
     "ratb_normalize_code_de",
@@ -1221,9 +1217,7 @@ orchidee_handoff_build_sample_scope_reference <- function(
     stop("unit_mapping must be a data frame.", call. = FALSE)
   }
 
-  required_unit_cols <- orchidee_handoff_site_input_spec(
-    contract$version
-  )$unit_mapping$required_columns
+  required_unit_cols <- orchidee_handoff_site_input_spec()$unit_mapping$required_columns
   missing_unit_cols <- setdiff(required_unit_cols, names(unit_mapping))
   if (length(missing_unit_cols) > 0L) {
     stop(
@@ -1315,170 +1309,125 @@ orchidee_handoff_build_sample_scope_reference <- function(
     sample_uf_ta_de_reason = reason,
     stringsAsFactors = FALSE
   )
+  contract <- orchidee_external_contract_v3()
   required_columns <- contract$sample_scope_reference$required_columns
   sample_scope_reference[required_columns]
 }
 
 orchidee_handoff_build_denominator_bundle <- function(
-    denominator_by_year = NULL,
-    incidence_exposure_by_year_um_uf_ta_de_profile = NULL,
-    contract = orchidee_external_contract_v2()
+    incidence_exposure_by_year_um_uf_ta_de_profile
   ) {
-  if (identical(contract$version, "v3")) {
-    orchidee_handoff_require_functions(c(
-      "ratb_normalize_code_ta",
-      "ratb_normalize_code_de"
-    ))
-    exposure <- incidence_exposure_by_year_um_uf_ta_de_profile
-    if (!is.data.frame(exposure)) {
-      stop(
-        "incidence_exposure_by_year_um_uf_ta_de_profile must be a data frame ",
-        "for contract v3.",
-        call. = FALSE
-      )
-    }
-    required_cols <- orchidee_handoff_site_input_spec(
-      "v3"
-    )$incidence_exposure_by_year_um_uf_ta_de_profile$required_columns
-    missing_cols <- setdiff(required_cols, names(exposure))
-    if (length(missing_cols) > 0L) {
-      stop(
-        "incidence_exposure_by_year_um_uf_ta_de_profile is missing required ",
-        "columns: ",
-        paste(missing_cols, collapse = ", "),
-        call. = FALSE
-      )
-    }
-
-    canonical_exposure <- data.frame(
-      calendar_year = orchidee_handoff_integerish_vector(
-        exposure$calendar_year,
-        "incidence_exposure_by_year_um_uf_ta_de_profile$calendar_year"
-      ),
-      SEJUM = orchidee_handoff_trim_or_na(exposure$SEJUM),
-      SEJUF = orchidee_handoff_trim_or_na(exposure$SEJUF),
-      CODE_TA = ratb_normalize_code_ta(exposure$CODE_TA),
-      CODE_DE = ratb_normalize_code_de(exposure$CODE_DE),
-      de_domain_ref = orchidee_handoff_normalize_included_de_domain(
-        exposure$de_domain_ref
-      ),
-      denominator_profile_id = orchidee_handoff_trim_or_na(
-        exposure$denominator_profile_id
-      ),
-      exposure_value = orchidee_handoff_integerish_vector(
-        exposure$exposure_value,
-        "incidence_exposure_by_year_um_uf_ta_de_profile$exposure_value"
-      ),
-      exposure_unit = orchidee_handoff_trim_or_na(exposure$exposure_unit),
-      stringsAsFactors = FALSE
+  orchidee_handoff_require_functions(c(
+    "ratb_normalize_code_ta",
+    "ratb_normalize_code_de"
+  ))
+  exposure <- incidence_exposure_by_year_um_uf_ta_de_profile
+  if (!is.data.frame(exposure)) {
+    stop(
+      "incidence_exposure_by_year_um_uf_ta_de_profile must be a data frame.",
+      call. = FALSE
     )
-    missing_dimension <- vapply(
-      canonical_exposure[required_cols],
-      function(x) any(is.na(x)),
-      logical(1)
-    )
-    if (any(missing_dimension)) {
-      stop(
-        "incidence_exposure_by_year_um_uf_ta_de_profile must not contain ",
-        "missing values in: ",
-        paste(names(missing_dimension)[missing_dimension], collapse = ", "),
-        call. = FALSE
-      )
-    }
-    if (any(canonical_exposure$exposure_value < 0L)) {
-      stop(
-        "incidence_exposure_by_year_um_uf_ta_de_profile$exposure_value must ",
-        "be non-negative.",
-        call. = FALSE
-      )
-    }
-    profiles <- ratb_denominator_profile_registry()
-    profile_match <- match(
-      canonical_exposure$denominator_profile_id,
-      profiles$denominator_profile_id
-    )
-    invalid_profile <- is.na(profile_match)
-    invalid_unit <- !invalid_profile &
-      canonical_exposure$exposure_unit != profiles$exposure_unit[profile_match]
-    if (any(invalid_profile | invalid_unit)) {
-      stop(
-        "incidence_exposure_by_year_um_uf_ta_de_profile contains an ",
-        "unsupported denominator profile/exposure unit pair.",
-        call. = FALSE
-      )
-    }
-    grain_cols <- c(
-      "calendar_year", "SEJUM", "SEJUF", "CODE_TA", "CODE_DE",
-      "de_domain_ref", "denominator_profile_id"
-    )
-    if (any(duplicated(canonical_exposure[grain_cols]))) {
-      stop(
-        "incidence_exposure_by_year_um_uf_ta_de_profile contains duplicate ",
-        "rows at grain ",
-        paste(grain_cols, collapse = " + "),
-        ".",
-        call. = FALSE
-      )
-    }
-    canonical_exposure <- canonical_exposure[
-      do.call(order, canonical_exposure[grain_cols]),
-      ,
-      drop = FALSE
-    ]
-    row.names(canonical_exposure) <- NULL
-
-    return(list(
-      incidence_exposure_by_year_um_uf_ta_de_profile = canonical_exposure
-    ))
   }
-
-  if (!is.data.frame(denominator_by_year)) {
-    stop("denominator_by_year must be a data frame.", call. = FALSE)
-  }
-  required_cols <- orchidee_handoff_site_input_spec(
-    "v2"
-  )$denominator_by_year$required_columns
-  missing_cols <- setdiff(required_cols, names(denominator_by_year))
+  spec <- orchidee_handoff_site_input_spec()
+  denominator_spec <-
+    spec$incidence_exposure_by_year_um_uf_ta_de_profile
+  required_cols <- denominator_spec$required_columns
+  missing_cols <- setdiff(required_cols, names(exposure))
   if (length(missing_cols) > 0L) {
     stop(
-      "denominator_by_year is missing required columns: ",
+      "incidence_exposure_by_year_um_uf_ta_de_profile is missing required ",
+      "columns: ",
       paste(missing_cols, collapse = ", "),
       call. = FALSE
     )
   }
 
-  incidence_denominator_by_year <- data.frame(
+  canonical_exposure <- data.frame(
     calendar_year = orchidee_handoff_integerish_vector(
-      denominator_by_year$calendar_year,
-      "denominator_by_year$calendar_year"
+      exposure$calendar_year,
+      "incidence_exposure_by_year_um_uf_ta_de_profile$calendar_year"
     ),
-    hospital_nights = orchidee_handoff_integerish_vector(
-      denominator_by_year$hospital_nights,
-      "denominator_by_year$hospital_nights"
+    SEJUM = orchidee_handoff_trim_or_na(exposure$SEJUM),
+    SEJUF = orchidee_handoff_trim_or_na(exposure$SEJUF),
+    CODE_TA = ratb_normalize_code_ta(exposure$CODE_TA),
+    CODE_DE = ratb_normalize_code_de(exposure$CODE_DE),
+    de_domain_ref = orchidee_handoff_normalize_included_de_domain(
+      exposure$de_domain_ref
     ),
+    denominator_profile_id = orchidee_handoff_trim_or_na(
+      exposure$denominator_profile_id
+    ),
+    exposure_value = orchidee_handoff_integerish_vector(
+      exposure$exposure_value,
+      "incidence_exposure_by_year_um_uf_ta_de_profile$exposure_value"
+    ),
+    exposure_unit = orchidee_handoff_trim_or_na(exposure$exposure_unit),
     stringsAsFactors = FALSE
   )
-  if (any(incidence_denominator_by_year$hospital_nights < 0L)) {
-    stop("denominator_by_year$hospital_nights must be non-negative.", call. = FALSE)
+  missing_dimension <- vapply(
+    canonical_exposure[required_cols],
+    function(x) any(is.na(x)),
+    logical(1)
+  )
+  if (any(missing_dimension)) {
+    stop(
+      "incidence_exposure_by_year_um_uf_ta_de_profile must not contain ",
+      "missing values in: ",
+      paste(names(missing_dimension)[missing_dimension], collapse = ", "),
+      call. = FALSE
+    )
   }
-
-  incidence_denominator_by_year <- incidence_denominator_by_year[
-    order(incidence_denominator_by_year$calendar_year),
+  if (any(canonical_exposure$exposure_value < 0L)) {
+    stop(
+      "incidence_exposure_by_year_um_uf_ta_de_profile$exposure_value must ",
+      "be non-negative.",
+      call. = FALSE
+    )
+  }
+  profiles <- ratb_denominator_profile_registry()
+  profile_match <- match(
+    canonical_exposure$denominator_profile_id,
+    profiles$denominator_profile_id
+  )
+  invalid_profile <- is.na(profile_match)
+  invalid_unit <- !invalid_profile &
+    canonical_exposure$exposure_unit != profiles$exposure_unit[profile_match]
+  if (any(invalid_profile | invalid_unit)) {
+    stop(
+      "incidence_exposure_by_year_um_uf_ta_de_profile contains an ",
+      "unsupported denominator profile/exposure unit pair.",
+      call. = FALSE
+    )
+  }
+  grain_cols <- c(
+    "calendar_year", "SEJUM", "SEJUF", "CODE_TA", "CODE_DE",
+    "de_domain_ref", "denominator_profile_id"
+  )
+  if (any(duplicated(canonical_exposure[grain_cols]))) {
+    stop(
+      "incidence_exposure_by_year_um_uf_ta_de_profile contains duplicate ",
+      "rows at grain ",
+      paste(grain_cols, collapse = " + "),
+      ".",
+      call. = FALSE
+    )
+  }
+  canonical_exposure <- canonical_exposure[
+    do.call(order, canonical_exposure[grain_cols]),
     ,
     drop = FALSE
   ]
-  row.names(incidence_denominator_by_year) <- NULL
+  row.names(canonical_exposure) <- NULL
 
-  list(incidence_denominator_by_year = incidence_denominator_by_year)
+  list(incidence_exposure_by_year_um_uf_ta_de_profile = canonical_exposure)
 }
 
 orchidee_handoff_build_external_bundle <- function(
     sir_wide,
     unit_mapping,
-    denominator_by_year = NULL,
-    contract = orchidee_external_contract_v2(),
-    incidence_exposure_by_year_um_uf_ta_de_profile = NULL
+    incidence_exposure_by_year_um_uf_ta_de_profile
   ) {
+  contract <- orchidee_external_contract_v3()
   list(
     sir_wide = sir_wide,
     sir_wide_meta = orchidee_handoff_build_sir_wide_meta(
@@ -1486,14 +1435,11 @@ orchidee_handoff_build_external_bundle <- function(
       contract = contract
     ),
     sample_scope_reference = orchidee_handoff_build_sample_scope_reference(
-      unit_mapping = unit_mapping,
-      contract = contract
+      unit_mapping = unit_mapping
     ),
     denominator_bundle = orchidee_handoff_build_denominator_bundle(
-      denominator_by_year = denominator_by_year,
       incidence_exposure_by_year_um_uf_ta_de_profile =
-        incidence_exposure_by_year_um_uf_ta_de_profile,
-      contract = contract
+        incidence_exposure_by_year_um_uf_ta_de_profile
     )
   )
 }
@@ -1504,52 +1450,29 @@ orchidee_handoff_build_external_bundle_from_site_inputs <- function(
     sample_type_mapping,
     antibiotic_mapping,
     unit_mapping,
-    denominator_by_year = NULL,
-    contract = orchidee_external_contract_v2(),
-    incidence_exposure_by_year_um_uf_ta_de_profile = NULL
+    incidence_exposure_by_year_um_uf_ta_de_profile
   ) {
-  if (
-    !is.list(contract) ||
-      length(contract$version) != 1L ||
-      !contract$version %in% c("v2", "v3")
-  ) {
-    stop("contract must declare version v2 or v3.", call. = FALSE)
-  }
-  denominator_name <- if (identical(contract$version, "v3")) {
-    "incidence_exposure_by_year_um_uf_ta_de_profile"
-  } else {
-    "denominator_by_year"
-  }
   site_inputs <- list(
     microbiology_observations = microbiology_observations,
     bacteria_mapping = bacteria_mapping,
     sample_type_mapping = sample_type_mapping,
     antibiotic_mapping = antibiotic_mapping,
-    unit_mapping = unit_mapping
+    unit_mapping = unit_mapping,
+    incidence_exposure_by_year_um_uf_ta_de_profile =
+      incidence_exposure_by_year_um_uf_ta_de_profile
   )
-  site_inputs[[denominator_name]] <- if (identical(contract$version, "v3")) {
-    incidence_exposure_by_year_um_uf_ta_de_profile
-  } else {
-    denominator_by_year
-  }
-  orchidee_handoff_validate_site_input_columns(
-    site_inputs,
-    contract_version = contract$version
-  )
+  orchidee_handoff_validate_site_input_columns(site_inputs)
 
   sir_wide <- orchidee_handoff_build_sir_wide_from_microbiology(
     microbiology_observations = microbiology_observations,
     bacteria_mapping = bacteria_mapping,
     sample_type_mapping = sample_type_mapping,
-    antibiotic_mapping = antibiotic_mapping,
-    contract = contract
+    antibiotic_mapping = antibiotic_mapping
   )
 
   orchidee_handoff_build_external_bundle(
     sir_wide = sir_wide,
     unit_mapping = unit_mapping,
-    denominator_by_year = denominator_by_year,
-    contract = contract,
     incidence_exposure_by_year_um_uf_ta_de_profile =
       incidence_exposure_by_year_um_uf_ta_de_profile
   )

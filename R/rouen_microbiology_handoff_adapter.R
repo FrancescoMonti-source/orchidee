@@ -407,40 +407,11 @@ build_rouen_microbiology_handoff <- function(
     )
   }
 
-  document_evtid_resolution <- target_raw |>
-    dplyr::group_by(.data$PATID, .data$ELTID) |>
-    dplyr::summarise(
-      n_nonmissing_evtid = dplyr::n_distinct(.data$EVTID, na.rm = TRUE),
-      has_missing_evtid = any(is.na(.data$EVTID)),
-      resolved_evtid = if (.data$n_nonmissing_evtid == 1L) {
-        unique(stats::na.omit(.data$EVTID))[[1L]]
-      } else {
-        NA_character_
-      },
-      .groups = "drop"
-    )
-  ambiguous_missing_evtid <- document_evtid_resolution |>
-    dplyr::filter(.data$has_missing_evtid, .data$n_nonmissing_evtid > 1L)
-  if (nrow(ambiguous_missing_evtid) > 0L) {
-    stop(
-      "Rouen bacteriology has missing EVTID rows that cannot be assigned ",
-      "unambiguously within PATID + ELTID.",
-      call. = FALSE
-    )
-  }
-  target_raw <- target_raw |>
-    dplyr::left_join(
-      document_evtid_resolution |>
-        dplyr::select(dplyr::all_of(c("PATID", "ELTID", "resolved_evtid"))),
-      by = c("PATID", "ELTID"),
-      relationship = "many-to-one"
-    )
-  evtid_rows_filled_from_document <- sum(
-    is.na(target_raw$EVTID) & !is.na(target_raw$resolved_evtid)
-  )
-  target_raw <- target_raw |>
-    dplyr::mutate(EVTID = dplyr::coalesce(.data$EVTID, .data$resolved_evtid)) |>
-    dplyr::select(-dplyr::all_of("resolved_evtid"))
+  # Same anomaly rule as the shared handoff, applied before Rouen scopes its own
+  # screening documents so a dropped row cannot mark an occurrence.
+  dropped_evtid_rows <- orchidee_handoff_evtid_anomaly_rows(target_raw$EVTID)
+  rows_dropped_without_evtid <- sum(dropped_evtid_rows)
+  target_raw <- target_raw[!dropped_evtid_rows, , drop = FALSE]
 
   document_scope <- target_raw |>
     dplyr::group_by(dplyr::across(dplyr::all_of(document_key))) |>
@@ -524,9 +495,11 @@ build_rouen_microbiology_handoff <- function(
       source_row_order = .data$source_row_order
     )
 
+  # The alphabet is defined once by the v2 contract; v3 inherits it unchanged.
+  allowed_sir_values <- orchidee_external_contract_v2()$sir_wide$allowed_atb_values
   unsupported_sir <- sort(unique(observations$sir_result[
     !is.na(observations$sir_result) &
-      !observations$sir_result %in% c("S", "R", "ZIT")
+      !observations$sir_result %in% allowed_sir_values
   ]))
   if (length(unsupported_sir) > 0L) {
     stop(
@@ -813,8 +786,7 @@ build_rouen_microbiology_handoff <- function(
       "screening_document_occurrences_with_sir",
       "screening_rows_all_raw",
       "screening_sir_rows",
-      "rows_evtid_filled_from_document",
-      "document_occurrences_without_evtid",
+      "rows_dropped_without_evtid",
       "diagnostic_rows_with_supported_species_atb",
       "sample_type_labels_unresolved",
       "phenotype_signal_rows"
@@ -831,8 +803,7 @@ build_rouen_microbiology_handoff <- function(
       nrow(screening_documents_with_sir),
       nrow(screening_rows_all_raw),
       nrow(screening_sir_rows),
-      evtid_rows_filled_from_document,
-      sum(is.na(document_scope$EVTID)),
+      rows_dropped_without_evtid,
       nrow(diagnostic_observations),
       sum(is.na(sample_type$mapping$naturepvt_norm)),
       nrow(signal_rows)
@@ -849,8 +820,7 @@ build_rouen_microbiology_handoff <- function(
       "Screening document occurrences that also contain at least one SIR row.",
       "All raw rows belonging to document occurrences marked as screening.",
       "SIR rows belonging to document occurrences marked as screening.",
-      "Rows whose missing EVTID was filled from one unambiguous PATID + ELTID document occurrence.",
-      "Occurrences using the conservative PATID + ELTID document fallback.",
+      "Rows dropped inside the window because the document occurrence carries no EVTID.",
       "Expanded long rows retained after supported species/ATB filtering.",
       "Exact local sample labels deliberately left without a canonical type.",
       "Raw BLSE/carbapenemase signal rows attributed to candidate isolates."

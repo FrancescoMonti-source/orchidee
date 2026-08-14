@@ -74,7 +74,7 @@ if (length(args) != 7L || "--help" %in% args || "-h" %in% args) {
     "[--no-next-steps]\n\n",
     "Inputs:\n",
     "  microbiology_observations: long local S/I/R observations with the\n",
-    "    columns documented in site_handoff_inputs.md.\n",
+    "    columns documented in site_contract.md.\n",
     "  bacteria_mapping: bacteria_local + bact_norm.\n",
     "  sample_type_mapping: sample_type_local + naturepvt_norm.\n",
     "  antibiotic_mapping: antibiotic_local + atb_norm.\n",
@@ -279,8 +279,6 @@ bundle <- orchidee_handoff_build_external_bundle_from_site_inputs(
   sample_type_mapping = sample_type_mapping,
   antibiotic_mapping = antibiotic_mapping,
   unit_mapping = unit_mapping,
-  denominator_by_year = NULL,
-  contract = contract,
   incidence_exposure_by_year_um_uf_ta_de_profile = denominator_input
 )
 
@@ -370,8 +368,7 @@ stage_bundle <- function(
 
   report <- validate_external_input_bundle(
     bundle_dir = staging_dir,
-    contract = contract,
-    strict_preferred = TRUE
+    contract = contract
   )
   print_external_input_bundle_validation(report)
   if (!isTRUE(report$ok)) {

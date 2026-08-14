@@ -8,7 +8,7 @@ needed by the selected target, then runs the smallest corresponding render.
 Data-bearing targets display the effective bundle and workspace before work.
 
 .PARAMETER Target
-Render target: memo, indicators or full.
+Render target: indicators or full.
 Full rebuilds the canonical raw runtime before rendering the indicator report.
 
 .PARAMETER Bundle
@@ -26,7 +26,7 @@ Check Quarto, locked R, required packages and data paths, then print the
 commands without building the runtime or rendering documents.
 
 .EXAMPLE
-& .\scripts\render_orchidee.ps1 -Target memo
+& .\scripts\render_orchidee.ps1 -Target indicators
 
 .EXAMPLE
 & .\scripts\render_orchidee.ps1 -Target full `
@@ -36,8 +36,8 @@ commands without building the runtime or rendering documents.
 
 [CmdletBinding()]
 param(
-  [ValidateSet('memo','indicators','full')]
-  [string]$Target = 'memo',
+  [ValidateSet('indicators','full')]
+  [string]$Target = 'indicators',
 
   [string]$Bundle,
 
@@ -163,9 +163,6 @@ try {
   $env:QUARTO_R = $rScript
 
   $targets = switch ($Target) {
-    'memo' {
-      @('documentation/ratb_methodology.qmd')
-    }
     'indicators' {
       @('orchidee_ratb_indicators.qmd')
     }

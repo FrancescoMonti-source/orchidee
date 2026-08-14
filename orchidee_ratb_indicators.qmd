@@ -4,6 +4,7 @@ lang: fr
 engine: knitr
 format:
   html:
+    embed-resources: true
     theme:
       light: flatly
       dark: darkly
@@ -64,7 +65,6 @@ options(
   OutDec = ".",
   knitr.kable.NA = ""
 )
-
 ```
 
 <!-- Report display helpers are sourced from R/ratb_report_helpers.R. -->
@@ -122,9 +122,23 @@ orchidee_source_required_script(
 #| label: initialize_ratb_report_helpers
 #| include: false
 #| echo: false
-ratb_operational_context <- resolve_ratb_operational_context(orchidee_config)
-dir.create(ratb_operational_context$cache_dir, recursive = TRUE, showWarnings = FALSE)
-dir.create(ratb_operational_context$download_dir, recursive = TRUE, showWarnings = FALSE)
+operational_runtime <- load_ratb_operational_runtime(config = orchidee_config)
+ratb_operational_context <- operational_runtime$context
+cache_dir <- ratb_operational_context$cache_dir
+mappings_dir <- orchidee_config$paths$mappings_dir
+sir_wide_meta <- operational_runtime$sir_wide_meta
+sir_wide <- operational_runtime$sir_wide
+
+dir.create(
+  ratb_operational_context$cache_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+dir.create(
+  ratb_operational_context$download_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
 initialize_ratb_report_helpers(
   download_dir = ratb_operational_context$download_dir,
   datatable_digits = orchidee_config$report$datatable_digits,
@@ -134,29 +148,6 @@ initialize_ratb_report_helpers(
 )
 ```
 
-<!-- Operator-only artifact loading section kept in source, not rendered. -->
-
-
-```{r}
-#| label: load_sir_wide_artifact
-#| include: false
-#| echo: false
-
-orchidee_source_required_script("helpers.R", "helpers script")
-
-mappings_dir <- orchidee_config$paths$mappings_dir
-
-operational_runtime <- load_ratb_operational_runtime(config = orchidee_config)
-ratb_operational_context <- operational_runtime$context
-cache_dir <- ratb_operational_context$cache_dir
-sir_wide_meta <- operational_runtime$sir_wide_meta
-sir_wide <- operational_runtime$sir_wide
-
-if (!exists("filtre_atb") && !is.null(sir_wide_meta$filtre_atb)) {
-  filtre_atb <- sir_wide_meta$filtre_atb
-}
-```
-
 <!-- Operator-only cache-loading section kept in source, not rendered. -->
 
 ```{r}
@@ -164,49 +155,30 @@ if (!exists("filtre_atb") && !is.null(sir_wide_meta$filtre_atb)) {
 #| include: false
 #| echo: false
 
-dedup_cache_candidates <- list(
-  list(
-    results = file.path(cache_dir, "dedup_results"),
-    meta = file.path(cache_dir, "dedup_cache_meta")
-  )
-)
-
-dedup_cache_source <- NA_character_
-dedup_results <- NULL
-dedup_cache_meta <- NULL
-
-for (candidate in dedup_cache_candidates) {
-  cache_paths <- unlist(candidate, use.names = FALSE)
-  if (!all(file.exists(cache_paths))) {
-    next
-  }
-
-  loaded_results <- tryCatch(readRDS(candidate$results), error = function(e) {
-    NULL
-  })
-  loaded_meta <- tryCatch(readRDS(candidate$meta), error = function(e) NULL)
-  if (!is.list(loaded_results) || !is.list(loaded_meta)) {
-    next
-  }
-
-  dedup_results <- loaded_results
-  dedup_cache_meta <- loaded_meta
-  dedup_cache_source <- candidate$results
-  break
-}
-
-if (is.null(dedup_results) || is.null(dedup_cache_meta)) {
+dedup_results_path <- file.path(cache_dir, "dedup_results")
+dedup_cache_meta_path <- file.path(cache_dir, "dedup_cache_meta")
+if (!all(file.exists(c(dedup_results_path, dedup_cache_meta_path)))) {
   stop(
     "Missing canonical raw dedup cache. Run scripts/build_ratb_raw_runtime.R first.",
     call. = FALSE
   )
 }
+dedup_results <- readRDS(dedup_results_path)
+dedup_cache_meta <- readRDS(dedup_cache_meta_path)
+if (!is.list(dedup_results) || !is.list(dedup_cache_meta)) {
+  stop(
+    "Invalid canonical raw dedup cache. Run scripts/build_ratb_raw_runtime.R first.",
+    call. = FALSE
+  )
+}
 
-if (!"runtime_input_signature" %in% names(dedup_cache_meta) ||
+if (
+  !"runtime_input_signature" %in% names(dedup_cache_meta) ||
     !identical(
       dedup_cache_meta$runtime_input_signature,
       operational_runtime$runtime_input_signature
-    )) {
+    )
+) {
   stop(
     "Dedup cache does not match the selected RATB operational input. ",
     "Run scripts/build_ratb_raw_runtime.R first.",
@@ -219,23 +191,14 @@ sir_wide_ratb_scope <- runtime_inputs$sir_wide_ratb_scope
 incidence_denominator_by_year <-
   runtime_inputs$incidence_denominator_by_year
 
-stop_if_invalid_ratb_canonical_runtime_inputs(
-  runtime_inputs = runtime_inputs,
-  sir_wide = sir_wide
-)
-
 stopifnot(
-  is.list(dedup_results),
   identical(names(dedup_results), "sir_wide_raw"),
   all(vapply(
     dedup_results,
     function(x) is.list(x) && all(c("global", "by_type") %in% names(x)),
     logical(1)
-  )),
-  exists("sir_wide_ratb_scope"),
-  exists("incidence_denominator_by_year")
+  ))
 )
-
 ```
 
 # Rapport indicateurs RATB
@@ -243,13 +206,12 @@ stopifnot(
 Ce document présente la version annuelle actuellement livrée des indicateurs
 RATB définis par le catalogue versionné
 [`documentation/ratb_indicator_spec.csv`](documentation/ratb_indicator_spec.csv).
-La provenance méthodologique et les documents privés sont distingués dans
-[`documentation/reference_sources.md`](documentation/reference_sources.md).
 Il restitue les résultats publiés du noyau actuellement disponible et ne reprend pas les audits détaillés
 de qualité, de périmètre ou de validation, qui restent dans les artefacts du
 runtime et les documents méthodologiques.
-La méthode détaillée et les conventions ORCHIDEE sont décrites dans
-[`documentation/ratb_methodology.qmd`](documentation/ratb_methodology.qmd).
+Les décisions d'implémentation, leurs renvois vers le code et les points encore
+ouverts sont consignés dans
+[`documentation/methods.md`](documentation/methods.md).
 
 **Source opérationnelle :** `r operational_runtime$input_source`.
 
@@ -262,7 +224,7 @@ La méthode détaillée et les conventions ORCHIDEE sont décrites dans
 5. Terminer par les sorties par type, limitées ici à `hemoculture` et `urines`.
 6. Les indicateurs phénotypiques publiés couvrent désormais la grille canonique `2 taxons × 2 phénotypes × 2 métriques` pour `K. pneumoniae` et `Enterobacterales` ; une sortie additionnelle de compatibilité reste publiée pour respecter la demande actuelle : `K. pneumoniae` carbapénémase en proportion sur `hemoculture`.
 7. Ce rapport correspond à la livraison annuelle actuelle ; il ne couvre pas encore la déclinaison trimestrielle ni les autres stratifications demandées dans l'expression de besoins.
-8. Pour la méthode détaillée et les validations, se reporter au mémo d'implémentation et à `documentation/operational_flow.md`.
+8. Pour les décisions d'implémentation, leurs limites et les points ouverts, se reporter à `documentation/methods.md`.
 9. Les cartes thermiques utilisent une transformation de couleur réglée par `ratb_fill_transform` ; avec `"sqrt"`, les faibles écarts deviennent plus visibles (et le gros écarts moins visibles).
 10. Les cartes thermiques de densité d'incidence partagent une borne supérieure commune, réglée par `ratb_incidence_fill_limit_mode`, afin de rendre les taxons comparables entre eux. La borne supérieure actuelle est provisoire.
 
@@ -294,7 +256,7 @@ ratb_indicator_sample_types <- orchidee_config$ratb$indicator_sample_types
 ratb_indicator_show_full_spec <- orchidee_config$ratb$indicator_show_full_spec
 ratb_indicator_min_n <- orchidee_config$ratb$indicator_min_n
 recompute_incidence_pipeline <- orchidee_config$cache$recompute_incidence_pipeline
-ratb_incidence_excluded_years <- orchidee_config$ratb$incidence_excluded_years
+ratb_report_years <- as.integer(orchidee_config$ratb$report_years)
 
 ratb_dataset_display_map <- c(
   sir_wide_raw = "brut"
@@ -444,6 +406,23 @@ ratb_indicator_panel_annual <- build_ratb_indicator_panel_annual(
 )
 
 stopifnot(nrow(ratb_indicator_panel_annual) > 0L)
+
+# The analytical population must not carry a year the report does not declare:
+# an undeclared year means config/pipeline.R and the data disagree, and the
+# render says so instead of publishing part of the data silently.
+undeclared_years <- setdiff(
+  unique(ratb_indicator_panel_annual$dedup_year),
+  ratb_report_years
+)
+if (length(undeclared_years) > 0L) {
+  stop(
+    "Analytical data covers years absent from ratb$report_years: ",
+    paste(sort(undeclared_years), collapse = ", "),
+    ". Update the knob or the source window.",
+    call. = FALSE
+  )
+}
+
 stopifnot(all(
   ratb_indicator_panel_annual$n_tested ==
     ratb_indicator_panel_annual$n_r + ratb_indicator_panel_annual$n_s
@@ -578,7 +557,7 @@ ratb_indicator_panel_incidence_annual <- build_ratb_indicator_panel_incidence_an
 )
 
 ratb_indicator_panel_incidence_annual <- ratb_indicator_panel_incidence_annual %>%
-  filter(!(dedup_year %in% ratb_incidence_excluded_years))
+  filter(dedup_year %in% ratb_report_years)
 
 stopifnot(nrow(ratb_indicator_panel_incidence_annual) > 0L)
 stopifnot(all(ratb_indicator_panel_incidence_annual$scope == "global"))

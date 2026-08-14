@@ -2,36 +2,31 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 1L || !args[[1L]] %in% c(
-  "memo",
   "indicators",
   "full"
 )) {
   stop(
-    "Usage: check_render_environment.R memo|indicators|full",
+    "Usage: check_render_environment.R indicators|full",
     call. = FALSE
   )
 }
 target <- args[[1L]]
 
-required_packages <- if (target == "memo") {
-  c("knitr", "rmarkdown")
-} else {
-  c(
-    "conflicted",
-    "stringr",
-    "tidyverse",
-    "magrittr",
-    "openxlsx",
-    "lubridate",
-    "DT",
-    "purrr",
-    "ggplot2",
-    "knitr",
-    "rmarkdown",
-    "dplyr",
-    "tibble"
-  )
-}
+required_packages <- c(
+  "conflicted",
+  "stringr",
+  "tidyverse",
+  "magrittr",
+  "openxlsx",
+  "lubridate",
+  "DT",
+  "purrr",
+  "ggplot2",
+  "knitr",
+  "rmarkdown",
+  "dplyr",
+  "tibble"
+)
 available <- vapply(
   required_packages,
   requireNamespace,
@@ -93,8 +88,7 @@ if (target %in% c("indicators", "full")) {
   )
   bundle_validation <- validation_environment$validate_external_input_bundle(
     bundle_dir = context$bundle_dir,
-    contract = validation_environment$orchidee_external_contract_v2(),
-    strict_preferred = TRUE
+    contract = validation_environment$orchidee_external_contract_v2()
   )
   if (!isTRUE(bundle_validation$ok)) {
     stop(

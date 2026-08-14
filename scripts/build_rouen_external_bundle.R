@@ -443,19 +443,14 @@ pmsi_handoff <- build_rouen_pmsi_handoff(
 contract <- orchidee_external_contract_v3()
 result <- compose_rouen_external_bundle(
   microbiology_handoff = microbiology_handoff,
-  pmsi_handoff = pmsi_handoff,
-  contract = contract
+  pmsi_handoff = pmsi_handoff
 )
 
-analysis_context_id <- "spares_current"
-analysis_context <- ratb_analysis_context_profile(analysis_context_id)
+analysis_context <- ratb_analysis_context_profile()
 operational_v2_bundle <- if (is.na(operational_v2_output)) {
   NULL
 } else {
-  project_external_bundle_v3_to_operational_v2(
-    result$bundle,
-    analysis_context_id = analysis_context_id
-  )
+  project_external_bundle_v3_to_operational_v2(result$bundle)
 }
 
 runtime_inputs <- build_ratb_downstream_scope_from_canonical_inputs(
@@ -591,8 +586,7 @@ saveRDS(audit, audit_path)
 
 report <- validate_external_input_bundle(
   bundle_dir = bundle_dir,
-  contract = contract,
-  strict_preferred = TRUE
+  contract = contract
 )
 print_external_input_bundle_validation(report)
 if (!isTRUE(report$ok)) {
@@ -603,8 +597,7 @@ operational_v2_report <- NULL
 if (!is.null(operational_v2_bundle)) {
   operational_v2_report <- validate_external_input_bundle(
     bundle_dir = operational_v2_output,
-    contract = orchidee_external_contract_v2(),
-    strict_preferred = TRUE
+    contract = orchidee_external_contract_v2()
   )
   print_external_input_bundle_validation(operational_v2_report)
   if (!isTRUE(operational_v2_report$ok)) {

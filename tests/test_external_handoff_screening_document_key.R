@@ -2,10 +2,11 @@
 
 suppressPackageStartupMessages(library(dplyr))
 
+source("R/helpers.R")
 source("R/phenotype_flag_helpers.R")
 source("R/external_bundle_validation_helpers.R")
 source("R/external_handoff_helpers.R")
-contract <- orchidee_external_contract_v2()
+contract <- orchidee_external_contract_v3()
 
 microbiology_observations <- data.frame(
   PATID = c("P1", "P2", "P3", "P3", "P4", "P4", "P5", "P5", "P6", "P7"),
@@ -75,14 +76,16 @@ build_fixture <- function(observations) {
     microbiology_observations = observations,
     bacteria_mapping = bacteria_mapping,
     sample_type_mapping = sample_type_mapping,
-    antibiotic_mapping = antibiotic_mapping,
-    contract = contract
+    antibiotic_mapping = antibiotic_mapping
   )
 }
 
 # Why: protects the external-handoff engine invariant that screening propagates
 # within one source document without allowing reused ELTID values to suppress
-# unrelated patients or encounters; it also protects the EVTID-missing fallback.
+# unrelated patients or encounters. P5 covers the anomaly rule: its EVTID-less
+# row is dropped, so the screening it carried no longer suppresses its sibling.
+# The legacy fixture covers a source without the column at all, where every row
+# keeps the PATID + ELTID identity.
 sir_wide <- build_fixture(microbiology_observations)
 legacy_sir_wide <- build_fixture(
   microbiology_observations[, setdiff(names(microbiology_observations), "EVTID")]
@@ -90,9 +93,11 @@ legacy_sir_wide <- build_fixture(
 
 retained_keys <- sir_wide[, c("PATID", "EVTID", "ELTID")]
 expected_keys <- data.frame(
-  PATID = c("P2", "P3", "P6", "P7", "P8"),
-  EVTID = c("E_SHARED", "E_KEEP", "E_CONTROL", "E_OTHER", "E_MULTI"),
-  ELTID = c("REUSED", "SAME_PATIENT", "CONTROL", "LEGACY", "MULTI_ROW"),
+  PATID = c("P2", "P3", "P5", "P6", "P7", "P8"),
+  EVTID = c("E_SHARED", "E_KEEP", "E_LEGACY", "E_CONTROL", "E_OTHER", "E_MULTI"),
+  ELTID = c(
+    "REUSED", "SAME_PATIENT", "LEGACY", "CONTROL", "LEGACY", "MULTI_ROW"
+  ),
   stringsAsFactors = FALSE
 )
 

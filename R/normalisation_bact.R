@@ -41,20 +41,7 @@ library(stringr)
 library(purrr)
 
 apply_species_regex_map <- function(x, rules) {
-  if (is.na(x) || is.null(x) || !nzchar(x)) return(NULL)
-
-  # scarta pattern vuoti/NA per evitare warning di stringi su regex vuote
-  if ("pattern" %in% names(rules)) {
-    rules <- rules %>%
-      mutate(pattern = str_squish(as.character(pattern))) %>%
-      filter(!is.na(pattern), nzchar(pattern))
-  }
-  if (nrow(rules) == 0L) return(NULL)
-
-  # usa regex precompilate se presenti; altrimenti le crea al volo
-  if (!".re" %in% names(rules)) {
-    rules <- rules %>% mutate(.re = regex(pattern, ignore_case = TRUE))
-  }
+  if (is.null(x) || is.na(x) || !nzchar(x)) return(NULL)
 
   idx <- which(str_detect(x, rules$.re))[1]
   if (is.na(idx)) return(NULL)

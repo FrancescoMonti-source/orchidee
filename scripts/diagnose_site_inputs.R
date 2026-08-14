@@ -120,7 +120,7 @@ orchidee_source_required_script("external_handoff_helpers.R")
 orchidee_source_required_script("site_input_report_publication_helpers.R")
 
 contract <- orchidee_external_contract_v3()
-spec <- orchidee_handoff_site_input_spec("v3")
+spec <- orchidee_handoff_site_input_spec()
 block_names <- names(spec)
 input_paths <- args[seq_along(block_names)]
 names(input_paths) <- block_names
@@ -576,6 +576,26 @@ if (block_ok[["microbiology_observations"]]) {
   }
   obs$SEJUF <- orchidee_handoff_trim_or_na(obs$SEJUF)
 
+  # The build drops rows whose EVTID is missing while the column is otherwise
+  # populated, so the diagnostics drop them here too: every count below then
+  # describes the rows that actually enter the build. The drop is reported,
+  # never silent, because those rows leave the analysis without failing it.
+  evtid_anomaly_rows <- orchidee_handoff_evtid_anomaly_rows(obs$EVTID)
+  if (any_true(evtid_anomaly_rows)) {
+    add_finding(
+      "WARNING",
+      "microbiology_observations",
+      "rows_without_evtid",
+      paste0(
+        count_true(evtid_anomaly_rows),
+        " rows have no EVTID while other rows do. They are dropped from the ",
+        "build: an occurrence without an event identifier cannot be attributed."
+      ),
+      n_rows = count_true(evtid_anomaly_rows)
+    )
+    obs <- obs[!evtid_anomaly_rows, , drop = FALSE]
+  }
+
   document_key <- orchidee_handoff_document_occurrence_key(
     obs$PATID,
     obs$EVTID,
@@ -596,30 +616,20 @@ if (block_ok[["microbiology_observations"]]) {
     n_document_occurrences = count_occurrences(document_key)
   )
 
-  if ("EVTID" %in% names(blocks$microbiology_observations)) {
-    fallback_rows <- !is.na(document_key) &
-      startsWith(document_key, "patient_sample")
-    if (any_true(fallback_rows)) {
-      add_finding(
-        "INFO",
-        "microbiology_observations",
-        "document_identity_fallback",
-        paste0(
-          count_occurrences(document_key[fallback_rows]),
-          " document occurrences fall back to PATID + ELTID because at least ",
-          "one row of the group has no EVTID."
-        ),
-        n_rows = count_true(fallback_rows),
-        n_document_occurrences = count_occurrences(document_key[fallback_rows])
-      )
-    }
+  if (any(!is.na(obs$EVTID))) {
+    add_finding(
+      "INFO",
+      "microbiology_observations",
+      "document_identity",
+      "EVTID is present: document occurrences are PATID + EVTID + ELTID."
+    )
   } else {
     add_finding(
       "INFO",
       "microbiology_observations",
       "document_identity_fallback",
       paste0(
-        "No EVTID column: every document occurrence is identified by ",
+        "No usable EVTID: every document occurrence is identified by ",
         "PATID + ELTID."
       )
     )
@@ -1407,7 +1417,7 @@ if (!is.null(obs_in_scope)) {
 ## ---------------------------------------------------------------------------
 
 unit <- NULL
-context <- ratb_analysis_context_profile("spares_current")
+context <- ratb_analysis_context_profile()
 
 if (block_ok[["unit_mapping"]]) {
   unit_mapping <- blocks$unit_mapping

@@ -48,12 +48,10 @@ orchidee_external_contract_v2 <- function() {
     bundle = list(
       required_files = c(
         sir_wide = "sir_wide.rds",
-        sir_wide_meta = "sir_wide_meta.rds"
-      ),
-      preferred_sample_scope_reference_file = "sample_scope_reference.rds",
-      compatibility_sample_scope_reference_files = c("ratb_scope_cache", "ratb_scope_cache.rds"),
-      preferred_denominator_file = "denominator_bundle.rds",
-      compatibility_denominator_files = c("ratb_scope_cache", "ratb_scope_cache.rds")
+        sir_wide_meta = "sir_wide_meta.rds",
+        sample_scope_reference = "sample_scope_reference.rds",
+        denominator_bundle = "denominator_bundle.rds"
+      )
     ),
     sir_wide = list(
       required_columns = c(
@@ -74,6 +72,8 @@ orchidee_external_contract_v2 <- function() {
       ),
       atb_cols = atb_cols,
       derived_columns = c("nb_resultats"),
+      # Single definition of the canonical antibiotic value alphabet. Read it
+      # from the contract; do not restate these values elsewhere.
       allowed_atb_values = c("S", "R", "ZIT"),
       row_grain_key = c(
         "PATID",
@@ -142,7 +142,6 @@ orchidee_external_contract_v2 <- function() {
       required_tables = c(
         "incidence_denominator_by_year"
       ),
-      compatibility_tables = c("hospital_days_year_summary_provisional"),
       tables = list(
         incidence_denominator_by_year = list(
           required_columns = c(
@@ -193,17 +192,9 @@ ratb_denominator_profile_registry <- function() {
   )
 }
 
-ratb_analysis_context_profile <- function(
-    analysis_context_id = "spares_current"
-  ) {
-  if (!identical(analysis_context_id, "spares_current")) {
-    stop(
-      "Unsupported RATB analysis context: ", analysis_context_id,
-      call. = FALSE
-    )
-  }
+ratb_analysis_context_profile <- function() {
   list(
-    analysis_context_id = analysis_context_id,
+    analysis_context_id = "spares_current",
     eligible_ta_codes = c("03", "20"),
     eligible_de_domains = ratb_spares_current_de_domains(),
     denominator_profile_id = "midnight_presence",
@@ -237,7 +228,6 @@ orchidee_external_contract_v3 <- function() {
   denominator_profiles <- ratb_denominator_profile_registry()
   contract$denominator_bundle <- list(
     required_tables = "incidence_exposure_by_year_um_uf_ta_de_profile",
-    compatibility_tables = character(),
     tables = list(
       incidence_exposure_by_year_um_uf_ta_de_profile = list(
         required_columns = c(
@@ -330,64 +320,6 @@ external_bundle_validate_paths <- function(bundle_dir, contract = orchidee_exter
     )
   }
 
-  sample_scope_path <- file.path(bundle_dir, contract$bundle$preferred_sample_scope_reference_file)
-  sample_scope_source <- "preferred"
-  if (!file.exists(sample_scope_path)) {
-    compat_candidates <- file.path(bundle_dir, contract$bundle$compatibility_sample_scope_reference_files)
-    existing <- compat_candidates[file.exists(compat_candidates)]
-    if (length(existing) > 0L) {
-      sample_scope_path <- existing[[1]]
-      sample_scope_source <- "compatibility"
-      warnings <- external_bundle_add_issue(
-        warnings,
-        paste0(
-          "Preferred sample-scope reference file not found; using compatibility source ",
-          basename(sample_scope_path),
-          "."
-        )
-      )
-    } else {
-      errors <- external_bundle_add_issue(
-        errors,
-        paste0(
-          "Missing sample-scope reference. Expected ",
-          contract$bundle$preferred_sample_scope_reference_file,
-          " or one of: ",
-          paste(contract$bundle$compatibility_sample_scope_reference_files, collapse = ", ")
-        )
-      )
-    }
-  }
-
-  denominator_path <- file.path(bundle_dir, contract$bundle$preferred_denominator_file)
-  denominator_source <- "preferred"
-  if (!file.exists(denominator_path)) {
-    compat_candidates <- file.path(bundle_dir, contract$bundle$compatibility_denominator_files)
-    existing <- compat_candidates[file.exists(compat_candidates)]
-    if (length(existing) > 0L) {
-      denominator_path <- existing[[1]]
-      denominator_source <- "compatibility"
-      warnings <- external_bundle_add_issue(
-        warnings,
-        paste0(
-          "Preferred denominator file not found; using compatibility source ",
-          basename(denominator_path),
-          "."
-        )
-      )
-    } else {
-      errors <- external_bundle_add_issue(
-        errors,
-        paste0(
-          "Missing denominator bundle. Expected ",
-          contract$bundle$preferred_denominator_file,
-          " or one of: ",
-          paste(contract$bundle$compatibility_denominator_files, collapse = ", ")
-        )
-      )
-    }
-  }
-
   list(
     ok = length(errors) == 0L,
     errors = unique(errors),
@@ -396,10 +328,10 @@ external_bundle_validate_paths <- function(bundle_dir, contract = orchidee_exter
       bundle_dir = normalizePath(bundle_dir, winslash = "/", mustWork = FALSE),
       sir_wide = unname(required_file_paths[["sir_wide"]]),
       sir_wide_meta = unname(required_file_paths[["sir_wide_meta"]]),
-      sample_scope_reference = sample_scope_path,
-      sample_scope_reference_source = sample_scope_source,
-      denominator_bundle = denominator_path,
-      denominator_source = denominator_source
+      sample_scope_reference = unname(
+        required_file_paths[["sample_scope_reference"]]
+      ),
+      denominator_bundle = unname(required_file_paths[["denominator_bundle"]])
     )
   )
 }
@@ -669,44 +601,6 @@ external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract 
   list(ok = length(errors) == 0L, errors = unique(errors), warnings = unique(warnings))
 }
 
-external_bundle_coerce_sample_scope_reference <- function(sample_scope_reference) {
-  if (is.data.frame(sample_scope_reference)) {
-    return(sample_scope_reference)
-  }
-
-  if (is.list(sample_scope_reference) && is.data.frame(sample_scope_reference$sample_scope_reference)) {
-    return(sample_scope_reference$sample_scope_reference)
-  }
-
-  if (is.list(sample_scope_reference) && is.data.frame(sample_scope_reference$ratb_uf_ta_de_reference)) {
-    ref <- sample_scope_reference$ratb_uf_ta_de_reference
-    compat_cols <- c(
-      "SEJUF",
-      "CODE_TA",
-      "CODE_DE",
-      "de_domain_ref",
-      "uf_is_eligible_by_ta_de",
-      "uf_ta_de_status",
-      "uf_ta_de_reason"
-    )
-    if (!all(compat_cols %in% names(ref))) {
-      return(sample_scope_reference)
-    }
-    return(data.frame(
-      SEJUF = as.character(ref$SEJUF),
-      sample_CODE_TA = as.character(ref$CODE_TA),
-      sample_CODE_DE = as.character(ref$CODE_DE),
-      sample_de_domain_ref = as.character(ref$de_domain_ref),
-      sample_uf_is_eligible_by_ta_de = as.logical(ref$uf_is_eligible_by_ta_de),
-      sample_uf_ta_de_status = as.character(ref$uf_ta_de_status),
-      sample_uf_ta_de_reason = as.character(ref$uf_ta_de_reason),
-      stringsAsFactors = FALSE
-    ))
-  }
-
-  sample_scope_reference
-}
-
 external_bundle_validate_sample_scope_reference <- function(
     sample_scope_reference,
     contract = orchidee_external_contract_v2()
@@ -714,7 +608,6 @@ external_bundle_validate_sample_scope_reference <- function(
   errors <- character(0)
   warnings <- character(0)
   spec <- contract$sample_scope_reference
-  sample_scope_reference <- external_bundle_coerce_sample_scope_reference(sample_scope_reference)
 
   if (!is.data.frame(sample_scope_reference)) {
     errors <- external_bundle_add_issue(errors, "sample_scope_reference is not a data.frame.")
@@ -804,7 +697,6 @@ external_bundle_subset_sample_scope_reference <- function(
     sample_scope_reference,
     contract = orchidee_external_contract_v2()
   ) {
-  sample_scope_reference <- external_bundle_coerce_sample_scope_reference(sample_scope_reference)
   required_columns <- contract$sample_scope_reference$required_columns
 
   if (!is.data.frame(sample_scope_reference) ||
@@ -948,47 +840,10 @@ external_bundle_validate_denominator_table <- function(
   list(ok = length(errors) == 0L, errors = unique(errors), warnings = unique(warnings))
 }
 
-external_bundle_coerce_denominator_bundle <- function(
-    denominator_bundle,
-    contract = orchidee_external_contract_v2()
-  ) {
-  if (!is.list(denominator_bundle)) {
-    return(denominator_bundle)
-  }
-
-  required_tables <- contract$denominator_bundle$required_tables
-  if (all(required_tables %in% names(denominator_bundle))) {
-    return(denominator_bundle)
-  }
-
-  legacy_tbl <- denominator_bundle$hospital_days_year_summary_provisional
-  if (!is.data.frame(legacy_tbl) &&
-      is.list(denominator_bundle$denominator_bundle)) {
-    legacy_tbl <- denominator_bundle$denominator_bundle$hospital_days_year_summary_provisional
-  }
-
-  if (!is.data.frame(legacy_tbl) ||
-      !all(c("calendar_year", "hospital_nights_provisional") %in% names(legacy_tbl))) {
-    return(denominator_bundle)
-  }
-
-  list(
-    incidence_denominator_by_year = data.frame(
-      calendar_year = legacy_tbl$calendar_year,
-      hospital_nights = legacy_tbl$hospital_nights_provisional,
-      stringsAsFactors = FALSE
-    )
-  )
-}
-
 external_bundle_validate_denominator_bundle <- function(denominator_bundle, contract = orchidee_external_contract_v2()) {
   errors <- character(0)
   warnings <- character(0)
   spec <- contract$denominator_bundle
-  denominator_bundle <- external_bundle_coerce_denominator_bundle(
-    denominator_bundle,
-    contract = contract
-  )
 
   if (!is.list(denominator_bundle)) {
     errors <- external_bundle_add_issue(errors, "Denominator bundle is not a list.")
@@ -1023,10 +878,6 @@ external_bundle_subset_denominator_bundle <- function(
     denominator_bundle,
     contract = orchidee_external_contract_v2()
   ) {
-  denominator_bundle <- external_bundle_coerce_denominator_bundle(
-    denominator_bundle,
-    contract = contract
-  )
   required_tables <- contract$denominator_bundle$required_tables
   if (!is.list(denominator_bundle) || !all(required_tables %in% names(denominator_bundle))) {
     return(denominator_bundle)
@@ -1053,13 +904,8 @@ external_bundle_validate_cross_artifacts <- function(
     return(list(ok = TRUE, errors = errors, warnings = warnings))
   }
 
-  scope <- external_bundle_coerce_sample_scope_reference(
-    sample_scope_reference
-  )
-  denominator <- external_bundle_coerce_denominator_bundle(
-    denominator_bundle,
-    contract = contract
-  )
+  scope <- sample_scope_reference
+  denominator <- denominator_bundle
   if (!is.data.frame(scope) || !is.list(denominator)) {
     return(list(ok = TRUE, errors = errors, warnings = warnings))
   }
@@ -1112,7 +958,7 @@ external_bundle_validate_cross_artifacts <- function(
       )
     }
 
-    context <- ratb_analysis_context_profile("spares_current")
+    context <- ratb_analysis_context_profile()
     expected_scope <-
       scope_matched$sample_CODE_TA %in% context$eligible_ta_codes &
       scope_matched$sample_de_domain_ref %in% context$eligible_de_domains
@@ -1140,8 +986,7 @@ external_bundle_validate_cross_artifacts <- function(
 
 validate_external_input_bundle <- function(
     bundle_dir,
-    contract = orchidee_external_contract_v2(),
-    strict_preferred = FALSE
+    contract = orchidee_external_contract_v2()
   ) {
   path_validation <- external_bundle_validate_paths(bundle_dir, contract = contract)
   errors <- path_validation$errors
@@ -1154,12 +999,8 @@ validate_external_input_bundle <- function(
       errors = unique(errors),
       warnings = unique(warnings),
       paths = path_validation$paths,
-      denominator_source = NA_character_,
       contract_version = contract$version
     )
-    if (isTRUE(strict_preferred) && !is.null(report$paths)) {
-      report <- external_bundle_enforce_preferred_sources(report)
-    }
     return(report)
   }
 
@@ -1204,45 +1045,8 @@ validate_external_input_bundle <- function(
     errors = unique(errors),
     warnings = unique(warnings),
     paths = path_validation$paths,
-    sample_scope_reference_source = basename(path_validation$paths$sample_scope_reference),
-    denominator_source = basename(path_validation$paths$denominator_bundle),
     contract_version = contract$version
   )
-  if (isTRUE(strict_preferred)) {
-    report <- external_bundle_enforce_preferred_sources(report)
-  }
-
-  report
-}
-
-external_bundle_enforce_preferred_sources <- function(report) {
-  errors <- character(0)
-  paths <- report$paths
-
-  if (is.null(paths)) {
-    errors <- external_bundle_add_issue(
-      errors,
-      "Cannot enforce preferred sources because bundle paths were not resolved."
-    )
-  } else {
-    if (!identical(paths$sample_scope_reference_source, "preferred")) {
-      errors <- external_bundle_add_issue(
-        errors,
-        "Strict preferred mode requires sample_scope_reference.rds."
-      )
-    }
-    if (!identical(paths$denominator_source, "preferred")) {
-      errors <- external_bundle_add_issue(
-        errors,
-        "Strict preferred mode requires denominator_bundle.rds."
-      )
-    }
-  }
-
-  if (length(errors) > 0L) {
-    report$ok <- FALSE
-    report$errors <- unique(c(report$errors, errors))
-  }
 
   report
 }
@@ -1250,15 +1054,13 @@ external_bundle_enforce_preferred_sources <- function(report) {
 load_validated_external_input_bundle <- function(
     bundle_dir,
     contract = orchidee_external_contract_v2(),
-    strict_preferred = FALSE,
     validation_report = NULL
   ) {
   report <- validation_report
   if (is.null(report)) {
     report <- validate_external_input_bundle(
       bundle_dir = bundle_dir,
-      contract = contract,
-      strict_preferred = strict_preferred
+      contract = contract
     )
   }
   if (!identical(report$contract_version, contract$version)) {

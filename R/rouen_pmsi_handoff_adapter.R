@@ -196,7 +196,7 @@ build_rouen_pmsi_handoff <- function(
     dplyr::arrange(.data$calendar_year)
   if (any(v3_current_profile_identity$difference != 0L)) {
     stop(
-      "Rouen v3 current-profile exposure differs from the v2 denominator.",
+      "Rouen current-profile exposure differs from the annual denominator.",
       call. = FALSE
     )
   }
@@ -255,7 +255,6 @@ build_rouen_pmsi_handoff <- function(
   list(
     site_inputs = list(
       unit_mapping = unit_mapping,
-      denominator_by_year = denominator_by_year,
       incidence_exposure_by_year_um_uf_ta_de_profile =
         incidence_exposure_by_year_um_uf_ta_de_profile
     ),
@@ -282,8 +281,7 @@ build_rouen_pmsi_handoff <- function(
 
 compose_rouen_external_bundle <- function(
     microbiology_handoff,
-    pmsi_handoff,
-    contract
+    pmsi_handoff
   ) {
   if (!is.list(microbiology_handoff) ||
       !is.list(microbiology_handoff$site_inputs) ||
@@ -296,17 +294,11 @@ compose_rouen_external_bundle <- function(
     "microbiology_observations", "bacteria_mapping",
     "sample_type_mapping", "antibiotic_mapping"
   )
-  contract_version <- if (is.list(contract)) contract$version else NULL
-  if (!is.character(contract_version) || length(contract_version) != 1L ||
-      !contract_version %in% c("v2", "v3")) {
-    stop("Rouen bundle composition requires contract v2 or v3.", call. = FALSE)
-  }
-  denominator_input_name <- if (identical(contract_version, "v3")) {
+  contract <- orchidee_external_contract_v3()
+  pmsi_names <- c(
+    "unit_mapping",
     "incidence_exposure_by_year_um_uf_ta_de_profile"
-  } else {
-    "denominator_by_year"
-  }
-  pmsi_names <- c("unit_mapping", denominator_input_name)
+  )
   if (!all(microbiology_names %in% names(microbiology_handoff$site_inputs)) ||
       !all(pmsi_names %in% names(pmsi_handoff$site_inputs))) {
     stop("Rouen handoff objects do not expose the expected six inputs.", call. = FALSE)
@@ -350,29 +342,18 @@ compose_rouen_external_bundle <- function(
     bacteria_mapping = microbiology_handoff$site_inputs$bacteria_mapping,
     sample_type_mapping = microbiology_handoff$site_inputs$sample_type_mapping,
     antibiotic_mapping = microbiology_handoff$site_inputs$antibiotic_mapping,
-    unit_mapping = pmsi_handoff$site_inputs$unit_mapping
+    unit_mapping = pmsi_handoff$site_inputs$unit_mapping,
+    incidence_exposure_by_year_um_uf_ta_de_profile =
+      pmsi_handoff$site_inputs$incidence_exposure_by_year_um_uf_ta_de_profile
   )
-  site_inputs[[denominator_input_name]] <-
-    pmsi_handoff$site_inputs[[denominator_input_name]]
   bundle <- orchidee_handoff_build_external_bundle_from_site_inputs(
     microbiology_observations = site_inputs$microbiology_observations,
     bacteria_mapping = site_inputs$bacteria_mapping,
     sample_type_mapping = site_inputs$sample_type_mapping,
     antibiotic_mapping = site_inputs$antibiotic_mapping,
     unit_mapping = site_inputs$unit_mapping,
-    denominator_by_year = if (identical(contract$version, "v2")) {
-      site_inputs$denominator_by_year
-    } else {
-      NULL
-    },
-    contract = contract,
-    incidence_exposure_by_year_um_uf_ta_de_profile = if (
-      identical(contract$version, "v3")
-    ) {
+    incidence_exposure_by_year_um_uf_ta_de_profile =
       site_inputs$incidence_exposure_by_year_um_uf_ta_de_profile
-    } else {
-      NULL
-    }
   )
 
   validation <- list(
@@ -407,7 +388,7 @@ compose_rouen_external_bundle <- function(
   )))
   missing_denominator_years <- setdiff(
     diagnostic_years,
-    site_inputs[[denominator_input_name]]$calendar_year
+    site_inputs$incidence_exposure_by_year_um_uf_ta_de_profile$calendar_year
   )
   if (length(missing_denominator_years) > 0L) {
     stop(
@@ -437,7 +418,7 @@ compose_rouen_external_bundle <- function(
       "Long rows available before shared screening/document collapse.",
       "Long rows whose canonical SEJUF comes from active PMSI hospitalization.",
       "Long rows kept visible with missing canonical SEJUF and no fallback.",
-      paste0("Canonical isolates in the validated ", contract_version, " bundle.")
+      "Canonical isolates in the validated v3 bundle."
     )
   )
 
