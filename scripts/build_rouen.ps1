@@ -212,7 +212,7 @@ $runtimeWorkspace = Join-Path $outputPath 'runtime'
 $bundleLiteral = ConvertTo-OrchideePowerShellLiteral -Value $operationalV2Path
 $runtimeLiteral = ConvertTo-OrchideePowerShellLiteral -Value $runtimeWorkspace
 Write-Host (
-  '& .\scripts\render_orchidee.ps1 -Target full ' +
+  '& .\scripts\render_orchidee.ps1 -Rebuild ' +
   "-Bundle $bundleLiteral " +
   "-Workspace $runtimeLiteral"
 )

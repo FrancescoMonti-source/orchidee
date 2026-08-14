@@ -83,10 +83,11 @@ Notes:
 ## Rendering And Verification
 
 - Use `scripts/render_orchidee.ps1` for routine renders.
-- Available targets are `indicators` and `full`.
-- Use `full` after changes to upstream pipeline, raw deduplication, perimeter,
-  denominator, or indicator logic; it builds the canonical raw cache and then
-  renders the indicator report.
+- Add `-Rebuild` after changes to upstream pipeline, raw deduplication,
+  perimeter, denominator, or indicator logic; it builds the canonical raw cache
+  before rendering the indicator report. The cache is signed by the input
+  bundle, not by the code that produced it, so an unchanged bundle leaves a
+  stale cache in place.
 - Do not reintroduce completion or `chu_native` as a fallback or implicit
   operational path.
 - Before changing code because a report looks wrong, determine whether the

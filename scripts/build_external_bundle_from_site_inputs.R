@@ -602,7 +602,7 @@ if (!is.na(operational_v2_output)) {
       "  $workspace = ",
       quote_powershell_string(runtime_workspace_path),
       "\n",
-      "  & .\\scripts\\render_orchidee.ps1 -Target full ",
+      "  & .\\scripts\\render_orchidee.ps1 -Rebuild ",
       "-Bundle $bundle -Workspace $workspace\n",
       sep = ""
     )

@@ -589,7 +589,7 @@ stopifnot(
     fixed = TRUE
   )),
   any(grepl(
-    "render_orchidee.ps1 -Target full -Bundle $bundle -Workspace $workspace",
+    "render_orchidee.ps1 -Rebuild -Bundle $bundle -Workspace $workspace",
     cli_output,
     fixed = TRUE
   )),

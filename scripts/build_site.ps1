@@ -394,6 +394,10 @@ if ($isDiagnose) {
   $diagnoser = Join-Path $RepoRoot 'scripts\diagnose_site_inputs.R'
   Push-Location $RepoRoot
   try {
+    # Do not redirect this stderr: sites run this wrapper under Windows
+    # PowerShell 5.1, where a redirected native stderr becomes a terminating
+    # error and $diagnoseExit never gets read, collapsing the documented exit 2
+    # onto exit 1.
     & $rScript --no-save --no-restore $diagnoser @inputPaths $reportRoot
     $diagnoseExit = $LASTEXITCODE
   }
@@ -631,7 +635,7 @@ Write-Host 'Optional indicator render from this same build:'
 $bundleV2Literal = ConvertTo-OrchideePowerShellLiteral -Value $bundleV2Path
 $runtimeLiteral = ConvertTo-OrchideePowerShellLiteral -Value $runtimePath
 Write-Host (
-  '& .\scripts\render_orchidee.ps1 -Target full ' +
+  '& .\scripts\render_orchidee.ps1 -Rebuild ' +
   "-Bundle $bundleV2Literal " +
   "-Workspace $runtimeLiteral"
 )

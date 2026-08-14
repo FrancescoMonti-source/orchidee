@@ -1,43 +1,44 @@
 <#
 .SYNOPSIS
-Renders an ORCHIDEE document target with the locked R environment.
+Renders the ORCHIDEE indicator report with the locked R environment.
 
 .DESCRIPTION
 Resolves Quarto and the locked R installation, checks the packages and inputs
-needed by the selected target, then runs the smallest corresponding render.
-Data-bearing targets display the effective bundle and workspace before work.
+the render needs, then renders the indicator report. The effective bundle and
+workspace are displayed before any work.
 
-.PARAMETER Target
-Render target: indicators or full.
-Full rebuilds the canonical raw runtime before rendering the indicator report.
+.PARAMETER Rebuild
+Rebuild the canonical raw runtime cache before rendering. Required after
+changes to the upstream pipeline, raw deduplication, perimeter, denominator or
+indicator logic: the cache is keyed on the input bundle, not on the code that
+produced it, so an unchanged bundle leaves a stale cache in place.
 
 .PARAMETER Bundle
-Explicit external_bundle_v2 directory for indicators or full. Relative paths
-are resolved from the repository root. This takes precedence over
-ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR for this invocation only.
+Explicit external_bundle_v2 directory. Relative paths are resolved from the
+repository root. This takes precedence over ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR
+for this invocation only.
 
 .PARAMETER Workspace
-Explicit private runtime workspace for indicators or full. Relative paths are
-resolved from the repository root. This takes precedence over
-ORCHIDEE_EXTERNAL_WORKSPACE_DIR for this invocation only.
+Explicit private runtime workspace. Relative paths are resolved from the
+repository root. This takes precedence over ORCHIDEE_EXTERNAL_WORKSPACE_DIR
+for this invocation only.
 
 .PARAMETER DryRun
 Check Quarto, locked R, required packages and data paths, then print the
 commands without building the runtime or rendering documents.
 
 .EXAMPLE
-& .\scripts\render_orchidee.ps1 -Target indicators
+& .\scripts\render_orchidee.ps1
 
 .EXAMPLE
-& .\scripts\render_orchidee.ps1 -Target full `
+& .\scripts\render_orchidee.ps1 -Rebuild `
   -Bundle "outputs\rouen_current\bundle_v2_operational" `
   -Workspace "outputs\rouen_current\runtime"
 #>
 
 [CmdletBinding()]
 param(
-  [ValidateSet('indicators','full')]
-  [string]$Target = 'indicators',
+  [switch]$Rebuild,
 
   [string]$Bundle,
 
@@ -162,55 +163,48 @@ try {
     -AdditionalCandidates @($env:QUARTO_R)
   $env:QUARTO_R = $rScript
 
-  $targets = switch ($Target) {
-    'indicators' {
-      @('orchidee_ratb_indicators.qmd')
-    }
-    'full' {
-      @('orchidee_ratb_indicators.qmd')
-    }
-  }
+  $targets = @('orchidee_ratb_indicators.qmd')
 
   Write-Host "Repo: $RepoRoot"
-  Write-Host "Target: $Target"
+  Write-Host "Rebuild: $($Rebuild.IsPresent)"
   Write-Host "Quarto: $quarto ($quartoVersion)"
   Write-Host "QUARTO_R: $rScript"
 
-  if ($Target -in @('indicators', 'full')) {
-    $bundleValue = $env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR
-    $workspaceValue = $env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR
-    $bundleSource = if ($bundleWasExplicit) {
-      '-Bundle parameter'
-    } elseif ($bundleValue) {
-      'environment variable ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR'
-    } else {
-      'config/pipeline.R default'
-    }
-    $workspaceSource = if ($workspaceWasExplicit) {
-      '-Workspace parameter'
-    } elseif ($workspaceValue) {
-      'environment variable ORCHIDEE_EXTERNAL_WORKSPACE_DIR'
-    } else {
-      'config/pipeline.R default'
-    }
-
-    Write-Host "Bundle source: $bundleSource"
-    Write-Host "Workspace source: $workspaceSource"
-    if (-not $bundleWasExplicit -and $bundleValue) {
-      Write-Warning (
-        'A bundle environment override is active. This render may not use ' +
-        'the Rouen bundle just built. Pass -Bundle explicitly to bind the ' +
-        'intended bundle to this invocation.'
-      )
-    }
+  $bundleValue = $env:ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR
+  $workspaceValue = $env:ORCHIDEE_EXTERNAL_WORKSPACE_DIR
+  $bundleSource = if ($bundleWasExplicit) {
+    '-Bundle parameter'
+  } elseif ($bundleValue) {
+    'environment variable ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR'
   } else {
-    Write-Host 'Bundle: not used by this target'
+    'config/pipeline.R default'
+  }
+  $workspaceSource = if ($workspaceWasExplicit) {
+    '-Workspace parameter'
+  } elseif ($workspaceValue) {
+    'environment variable ORCHIDEE_EXTERNAL_WORKSPACE_DIR'
+  } else {
+    'config/pipeline.R default'
+  }
+
+  Write-Host "Bundle source: $bundleSource"
+  Write-Host "Workspace source: $workspaceSource"
+  if (-not $bundleWasExplicit -and $bundleValue) {
+    Write-Warning (
+      'A bundle environment override is active. This render may not use ' +
+      'the Rouen bundle just built. Pass -Bundle explicitly to bind the ' +
+      'intended bundle to this invocation.'
+    )
   }
 
   $renderProbe = Join-Path $RepoRoot 'scripts\check_render_environment.R'
+  $probeArgs = @('--no-save', '--no-restore', $renderProbe)
+  if ($Rebuild) {
+    $probeArgs += '--rebuild'
+  }
   Push-Location $RepoRoot
   try {
-    & $rScript --no-save --no-restore $renderProbe $Target
+    & $rScript @probeArgs
     if ($LASTEXITCODE -ne 0) {
       throw (
         'Render preflight failed. Review the R error above; correct the ' +
@@ -223,7 +217,7 @@ try {
     Pop-Location
   }
 
-  if ($Target -eq 'full') {
+  if ($Rebuild) {
     $rawBuilder = Join-Path $RepoRoot 'scripts\build_ratb_raw_runtime.R'
     Write-Host (
       "> $rScript --no-save --no-restore scripts/build_ratb_raw_runtime.R"
