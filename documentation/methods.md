@@ -139,6 +139,6 @@ qu'une lecture les prenne pour un choix motivé.
 ## Gouvernance
 
 Une modification qui touche une ligne de ce document est une modification
-méthodologique : elle exige les tests, un rendu `full`, la porte de comparaison
+méthodologique : elle exige les tests, un rendu `-Rebuild`, la porte de comparaison
 opérationnelle et la mise à jour de la ligne concernée. Les réglages et ce qu'il
 faut refaire après chacun sont dans [`knobs.md`](knobs.md).

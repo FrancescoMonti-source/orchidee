@@ -395,7 +395,7 @@ if (identical(.Platform$OS.type, "windows")) {
   )
   render_valid_run <- run_r_script(
     "scripts/check_render_environment.R",
-    "full",
+    "--rebuild",
     env = render_environment
   )
 
@@ -420,7 +420,7 @@ if (identical(.Platform$OS.type, "windows")) {
     normalizePath(invalid_bundle_dir, winslash = "/", mustWork = TRUE)
   render_invalid_run <- run_r_script(
     "scripts/check_render_environment.R",
-    "full",
+    "--rebuild",
     env = invalid_render_environment
   )
   wrapper_repeat_dry_run <- run_site_wrapper(
@@ -666,7 +666,7 @@ if (identical(.Platform$OS.type, "windows")) {
       fixed = TRUE
     )),
     sum(grepl(
-      "render_orchidee.ps1 -Target full",
+      "render_orchidee.ps1 -Rebuild",
       wrapper_build_run$output,
       fixed = TRUE
     )) == 1L,

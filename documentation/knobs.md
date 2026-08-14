@@ -24,8 +24,8 @@ paramètres de ligne de commande et ne sont pas versionnés.
 
 | Réglage | Où | À refaire |
 |--------------------|--------------------|-----------------------------|
-| `report$datatable_digits`, `datatable_filter_default`, `datatable_initial_zoom`, `datatable_zoom_step` | `config/pipeline.R` | Rendu `indicators` |
-| `ratb$indicator_show_full_spec` | `config/pipeline.R` | Rendu `indicators` |
+| `report$datatable_digits`, `datatable_filter_default`, `datatable_initial_zoom`, `datatable_zoom_step` | `config/pipeline.R` | Rendu |
+| `ratb$indicator_show_full_spec` | `config/pipeline.R` | Rendu |
 
 ## B — exécution
 
@@ -33,18 +33,18 @@ paramètres de ligne de commande et ne sont pas versionnés.
 |--------------------|--------------------|-----------------------------|
 | `runtime$external_bundle_v2_dir`, `runtime$external_workspace_dir` | `config/pipeline.R`, ou `ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR` et `ORCHIDEE_EXTERNAL_WORKSPACE_DIR` | Rendu concerné |
 | `ORCHIDEE_ROUEN_STRUCTURE_PATH` | environnement ; défaut dans `config/rouen_raw_handoff.R`. `ORCHIDEE_CONSORES_STRUCTURE_PATH` est déprécié et avertit | Build Rouen |
-| `cache$recompute_dedup`, `cache$recompute_incidence_pipeline` | `config/pipeline.R` | Rendu `full`, puis remettre à `FALSE` |
 | `paths$*` | `config/pipeline.R` | Rendu concerné |
 
-`cache$recompute_*` est un drapeau d'état qu'il faut penser à remettre à `FALSE`
-après le rendu. Tant qu'il n'est pas converti en paramètre de
-`scripts/render_orchidee.ps1`, c'est le réglage le plus facile à oublier dans
-une position qui fait recalculer, ou pire ne pas recalculer, sans le dire.
+La reconstruction du cache n'est pas un réglage de `config/pipeline.R` mais le
+commutateur `-Rebuild` de `scripts/render_orchidee.ps1`, valable pour la seule
+invocation qui le porte. Il est nécessaire après un changement de code en
+amont : le cache est signé par le bundle d'entrée, pas par le code qui l'a
+produit, donc un bundle inchangé laisse en place un cache périmé.
 
 ## C — analytique
 
 Toute modification ici change des chiffres publiés. Elle exige, à chaque fois :
-`tests/run_tests.R`, un rendu `full`, la porte
+`tests/run_tests.R`, un rendu `-Rebuild`, la porte
 `scripts/compare_operational_v2_gate.R`, et la mise à jour de la ligne
 correspondante de [`methods.md`](methods.md).
 

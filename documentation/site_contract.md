@@ -491,14 +491,15 @@ $bundle = (Resolve-Path `
   "outputs/site_current/bundle_v2_operational").Path
 $workspace = Join-Path (Get-Location) "outputs/site_current/runtime"
 
-& .\scripts\render_orchidee.ps1 -Target full `
+& .\scripts\render_orchidee.ps1 -Rebuild `
   -Bundle $bundle `
   -Workspace $workspace
 ```
 
 Le wrapper affiche cette commande avec les chemins exacts résolus à la fin
-du build. Le rendu `full` calcule les indicateurs opérationnels et écrit ses
-caches et exports de rapport sous l'espace de travail privé sélectionné.
+du build. `-Rebuild` construit le cache brut canonique avant de calculer les
+indicateurs ; les caches et les exports de rapport sont écrits sous l'espace de
+travail privé sélectionné.
 
 ## En cas d'échec de la validation
 

@@ -50,7 +50,9 @@ cliniques :
 ```
 
 Après le `PASS`, retirer `-DryRun` pour lancer le build. Il peut durer une
-vingtaine de minutes et rester silencieux. La sortie par défaut est
+vingtaine de minutes et rester silencieux. Ajouter `*> build.log` pour en garder
+une trace : sans cette redirection, un échec affiche sa cause à l'écran mais ne
+la laisse dans aucun fichier. La sortie par défaut est
 `outputs/rouen_current` ; `-Output` accepte un autre répertoire dédié, y compris
 protégé hors du dépôt. Une exécution réussie finit par `PASS` et écrit
 `build_manifest.txt` : sans ce fichier, ne pas utiliser la sortie.
@@ -61,7 +63,7 @@ complet, à conserver), `bundle_v2_operational/` (l'entrée du runtime) et
 les indicateurs à partir du même build :
 
 ```powershell
-& .\scripts\render_orchidee.ps1 -Target full `
+& .\scripts\render_orchidee.ps1 -Rebuild `
   -Bundle "outputs/rouen_current/bundle_v2_operational" `
   -Workspace "outputs/rouen_current/runtime"
 ```

@@ -62,6 +62,12 @@ if ($PSCmdlet.ParameterSetName -eq 'Expression') {
 
 Push-Location $RepoRoot
 try {
+  # Do not redirect R's stderr here. Windows PowerShell 5.1 turns a redirected
+  # native stderr into a terminating error under ErrorActionPreference Stop,
+  # which destroys $LASTEXITCODE before the check below reads it; 2>&1 and
+  # 2>file both do it, and relaxing the preference does not help. A caller that
+  # needs to keep the cause merges the streams on its own side, with
+  # `& .\scripts\run_r.ps1 ... *> run.log`.
   & $rScript @rArgs
   if ($LASTEXITCODE -ne 0) {
     throw "$description failed (exit $LASTEXITCODE)."
