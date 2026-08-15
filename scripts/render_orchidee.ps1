@@ -8,10 +8,10 @@ the render needs, then renders the indicator report. The effective bundle and
 workspace are displayed before any work.
 
 .PARAMETER Rebuild
-Rebuild the canonical raw runtime cache before rendering. Required after
-changes to the upstream pipeline, raw deduplication, perimeter, denominator or
-indicator logic: the cache is keyed on the input bundle, not on the code that
-produced it, so an unchanged bundle leaves a stale cache in place.
+Rebuild the canonical raw runtime cache even when it is already current. Every
+render checks the cache against both its input bundle and the code that
+produces it, and rebuilds it when either changed, so this switch is only needed
+to force the work anyway.
 
 .PARAMETER Bundle
 Explicit external_bundle_v2 directory. Relative paths are resolved from the
@@ -199,9 +199,6 @@ try {
 
   $renderProbe = Join-Path $RepoRoot 'scripts\check_render_environment.R'
   $probeArgs = @('--no-save', '--no-restore', $renderProbe)
-  if ($Rebuild) {
-    $probeArgs += '--rebuild'
-  }
   Push-Location $RepoRoot
   try {
     & $rScript @probeArgs
@@ -217,22 +214,27 @@ try {
     Pop-Location
   }
 
+  # The builder decides for itself whether the cache is current, so running it
+  # unconditionally is what keeps -Rebuild from being a rule to remember.
+  $rawBuilder = Join-Path $RepoRoot 'scripts\build_ratb_raw_runtime.R'
+  $rawBuilderArgs = @('--no-save', '--no-restore', $rawBuilder)
+  $rawBuilderDisplay = '> ' + $rScript +
+    ' --no-save --no-restore scripts/build_ratb_raw_runtime.R'
   if ($Rebuild) {
-    $rawBuilder = Join-Path $RepoRoot 'scripts\build_ratb_raw_runtime.R'
-    Write-Host (
-      "> $rScript --no-save --no-restore scripts/build_ratb_raw_runtime.R"
-    )
-    if (-not $DryRun) {
-      Push-Location $RepoRoot
-      try {
-        & $rScript --no-save --no-restore $rawBuilder
-        if ($LASTEXITCODE -ne 0) {
-          throw "Raw RATB cache build failed (exit $LASTEXITCODE)"
-        }
+    $rawBuilderArgs += '--force'
+    $rawBuilderDisplay += ' --force'
+  }
+  Write-Host $rawBuilderDisplay
+  if (-not $DryRun) {
+    Push-Location $RepoRoot
+    try {
+      & $rScript @rawBuilderArgs
+      if ($LASTEXITCODE -ne 0) {
+        throw "Raw RATB cache build failed (exit $LASTEXITCODE)"
       }
-      finally {
-        Pop-Location
-      }
+    }
+    finally {
+      Pop-Location
     }
   }
 

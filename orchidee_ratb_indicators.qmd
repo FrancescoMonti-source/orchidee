@@ -112,6 +112,10 @@ orchidee_source_required_script(
   "RATB operational input helpers"
 )
 orchidee_source_required_script(
+  "ratb_raw_runtime_helpers.R",
+  "canonical raw runtime helpers"
+)
+orchidee_source_required_script(
   "ratb_report_helpers.R",
   "ratb_report_helpers script"
 )
@@ -126,6 +130,7 @@ operational_runtime <- load_ratb_operational_runtime(config = orchidee_config)
 ratb_operational_context <- operational_runtime$context
 cache_dir <- ratb_operational_context$cache_dir
 mappings_dir <- orchidee_config$paths$mappings_dir
+species_taxonomy_path <- ratb_raw_cache_species_regex_map_path(mappings_dir)
 sir_wide_meta <- operational_runtime$sir_wide_meta
 sir_wide <- operational_runtime$sir_wide
 
@@ -172,22 +177,21 @@ if (!is.list(dedup_results) || !is.list(dedup_cache_meta)) {
   )
 }
 
-if (
-  !"runtime_input_signature" %in% names(dedup_cache_meta) ||
-    !identical(
-      dedup_cache_meta$runtime_input_signature,
-      operational_runtime$runtime_input_signature
-    )
-) {
+cache_staleness_reasons <- ratb_raw_cache_staleness_reasons(
+  dedup_cache_meta,
+  operational_runtime$runtime_input_signature,
+  species_taxonomy_path
+)
+if (length(cache_staleness_reasons) > 0L) {
   stop(
-    "Dedup cache does not match the selected RATB operational input. ",
-    "Run scripts/build_ratb_raw_runtime.R first.",
+    "The canonical raw dedup cache cannot be reused because ",
+    paste(cache_staleness_reasons, collapse = " and "),
+    ". Run scripts/build_ratb_raw_runtime.R first.",
     call. = FALSE
   )
 }
 
 runtime_inputs <- operational_runtime$runtime_inputs
-sir_wide_ratb_scope <- runtime_inputs$sir_wide_ratb_scope
 incidence_denominator_by_year <-
   runtime_inputs$incidence_denominator_by_year
 
@@ -309,7 +313,6 @@ stopifnot(
   exists("build_ratb_indicator_panel_incidence_annual", mode = "function")
 )
 
-species_taxonomy_path <- file.path(mappings_dir, "species_regex_map.csv")
 bact_order_map <- build_species_taxonomy_map(species_taxonomy_path)
 
 reference_dataset_name <- names(dedup_results)[[1]]

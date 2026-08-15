@@ -50,4 +50,77 @@ stopifnot(
   setequal(by_type_representatives$ELTID, c("L1", "L2", "L3"))
 )
 
+species_map <- ratb_raw_cache_species_regex_map_path("mappings")
+cache_meta <- build_ratb_raw_cache_meta(
+  result = result,
+  atb_cols = c("cefotaxime", "ceftazidime"),
+  runtime_input_signature = list(contract_version = "v2", bundle_files = "abc"),
+  species_regex_map_path = species_map
+)
+other_signature <- list(contract_version = "v2", bundle_files = "def")
+stale_code_meta <- cache_meta
+stale_code_meta$cache_input_hashes$spares_dedup <- "0000"
+
+# A mapping edit changes the taxonomy the cache was deduplicated against, so
+# it has to invalidate the cache exactly like a code edit does.
+stale_mapping_meta <- cache_meta
+stale_mapping_meta$cache_input_hashes$species_regex_map <- "0000"
+
+# Why: the cache is reusable only while both of its inputs hold. Signing it
+# with the bundle alone let an edit to the dedup code publish numbers the
+# current code would not produce.
+stopifnot(
+  length(ratb_raw_cache_staleness_reasons(
+    cache_meta,
+    cache_meta$runtime_input_signature,
+    species_map
+  )) == 0L,
+  identical(
+    ratb_raw_cache_staleness_reasons(
+      cache_meta,
+      other_signature,
+      species_map
+    ),
+    "the input bundle changed"
+  ),
+  identical(
+    ratb_raw_cache_staleness_reasons(
+      stale_code_meta,
+      cache_meta$runtime_input_signature,
+      species_map
+    ),
+    "the code or mapping that builds it changed"
+  ),
+  identical(
+    ratb_raw_cache_staleness_reasons(
+      stale_mapping_meta,
+      cache_meta$runtime_input_signature,
+      species_map
+    ),
+    "the code or mapping that builds it changed"
+  ),
+  # An unreadable cache must read as stale: the builder maps a failed read to
+  # NULL and would otherwise skip its work on a corrupt cache.
+  identical(
+    ratb_raw_cache_staleness_reasons(
+      NULL,
+      cache_meta$runtime_input_signature,
+      species_map
+    ),
+    "its metadata is unreadable"
+  ),
+  # A cache written before the code side was checked carries no hashes at all.
+  identical(
+    ratb_raw_cache_staleness_reasons(
+      cache_meta[setdiff(names(cache_meta), "cache_input_hashes")],
+      cache_meta$runtime_input_signature,
+      species_map
+    ),
+    "the code or mapping that builds it changed"
+  ),
+  # A path that stops resolving hashes to NA, and two NAs compare equal: the
+  # check would then pass on any change at all.
+  !anyNA(unlist(ratb_raw_cache_input_hashes(species_map)))
+)
+
 cat("PASS: canonical raw RATB runtime\n")

@@ -196,25 +196,83 @@ validate_ratb_raw_dedup_results <- function(result) {
   list(ok = length(errors) == 0L, errors = unique(errors))
 }
 
-build_ratb_raw_cache_meta <- function(
-    result,
-    atb_cols,
-    runtime_input_signature,
-    zit_values = "ZIT") {
-  dataset_signatures <- tibble::tibble(
-    dataset = "sir_wide_raw",
-    n_rows = nrow(result$raw_dataset),
-    n_distinct_eltid = dplyr::n_distinct(result$raw_dataset$ELTID)
+# The species map is read while the cache is built, so it belongs to the
+# cache's inputs exactly like the scripts do. It is a parameter rather than a
+# constant because the builder takes it as one.
+ratb_raw_cache_species_regex_map_path <- function(mappings_dir) {
+  file.path(mappings_dir, "species_regex_map.csv")
+}
+
+# A cached dedup result is only reusable while both of its inputs are
+# unchanged. The bundle side travels in runtime_input_signature; this is
+# everything else the cache was built from. Script paths are relative to the
+# project root, which every entry point already sets before sourcing.
+ratb_raw_cache_input_hashes <- function(species_regex_map_path) {
+  stopifnot(
+    is.character(species_regex_map_path),
+    length(species_regex_map_path) == 1L
   )
   script_paths <- c(
     raw_runtime = file.path("R", "ratb_raw_runtime_helpers.R"),
     spares_dedup = file.path("R", "spares_dedup.R"),
     shared_primitives = file.path("R", "spares_shared_primitives.R"),
     phenotype = file.path("R", "phenotype_flag_helpers.R"),
-    plausibility = file.path("R", "ratb_plausibility_qc_helpers.R")
+    plausibility = file.path("R", "ratb_plausibility_qc_helpers.R"),
+    species_regex_map = species_regex_map_path
   )
-  script_hashes <- as.list(as.character(unname(tools::md5sum(script_paths))))
-  names(script_hashes) <- names(script_paths)
+  # Hash content with carriage returns removed, not the file bytes. This
+  # repository is checked out with core.autocrlf, so md5sum of the file itself
+  # changes with the line endings a given clone happens to use, and would
+  # report a code change where there is none. Working on raw bytes keeps this
+  # independent of the file's text encoding.
+  normalized <- tempfile(pattern = "ratb_raw_cache_script_")
+  on.exit(unlink(normalized), add = TRUE)
+  hashes <- lapply(script_paths, function(path) {
+    bytes <- readBin(path, "raw", file.size(path))
+    writeBin(bytes[bytes != as.raw(13L)], normalized)
+    as.character(unname(tools::md5sum(normalized)))
+  })
+  names(hashes) <- names(script_paths)
+  hashes
+}
+
+# Returns the reasons a cache cannot be reused, empty when it is current. The
+# caller decides whether to rebuild or to stop; both need the same verdict.
+ratb_raw_cache_staleness_reasons <- function(
+    cache_meta,
+    runtime_input_signature,
+    species_regex_map_path) {
+  if (!is.list(cache_meta)) {
+    return("its metadata is unreadable")
+  }
+
+  reasons <- character(0)
+  if (!identical(
+    cache_meta[["runtime_input_signature"]],
+    runtime_input_signature
+  )) {
+    reasons <- c(reasons, "the input bundle changed")
+  }
+  if (!identical(
+    cache_meta[["cache_input_hashes"]],
+    ratb_raw_cache_input_hashes(species_regex_map_path)
+  )) {
+    reasons <- c(reasons, "the code or mapping that builds it changed")
+  }
+  reasons
+}
+
+build_ratb_raw_cache_meta <- function(
+    result,
+    atb_cols,
+    runtime_input_signature,
+    species_regex_map_path,
+    zit_values = "ZIT") {
+  dataset_signatures <- tibble::tibble(
+    dataset = "sir_wide_raw",
+    n_rows = nrow(result$raw_dataset),
+    n_distinct_eltid = dplyr::n_distinct(result$raw_dataset$ELTID)
+  )
 
   payload <- list(
     contract = "ratb_raw_dedup_cache_v1",
@@ -223,7 +281,7 @@ build_ratb_raw_cache_meta <- function(
     zit_values = zit_values,
     dedup_scope_defs = result$scope_definitions,
     dataset_signatures = dataset_signatures,
-    script_hashes = script_hashes
+    cache_input_hashes = ratb_raw_cache_input_hashes(species_regex_map_path)
   )
   fingerprint_file <- tempfile(pattern = "ratb_raw_cache_", fileext = ".rds")
   on.exit(unlink(fingerprint_file), add = TRUE)
@@ -281,6 +339,7 @@ build_ratb_raw_operational_cache <- function(
     result = result,
     atb_cols = atb_cols,
     runtime_input_signature = operational_runtime$runtime_input_signature,
+    species_regex_map_path = species_regex_map_path,
     zit_values = zit_values
   )
   population_summary <- tibble::tibble(

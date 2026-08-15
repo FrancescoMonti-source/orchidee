@@ -35,11 +35,10 @@ paramètres de ligne de commande et ne sont pas versionnés.
 | `ORCHIDEE_ROUEN_STRUCTURE_PATH` | environnement ; défaut dans `config/rouen_raw_handoff.R`. `ORCHIDEE_CONSORES_STRUCTURE_PATH` est déprécié et avertit | Build Rouen |
 | `paths$*` | `config/pipeline.R` | Rendu concerné |
 
-La reconstruction du cache n'est pas un réglage de `config/pipeline.R` mais le
-commutateur `-Rebuild` de `scripts/render_orchidee.ps1`, valable pour la seule
-invocation qui le porte. Il est nécessaire après un changement de code en
-amont : le cache est signé par le bundle d'entrée, pas par le code qui l'a
-produit, donc un bundle inchangé laisse en place un cache périmé.
+La reconstruction du cache n'est pas un réglage. Chaque rendu compare le cache
+à son bundle d'entrée et au code qui le produit, et le reconstruit dès que l'un
+des deux a changé. Le commutateur `-Rebuild` de `scripts/render_orchidee.ps1`
+ne sert qu'à forcer ce travail sur un cache déjà à jour.
 
 ## C — analytique
 
