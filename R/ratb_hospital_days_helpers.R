@@ -3,9 +3,9 @@
 ## These helpers keep native PMSI concerns separate from the main notebook:
 ## 1. transform local CONSORES TA/DE references into the canonical
 ##    `sample_scope_reference`
-## 2. build a generic validation-first `hospital_days` layer for future
-##    incidence-density indicators, without yet locking the final denominator
-##    convention
+## 2. build a validation-first `hospital_days` layer for the incidence-density
+##    indicators, under the denominator convention declared by
+##    `ratb_denominator_profile_registry()`
 ## 3. build a PMSI-based CHU incidence denominator using the same TA/DE
 ##    perimeter independently from microbiology rows
 ##

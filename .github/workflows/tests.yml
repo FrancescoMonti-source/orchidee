@@ -1,0 +1,78 @@
+# Runs the standalone source test suite on every push and pull request.
+#
+# The suite is self-contained: every test builds its own synthetic fixtures
+# under tempdir(). No clinical input, bundle or cache is read, so nothing
+# patient-derived ever reaches a GitHub runner.
+#
+# Windows remains the documented operator platform. This job is a gate, not a
+# second supported environment: it answers "do the tests still pass on a clean
+# machine", which is the question a laptop cannot answer about itself.
+
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-tests:
+    name: Standalone source tests
+    runs-on: ubuntu-24.04
+
+    env:
+      # renv.lock pins CRAN by name. Point it at the Posit binary mirror for
+      # Ubuntu noble instead, so a restore takes minutes rather than an hour.
+      # Provenance therefore differs from the lockfile: this job runs
+      # tests/run_tests.R, never scripts/setup_r_environment.R, whose stricter
+      # source and synchronisation checks belong to the operator install.
+      RENV_CONFIG_REPOS_OVERRIDE: https://packagemanager.posit.co/cran/__linux__/noble/latest
+      # redsan is a private repository. The workflow token cannot read it, so a
+      # PAT with read access is required; see the guard step below.
+      GITHUB_PAT: ${{ secrets.REDSAN_PAT }}
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Require the redsan access token
+        run: |
+          if [ -n "$GITHUB_PAT" ]; then exit 0; fi
+          echo "::error::REDSAN_PAT is not set."
+          echo "renv.lock pins redsan 0.2.0 from the private repository"
+          echo "FrancescoMonti-source/redsan. tests/test_rouen_raw_handoff.R"
+          echo "runs the Rouen build CLI end to end, which reads"
+          echo "packageVersion(\"redsan\"), so the package must be installed."
+          echo "Create a fine-grained personal access token with read access to"
+          echo "that repository and store it as the repository secret REDSAN_PAT."
+          exit 1
+
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libcurl4-openssl-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libfribidi-dev \
+            libharfbuzz-dev \
+            libjpeg-dev \
+            libpng-dev \
+            libssl-dev \
+            libtiff-dev \
+            libxml2-dev
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.5.3'
+          use-public-rspm: true
+
+      - name: Restore the locked project library
+        uses: r-lib/actions/setup-renv@v2
+
+      - name: Run the test suite
+        run: Rscript tests/run_tests.R
