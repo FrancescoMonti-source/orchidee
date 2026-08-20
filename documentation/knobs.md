@@ -43,7 +43,7 @@ ne sert qu'à forcer ce travail sur un cache déjà à jour.
 ## C — analytique
 
 Toute modification ici change des chiffres publiés. Elle exige, à chaque fois :
-`tests/run_tests.R`, un rendu `-Rebuild`, la porte
+`tests/run_tests.R`, un rendu, la porte
 `scripts/compare_operational_v2_gate.R`, et la mise à jour de la ligne
 correspondante de [`methods.md`](methods.md).
 
