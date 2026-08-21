@@ -115,6 +115,39 @@ workspace_collision_error <- tryCatch(
   error = function(condition) conditionMessage(condition)
 )
 
+# Why: the collision guard compares configured paths, and the directories it
+# protects are routinely absent on a fresh install. Its comparison key must
+# therefore be canonical without consulting the filesystem: normalizePath()
+# returns a non-existent path unchanged on Unix, which silently disarmed the
+# guard there while it kept working on Windows.
+stopifnot(
+  identical(
+    ratb_comparison_path("downloads"),
+    ratb_comparison_path("./downloads")
+  ),
+  identical(
+    ratb_comparison_path("downloads"),
+    ratb_comparison_path("downloads/")
+  ),
+  identical(
+    ratb_comparison_path("outputs/../downloads"),
+    ratb_comparison_path("downloads")
+  ),
+  identical(
+    ratb_comparison_path(file.path(getwd(), "downloads")),
+    ratb_comparison_path("downloads")
+  ),
+  identical(
+    ratb_comparison_path("/orchidee-absent/./x/"),
+    ratb_comparison_path("/orchidee-absent/x")
+  ),
+  !identical(
+    ratb_comparison_path("downloads"),
+    ratb_comparison_path("outputs")
+  ),
+  grepl("^(/|[A-Za-z]:/)", ratb_comparison_path("downloads"))
+)
+
 # Why: protects the canonical operational policy: strict external bundle v2 is
 # the only runtime input, with no selector or CHU-native fallback surface.
 stopifnot(

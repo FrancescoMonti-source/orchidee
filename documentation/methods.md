@@ -109,10 +109,6 @@ qu'une lecture les prenne pour un choix motivé.
 -   **Aucun seuil effectif.** `indicator_min_n` vaut 0 : aucune proportion n'est
     masquée, y compris sur très petit dénominateur. Aucun intervalle de
     confiance ni test de tendance n'est publié.
--   **Commentaire d'en-tête périmé.**
-    `R/chu_sample_hospitalization_unit_attribution.R` déclare ne pas être
-    branché ; il l'est, par `R/rouen_pmsi_handoff_adapter.R`, et il décide du
-    périmètre Rouen. Le commentaire est à corriger dans le fichier, pas ici.
 -   **Proportion carbapénémase sur hémoculture.** Le catalogue la marque comme
     indicateur de compatibilité, pour préserver une sortie demandée. La raison
     de fond n'est pas consignée.

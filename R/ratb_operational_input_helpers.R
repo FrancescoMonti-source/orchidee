@@ -1,5 +1,52 @@
 # Operational external-bundle v2 input for the RATB notebooks.
 
+# Canonical comparison key for a configured path.
+#
+# Lexical on purpose. normalizePath() cannot do this job: it resolves through
+# the filesystem, so on Unix a path that does not exist yet comes back
+# unchanged, and "./downloads" then compares as different from "downloads".
+# The directories this guard protects are routinely absent on a fresh install,
+# which is exactly when a collision must still be caught.
+#
+# Symbolic links are therefore not followed: two different spellings of the
+# same location alias only if they spell it the same way. That is enough to
+# catch a misconfiguration, which is what this guard is for.
+ratb_comparison_path <- function(path) {
+  path <- gsub("\\", "/", path.expand(path), fixed = TRUE)
+
+  drive <- ""
+  if (grepl("^[A-Za-z]:", path)) {
+    drive <- substr(path, 1L, 2L)
+    path <- substring(path, 3L)
+  }
+
+  if (!startsWith(path, "/")) {
+    working <- gsub("\\", "/", getwd(), fixed = TRUE)
+    if (!nzchar(drive) && grepl("^[A-Za-z]:", working)) {
+      drive <- substr(working, 1L, 2L)
+      working <- substring(working, 3L)
+    }
+    path <- paste0(working, "/", path)
+  }
+
+  resolved <- character(0)
+  for (segment in strsplit(path, "/", fixed = TRUE)[[1L]]) {
+    if (!nzchar(segment) || identical(segment, ".")) {
+      next
+    }
+    if (identical(segment, "..")) {
+      if (length(resolved) > 0L) {
+        resolved <- resolved[-length(resolved)]
+      }
+      next
+    }
+    resolved <- c(resolved, segment)
+  }
+
+  canonical <- paste0(drive, "/", paste(resolved, collapse = "/"))
+  if (.Platform$OS.type == "windows") tolower(canonical) else canonical
+}
+
 resolve_ratb_operational_context <- function(config) {
   if (!is.list(config) || !is.list(config$runtime)) {
     stop("orchidee_config$runtime must be a list.", call. = FALSE)
@@ -23,18 +70,14 @@ resolve_ratb_operational_context <- function(config) {
 
   external_cache_dir <- file.path(workspace_dir, "cache")
   external_download_dir <- file.path(workspace_dir, "downloads")
-  comparison_path <- function(path) {
-    normalized <- normalizePath(path, winslash = "/", mustWork = FALSE)
-    if (.Platform$OS.type == "windows") tolower(normalized) else normalized
-  }
   external_paths <- vapply(
     c(external_cache_dir, external_download_dir),
-    comparison_path,
+    ratb_comparison_path,
     character(1)
   )
   protected_paths <- vapply(
     c(config$paths$data_dir, config$paths$downloads_dir),
-    comparison_path,
+    ratb_comparison_path,
     character(1)
   )
   if (any(external_paths %in% protected_paths)) {
