@@ -1,18 +1,15 @@
 #!/usr/bin/env Rscript
 
-# Every render needs the operational bundle. It needs an existing dedup cache
-# only when nothing is about to rebuild one, so --rebuild is the single thing
-# this probe has to be told.
+# Every render needs the operational bundle. It never needs an existing dedup
+# cache: scripts/build_ratb_raw_runtime.R runs between this probe and the
+# render, and builds one whenever the cache is missing or stale.
 args <- commandArgs(trailingOnly = TRUE)
-valid_args <- length(args) == 0L ||
-  (length(args) == 1L && identical(args[[1L]], "--rebuild"))
-if (!valid_args) {
+if (length(args) > 0L) {
   stop(
-    "Usage: check_render_environment.R [--rebuild]",
+    "Usage: check_render_environment.R",
     call. = FALSE
   )
 }
-rebuild <- length(args) == 1L
 
 required_packages <- c(
   "conflicted",
@@ -106,40 +103,6 @@ if (file.exists(workspace_dir) && !dir.exists(workspace_dir)) {
     workspace_dir,
     call. = FALSE
   )
-}
-
-if (!rebuild) {
-  required_cache_files <- file.path(
-    context$cache_dir,
-    c("dedup_results", "dedup_cache_meta")
-  )
-  missing_cache_files <- required_cache_files[
-    !file.exists(required_cache_files) |
-      dir.exists(required_cache_files)
-  ]
-  if (length(missing_cache_files) > 0L) {
-    quote_powershell_string <- function(value) {
-      paste0("'", gsub("'", "''", value, fixed = TRUE), "'")
-    }
-    stop(
-      "Canonical raw dedup cache is incomplete: ",
-      paste(missing_cache_files, collapse = ", "),
-      ". Run:\n& .\\scripts\\render_orchidee.ps1 -Rebuild ",
-      "-Bundle ",
-      quote_powershell_string(normalizePath(
-        context$bundle_dir,
-        winslash = "/",
-        mustWork = TRUE
-      )),
-      " -Workspace ",
-      quote_powershell_string(normalizePath(
-        workspace_dir,
-        winslash = "/",
-        mustWork = FALSE
-      )),
-      call. = FALSE
-    )
-  }
 }
 
 cat(

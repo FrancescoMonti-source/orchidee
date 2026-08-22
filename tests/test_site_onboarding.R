@@ -395,7 +395,6 @@ if (identical(.Platform$OS.type, "windows")) {
   )
   render_valid_run <- run_r_script(
     "scripts/check_render_environment.R",
-    "--rebuild",
     env = render_environment
   )
 
@@ -420,7 +419,6 @@ if (identical(.Platform$OS.type, "windows")) {
     normalizePath(invalid_bundle_dir, winslash = "/", mustWork = TRUE)
   render_invalid_run <- run_r_script(
     "scripts/check_render_environment.R",
-    "--rebuild",
     env = invalid_render_environment
   )
   wrapper_repeat_dry_run <- run_site_wrapper(

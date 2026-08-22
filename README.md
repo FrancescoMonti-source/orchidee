@@ -6,11 +6,7 @@ editor_options:
 
 # Orchidee
 
-Aucune donnée patient, aucun bundle et aucun audit n'est versionné. Les scripts
-acceptent des chemins protégés hors du checkout et écrivent leurs sorties sous
-`outputs/`.
-
-Deux parcours d'entrée mènent au même rapport. Suivre uniquement le sien.
+Deux parcours d'entrée (Rouen vs "autres") mènent au même rapport. Suivre uniquement le sien.
 
 ## Prérequis et installation
 
@@ -21,12 +17,6 @@ imposées par `renv.lock`. Depuis la racine d'un clone frais :
 & .\scripts\setup.ps1
 ```
 
-Pour exécuter un script R dans cet environnement verrouillé :
-
-```powershell
-& .\scripts\run_r.ps1 tests/run_tests.R
-```
-
 Pour vérifier une installation :
 
 ```powershell
@@ -35,12 +25,24 @@ Pour vérifier une installation :
 
 ## Rouen
 
-Vous fournissez deux chemins : l'export BACT et l'objet PMSI produit par
-`redsan`. L'adaptateur Rouen, ses mappings et ses références sont déjà
-versionnés dans le dépôt.
+L'adaptateur Rouen, ses mappings et ses références sont versionnés dans le
+dépôt : un run ordinaire ne demande de préparer ni configuration ni
+correspondance. Il y a deux chemins à fournir, l'export bactériologie et
+l'export PMSI produit par `redsan`, et trois commandes à lancer.
 
-Après l'installation, contrôler les deux chemins sans lire les objets
-cliniques :
+Le build traduit ces deux exports dans les six blocs de base — les mêmes que
+les autres établissements produisent eux-mêmes — puis en dérive les bundles.
+Un bundle est un répertoire de quatre fichiers validés : la microbiologie, sa
+description, le périmètre des unités et le dénominateur. Ces quatre fichiers
+sont tout ce que le calcul des indicateurs a besoin de savoir de
+l'établissement ; le vocabulaire local n'y apparaît plus.
+
+C'est le point de rencontre des deux parcours : après le build, Rouen suit
+exactement le même chemin que les autres. Le calcul des indicateurs est une
+étape distincte, à ne lancer que si le rapport doit être produit sur cette
+machine.
+
+### 1. Contrôler les deux chemins
 
 ```powershell
 & .\scripts\build_rouen.ps1 `
@@ -49,28 +51,84 @@ cliniques :
   -DryRun
 ```
 
-Après le `PASS`, retirer `-DryRun` pour lancer le build. Il peut durer une
-vingtaine de minutes et rester silencieux. Ajouter `*> build.log` pour en garder
-une trace : sans cette redirection, un échec affiche sa cause à l'écran mais ne
-la laisse dans aucun fichier. La sortie par défaut est
-`outputs/rouen_current` ; `-Output` accepte un autre répertoire dédié, y compris
-protégé hors du dépôt. Une exécution réussie finit par `PASS` et écrit
-`build_manifest.txt` : sans ce fichier, ne pas utiliser la sortie.
+`-DryRun` vérifie les chemins, l'environnement R verrouillé et les paquets
+requis sans ouvrir les objets cliniques. Attendre le `PASS`.
 
-Le build produit `site_inputs/` (les six blocs), `bundle_v3/` (le bundle
-complet, à conserver), `bundle_v2_operational/` (l'entrée du runtime) et
-`adapter_audit.rds`. Si l'objectif est le handoff, s'arrêter ici. Pour produire
-les indicateurs à partir du même build :
+### 2. Lancer le build
+
+La même commande sans `-DryRun` :
+
+```powershell
+& .\scripts\build_rouen.ps1 `
+  -Bact "C:\protected\bact22_24" `
+  -Pmsi "C:\protected\pmsi" `
+  *> build.log
+```
+
+Il peut durer une vingtaine de minutes et rester silencieux. Sans la
+redirection `*> build.log`, un échec affiche sa cause à l'écran et ne la laisse
+dans aucun fichier ; avec elle, le déroulé complet, le `PASS` final et la
+commande de rendu de l'étape 3 se lisent dans `build.log` plutôt qu'à l'écran.
+
+Une exécution réussie finit par `PASS` et écrit `build_manifest.txt` : sans ce
+fichier, ne pas utiliser la sortie.
+
+La sortie par défaut est `outputs\rouen_current` ; `-Output` accepte un autre
+répertoire dédié, y compris protégé hors du dépôt. Le build refuse d'écrire
+par-dessus une sortie existante : pour un nouveau millésime de données, donner
+un `-Output` distinct — les deux builds restent alors côte à côte et
+comparables — ou ajouter `-Force` pour remplacer la sortie précédente.
+
+Ce que contient la sortie :
+
+| Chemin | Rôle |
+|---|---|
+| `site_inputs/` | Les six blocs de base : les deux exports traduits dans le format commun, celui que les autres établissements fournissent eux-mêmes. |
+| `bundle_v3/` | Tout le détail conservé : l'exposition hospitalière au grain fin, y compris l'activité hors périmètre RATB. C'est l'archive de référence de ce build, à conserver. |
+| `bundle_v2_operational/` | Le dénominateur déjà réduit au total annuel du seul périmètre publié. C'est la seule entrée de l'étape 3. |
+| `adapter_audit.rds` | Trace interne du build ; aucune action à faire dessus. |
+
+`v3` et `v2` ne sont ni deux versions successives ni un ancien et un nouveau
+format : le même build produit les deux à partir des mêmes blocs. La
+microbiologie y est identique ; ce qui change est le dénominateur. `v3` garde
+l'exposition au grain fin — année, UM, UF, TA, DE — et les colonnes qui disent
+quelle unité entre dans le périmètre et pourquoi ; `v2` en tire le total de
+nuits d'hospitalisation par année, pour le seul périmètre publié aujourd'hui.
+On recalcule un `v2` depuis un `v3`, jamais l'inverse : c'est pour cela que
+`v3` se conserve. Un run ordinaire n'a rien à choisir entre les deux.
+
+Si l'objectif est seulement de transmettre les données, s'arrêter ici.
+
+### 3. Calculer les indicateurs
+
+Le build affiche en dernière ligne la commande de rendu, avec les chemins de ce
+build déjà résolus. La copier telle quelle ; elle a cette forme :
 
 ```powershell
 & .\scripts\render_orchidee.ps1 -Rebuild `
-  -Bundle "outputs/rouen_current/bundle_v2_operational" `
-  -Workspace "outputs/rouen_current/runtime"
+  -Bundle "outputs\rouen_current\bundle_v2_operational" `
+  -Workspace "outputs\rouen_current\runtime"
 ```
 
-Adapter les deux chemins si le build utilisait `-Output`. Aucun fichier de
-configuration ou de mapping ne doit être préparé ou modifié pour un run
-ordinaire.
+Les deux chemins disent où lire et où écrire :
+
+- `-Bundle` est ce que le rapport lit : le `bundle_v2_operational/` de l'étape
+  2. Le passer explicitement, plutôt que de compter sur la valeur par défaut,
+  évite de calculer les indicateurs sur le bundle d'un run précédent.
+- `-Workspace` est le répertoire de travail du rendu ; il n'a pas besoin
+  d'exister, le rendu le crée. Il reçoit `cache/`, les calculs intermédiaires
+  réutilisés d'un rendu à l'autre, et `downloads/`, les tableaux exportables du
+  rapport. Son contenu dérive des données cliniques : le garder à côté du
+  build, comme le fait la commande affichée, garde un millésime complet au même
+  endroit et sous les mêmes règles de protection.
+
+`-Rebuild` n'est pas obligatoire : chaque rendu compare son cache de calcul au
+bundle demandé et au code qui l'a produit, et le reconstruit dès que l'un des
+deux a changé. Le laisser ne coûte rien de plus qu'une reconstruction certaine.
+
+Le rapport lui-même est écrit à la racine du dépôt,
+`orchidee_ratb_indicators.html` ; c'est un fichier autonome, qui s'ouvre dans
+un navigateur et se transmet tel quel.
 
 ## Autre établissement
 

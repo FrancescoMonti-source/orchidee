@@ -83,11 +83,10 @@ Notes:
 ## Rendering And Verification
 
 - Use `scripts/render_orchidee.ps1` for routine renders.
-- Add `-Rebuild` after changes to upstream pipeline, raw deduplication,
-  perimeter, denominator, or indicator logic; it builds the canonical raw cache
-  before rendering the indicator report. The cache is signed by the input
-  bundle, not by the code that produced it, so an unchanged bundle leaves a
-  stale cache in place.
+- Every render checks the canonical raw cache against both its input bundle and
+  the code that produces it, and rebuilds it when either changed. `-Rebuild`
+  only forces that work on a cache that is already current; it is not a rule to
+  remember after a code change.
 - Do not reintroduce completion or `chu_native` as a fallback or implicit
   operational path.
 - Before changing code because a report looks wrong, determine whether the
