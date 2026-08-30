@@ -8,7 +8,7 @@
 ## finding as BLOCKING, WARNING or INFO.
 ##
 ## Soundness rule: a run without BLOCKING findings must mean the operator
-## build completes, that is the whole path build_site.ps1 runs -- bundle v3,
+## build completes, that is the whole path `orchidee.py site` runs -- bundle v3,
 ## the closed spares_current projection to operational v2, and strict
 ## validation of both. Every check below therefore mirrors a rule the builder,
 ## the v3 contract or that projection actually enforces, and any check added
@@ -45,16 +45,16 @@ setwd(project_root)
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 7L || any(args %in% c("-h", "--help"))) {
   cat(
-    "Usage (PowerShell):\n",
-    "  & .\\scripts\\run_r.ps1 scripts/diagnose_site_inputs.R `\n",
-    "    <microbiology_observations.{rds,csv,tsv,tab,txt}> `\n",
-    "    <bacteria_mapping.{rds,csv,tsv,tab,txt}> `\n",
-    "    <sample_type_mapping.{rds,csv,tsv,tab,txt}> `\n",
-    "    <antibiotic_mapping.{rds,csv,tsv,tab,txt}> `\n",
-    "    <unit_mapping.{rds,csv,tsv,tab,txt}> `\n",
-    "    <incidence_exposure_by_year_um_uf_ta_de_profile",
-    ".{rds,csv,tsv,tab,txt}> `\n",
-    "    <report_dir>\n\n",
+    "Usage:\n",
+    "  python scripts/orchidee.py run-r scripts/diagnose_site_inputs.R ",
+    "<microbiology_observations.{rds,csv,tsv,tab,txt}> ",
+    "<bacteria_mapping.{rds,csv,tsv,tab,txt}> ",
+    "<sample_type_mapping.{rds,csv,tsv,tab,txt}> ",
+    "<antibiotic_mapping.{rds,csv,tsv,tab,txt}> ",
+    "<unit_mapping.{rds,csv,tsv,tab,txt}> ",
+    "<incidence_exposure_by_year_um_uf_ta_de_profile",
+    ".{rds,csv,tsv,tab,txt}> ",
+    "<report_dir>\n\n",
     "Reads the six blocks once and writes an aggregated report classified as\n",
     "BLOCKING, WARNING and INFO. Exit status is 0 when no BLOCKING finding\n",
     "remains, 1 when at least one does, and 2 when the diagnostics could not\n",
@@ -1403,7 +1403,7 @@ if (!is.null(obs_in_scope)) {
           format_values(unsupported_atb),
           ". The closed list is generated as ",
           "mapping_reference/supported_atb_norm.csv by ",
-          "build_site.ps1 -EmitTemplates."
+          "python scripts/orchidee.py site --emit-templates."
         ),
         n_rows = count_true(affected),
         values = unsupported_atb

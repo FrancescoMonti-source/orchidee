@@ -471,6 +471,12 @@ cli_runtime_path_normalized <- normalizePath(
   winslash = "/",
   mustWork = FALSE
 )
+cli_render_command <- grep(
+  "python scripts/orchidee.py render --rebuild",
+  cli_output,
+  value = TRUE,
+  fixed = TRUE
+)
 unlink(cli_root, recursive = TRUE)
 
 # Why: protects the v3 canonical input contract: the exposure table is long by
@@ -582,17 +588,12 @@ stopifnot(
     cli_output,
     fixed = TRUE
   )),
-  any(grepl("$bundle =", cli_output, fixed = TRUE)),
-  any(grepl(
-    paste0("  $workspace = '", cli_runtime_path_normalized, "'"),
-    cli_output,
-    fixed = TRUE
-  )),
-  any(grepl(
-    "render_orchidee.ps1 -Rebuild -Bundle $bundle -Workspace $workspace",
-    cli_output,
-    fixed = TRUE
-  )),
+  length(cli_render_command) == 1L,
+  grepl("--bundle", cli_render_command, fixed = TRUE),
+  grepl(cli_v2_path_normalized, cli_render_command, fixed = TRUE),
+  grepl("--workspace", cli_render_command, fixed = TRUE),
+  grepl(cli_runtime_path_normalized, cli_render_command, fixed = TRUE),
+  !any(grepl("PowerShell", cli_output, fixed = TRUE)),
   !any(grepl("$env:", cli_output, fixed = TRUE)),
   !identical(cli_seventh_block_status, 0L),
   any(grepl(

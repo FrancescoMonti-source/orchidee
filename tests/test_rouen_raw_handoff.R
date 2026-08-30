@@ -19,6 +19,7 @@ source("R/chu_sample_hospitalization_unit_attribution.R")
 source("R/ratb_canonical_runtime_helpers.R")
 source("R/rouen_microbiology_handoff_adapter.R")
 source("R/rouen_pmsi_handoff_adapter.R")
+source("tests/python_cli_helpers.R")
 
 species_rules <- readr::read_delim(
   "mappings/species_regex_map.csv",
@@ -495,28 +496,24 @@ previous_structure_path <- Sys.getenv(
 Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = structure_fixture_path)
 run_golden_cli <- function(
     force = FALSE,
-    output_dir = cli_output_dir,
-    operational_v2_dir = cli_v2_dir) {
+    output_dir = cli_output_dir) {
   cli_args <- c(
-    "--no-save",
-    "--no-restore",
-    shQuote("scripts/build_rouen_external_bundle.R"),
-    shQuote(cli_bacteriology_path),
-    shQuote(cli_pmsi_path),
-    shQuote(output_dir),
-    shQuote(paste0("--operational-v2-output=", operational_v2_dir))
+    "rouen",
+    "--bact", cli_bacteriology_path,
+    "--pmsi", cli_pmsi_path,
+    "--output", output_dir
   )
   if (isTRUE(force)) cli_args <- c(cli_args, "--force")
-  system2(rscript, cli_args, stdout = TRUE, stderr = TRUE)
+  orchidee_run_cli(cli_args)
 }
-cli_output <- run_golden_cli()
+cli_run <- run_golden_cli()
+cli_output <- cli_run$output
 if (is.na(previous_structure_path)) {
   Sys.unsetenv("ORCHIDEE_ROUEN_STRUCTURE_PATH")
 } else {
   Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = previous_structure_path)
 }
-cli_status <- attr(cli_output, "status")
-if (is.null(cli_status)) cli_status <- 0L
+cli_status <- cli_run$status
 if (!identical(cli_status, 0L)) {
   stop(
     "Synthetic Rouen golden-path CLI failed:\n",
@@ -525,14 +522,14 @@ if (!identical(cli_status, 0L)) {
   )
 }
 Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = structure_fixture_path)
-cli_force_output <- run_golden_cli(force = TRUE)
+cli_force_run <- run_golden_cli(force = TRUE)
+cli_force_output <- cli_force_run$output
 if (is.na(previous_structure_path)) {
   Sys.unsetenv("ORCHIDEE_ROUEN_STRUCTURE_PATH")
 } else {
   Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = previous_structure_path)
 }
-cli_force_status <- attr(cli_force_output, "status")
-if (is.null(cli_force_status)) cli_force_status <- 0L
+cli_force_status <- cli_force_run$status
 if (!identical(cli_force_status, 0L)) {
   stop(
     "Synthetic Rouen golden-path --force rerun failed:\n",
@@ -557,18 +554,17 @@ cli_lock_path <- paste0(cli_output_dir, ".rouen-build.lock")
 dir.create(cli_lock_path)
 writeLines("pid: synthetic-test-owner", file.path(cli_lock_path, "owner.txt"))
 Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = structure_fixture_path)
-cli_locked_output <- suppressWarnings(run_golden_cli(
+cli_locked_run <- suppressWarnings(run_golden_cli(
   force = TRUE,
-  output_dir = paste0(cli_output_dir, "/"),
-  operational_v2_dir = paste0(cli_v2_dir, "/")
+  output_dir = paste0(cli_output_dir, "/")
 ))
+cli_locked_output <- cli_locked_run$output
 if (is.na(previous_structure_path)) {
   Sys.unsetenv("ORCHIDEE_ROUEN_STRUCTURE_PATH")
 } else {
   Sys.setenv(ORCHIDEE_ROUEN_STRUCTURE_PATH = previous_structure_path)
 }
-cli_locked_status <- attr(cli_locked_output, "status")
-if (is.null(cli_locked_status)) cli_locked_status <- 0L
+cli_locked_status <- cli_locked_run$status
 unlink(cli_lock_path, recursive = TRUE)
 cli_expected_files <- c(
   file.path(

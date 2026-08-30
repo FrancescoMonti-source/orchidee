@@ -14,6 +14,10 @@ propres systèmes.
 Pour Rouen, ne pas suivre cette procédure : fournir uniquement les chemins BACT
 et PMSI, comme décrit dans la section Rouen du [README](../README.md).
 
+Cette procédure requiert Python 3.8 ou plus récent, sur Linux comme sur
+Windows. Les commandes emploient `python` ; utiliser `python3` si c'est le nom
+du lanceur installé.
+
 ## Les six fichiers attendus
 
 | Fichier | Contenu |
@@ -40,15 +44,15 @@ redéfinit pas la liste.
 Avant de lancer une commande ORCHIDEE sur un clone frais, restaurer
 l'environnement R depuis `renv.lock` :
 
-```powershell
-& .\scripts\setup.ps1
+```console
+python scripts/orchidee.py setup
 ```
 
 Avant de travailler sur des données locales protégées, contrôler
 l'installation :
 
-```powershell
-& .\scripts\build_site.ps1 -RunSmokeTest
+```console
+python scripts/orchidee.py site --run-smoke-test
 ```
 
 Cette commande n'utilise que les fichiers de `examples/site_handoff_minimal/`
@@ -56,20 +60,19 @@ et écrit sous `outputs/site_smoke_test/`. Elle exécute le même build v3, la
 même projection v2 et la même validation stricte qu'une vraie transmission,
 sur une observation synthétique unique : elle qualifie l'installation, pas
 vos données, et n'enseigne pas le contrat. Sur une répétition, choisir un
-autre `-Output` ou suivre le message de collision.
+autre `--output` ou suivre le message de collision.
 
 Si les six fichiers n'existent pas encore, générer des modèles CSV vides avec
 les en-têtes canoniques et le kit de référence de correspondance ORCHIDEE :
 
-```powershell
-$handoff = "data/site_handoff"
-& .\scripts\build_site.ps1 -EmitTemplates $handoff
+```console
+python scripts/orchidee.py site --emit-templates "data/site_handoff"
 ```
 
 La commande refuse d'écraser un fichier généré déjà existant. Remplir les six
 modèles de premier niveau avec les données locales protégées ; ne pas les
-committer. `$handoff` peut aussi désigner un répertoire protégé hors du
-checkout.
+committer. Le répertoire cible peut aussi se trouver dans un espace protégé
+hors du checkout.
 
 ## Cibles de correspondance fournies par ORCHIDEE
 
@@ -79,7 +82,7 @@ remplit les blocs de correspondance. ORCHIDEE possède la surface cible : il
 doit montrer les valeurs canoniques exactes et les références nationales
 vers lesquelles le site peut mapper.
 
-`-EmitTemplates` crée donc :
+`--emit-templates` crée donc :
 
 ```text
 mapping_reference/
@@ -193,13 +196,13 @@ jamais propagé par le seul `ELTID` entre patients.
 
 Une ligne sans `EVTID` dans un fichier qui en contient par ailleurs est une
 anomalie du système d'information hospitalier, pas un cas à traiter :
-ORCHIDEE la supprime avant tout calcul et `-Diagnose` la signale en
+ORCHIDEE la supprime avant tout calcul et `--diagnose` la signale en
 `WARNING` avec son décompte. La règle porte sur le fichier entier et non sur
 chaque groupe : une seule valeur renseignée suffit à rendre anormales toutes
 les lignes vides.
 
 Plusieurs lignes peuvent viser la même cellule ORCHIDEE. Quand elles
-s'accordent, elles fusionnent. Quand elles se contredisent, `-Diagnose`
+s'accordent, elles fusionnent. Quand elles se contredisent, `--diagnose`
 signale un constat bloquant plutôt que de choisir : une cellule contient un
 résultat, et trancher par position ferait dépendre la valeur publiée de
 l'ordre dans lequel l'export a été écrit. Le rapport distingue les deux
@@ -215,7 +218,7 @@ causes, car la correction n'est pas la même :
   garder que la lecture que le RATB doit compter.
 
 Le builder, lui, tranche en gardant la dernière valeur reçue. C'est le
-passage `-Diagnose` qui garantit qu'il n'a rien à trancher.
+passage `--diagnose` qui garantit qu'il n'a rien à trancher.
 
 ## Bloc 2 : bacteria_mapping
 
@@ -368,19 +371,8 @@ Le couple profil/unité accepté est généré dans
 
 Depuis la racine du dépôt, lancer d'abord le contrôle préalable sans risque :
 
-```powershell
-$handoff = "data/site_handoff"
-& .\scripts\build_site.ps1 `
-  -MicrobiologyObservations `
-    (Join-Path $handoff "microbiology_observations.csv") `
-  -BacteriaMapping (Join-Path $handoff "bacteria_mapping.csv") `
-  -SampleTypeMapping (Join-Path $handoff "sample_type_mapping.csv") `
-  -AntibioticMapping (Join-Path $handoff "antibiotic_mapping.csv") `
-  -UnitMapping (Join-Path $handoff "unit_mapping.csv") `
-  -IncidenceExposure `
-    (Join-Path $handoff `
-      "incidence_exposure_by_year_um_uf_ta_de_profile.csv") `
-  -DryRun
+```console
+python scripts/orchidee.py site --microbiology-observations "data/site_handoff/microbiology_observations.csv" --bacteria-mapping "data/site_handoff/bacteria_mapping.csv" --sample-type-mapping "data/site_handoff/sample_type_mapping.csv" --antibiotic-mapping "data/site_handoff/antibiotic_mapping.csv" --unit-mapping "data/site_handoff/unit_mapping.csv" --incidence-exposure "data/site_handoff/incidence_exposure_by_year_um_uf_ta_de_profile.csv" --dry-run
 ```
 
 Cette commande ne lit que les en-têtes des fichiers délimités ; les entrées
@@ -388,25 +380,14 @@ RDS doivent être désérialisées pour en inspecter les colonnes. Elle vérifie
 que les six fichiers existent et portent les colonnes attendues. Elle ne
 regarde pas leur contenu et ne crée pas de répertoire de sortie.
 
-Une fois que `-DryRun` passe, remplacer `-DryRun` par `-Diagnose` dans la
+Une fois que `--dry-run` passe, remplacer `--dry-run` par `--diagnose` dans la
 même commande :
 
-```powershell
-$handoff = "data/site_handoff"
-& .\scripts\build_site.ps1 `
-  -MicrobiologyObservations `
-    (Join-Path $handoff "microbiology_observations.csv") `
-  -BacteriaMapping (Join-Path $handoff "bacteria_mapping.csv") `
-  -SampleTypeMapping (Join-Path $handoff "sample_type_mapping.csv") `
-  -AntibioticMapping (Join-Path $handoff "antibiotic_mapping.csv") `
-  -UnitMapping (Join-Path $handoff "unit_mapping.csv") `
-  -IncidenceExposure `
-    (Join-Path $handoff `
-      "incidence_exposure_by_year_um_uf_ta_de_profile.csv") `
-  -Diagnose
+```console
+python scripts/orchidee.py site --microbiology-observations "data/site_handoff/microbiology_observations.csv" --bacteria-mapping "data/site_handoff/bacteria_mapping.csv" --sample-type-mapping "data/site_handoff/sample_type_mapping.csv" --antibiotic-mapping "data/site_handoff/antibiotic_mapping.csv" --unit-mapping "data/site_handoff/unit_mapping.csv" --incidence-exposure "data/site_handoff/incidence_exposure_by_year_um_uf_ta_de_profile.csv" --diagnose
 ```
 
-`-Diagnose` lit les six blocs une seule fois et signale **tous** les
+`--diagnose` lit les six blocs une seule fois et signale **tous** les
 problèmes de contrat en une seule passe, classés en :
 
 | Niveau | Signification |
@@ -415,14 +396,14 @@ problèmes de contrat en une seule passe, classés en :
 | `WARNING` | Le build aboutit, mais les lignes perdent de la valeur analytique ; à revoir. |
 | `INFO` | Décomptes décrivant la transmission, y compris la couverture du périmètre. |
 
-Le builder s'arrête à la première classe invalide ; `-Diagnose` agrège
+Le builder s'arrête à la première classe invalide ; `--diagnose` agrège
 l'ensemble du travail. Les constats de correspondance incluent des
 décomptes de lignes et d'occurrences de document par libellé local. Le
 résumé est concis et `finding_values.csv` conserve la liste complète des
 valeurs, jointe par `finding_id`.
 
-Le rapport est écrit dans un sous-répertoire `diagnostics` de `-Output`
-quand on en passe un, sinon sous `outputs\site_diagnostics` ; `-Report`
+Le rapport est écrit dans un sous-répertoire `diagnostics` de `--output`
+quand on en passe un, sinon sous `outputs/site_diagnostics` ; `--report`
 prime sur les deux. Au-delà des six chemins d'entrée qu'il enregistre pour
 traçabilité, il ne contient que des décomptes agrégés et votre propre
 vocabulaire local ; il n'écrit jamais d'identifiant patient.
@@ -436,7 +417,7 @@ fois peut publier dans un répertoire de rapport ; une exécution interrompue
 peut laisser `.orchidee_diagnostics.lock`. Ne supprimer ce verrou qu'après
 avoir confirmé qu'aucun diagnostic n'utilise encore le répertoire.
 
-`-Diagnose` répond à une seule question : les six blocs satisfont-ils le
+`--diagnose` répond à une seule question : les six blocs satisfont-ils le
 contrat de transmission ? Elle ne prédit pas quels indicateurs le rapport
 publiera.
 
@@ -445,19 +426,19 @@ aboutit sur ces blocs — bundle v3, projection `spares_current` vers le v2
 opérationnel, et validation stricte des deux.
 
 Quand elle signale `PASS`, relancer exactement la même commande sans
-`-DryRun` ni `-Diagnose` pour un premier build. Si le contrôle préalable
-signale une sortie existante complète, choisir un autre `-Output` ou,
-après revue, ajouter `-Force` comme l'indique son avertissement.
+`--dry-run` ni `--diagnose` pour un premier build. Si le contrôle préalable
+signale une sortie existante complète, choisir un autre `--output` ou,
+après revue, ajouter `--force` comme l'indique son avertissement.
 
-Ajouter `-Output "D:\ORCHIDEE\site_current"` quand les bundles générés
+Ajouter `--output "D:\ORCHIDEE\site_current"` quand les bundles générés
 doivent vivre dans un espace de travail externe protégé. Utiliser
-`Get-Help .\scripts\build_site.ps1 -Full` pour voir tous les réglages
-supportés.
+`python scripts/orchidee.py site --help` pour voir toutes les options
+supportées.
 
-Le wrapper valide d'abord le bundle v3. Il applique ensuite le contexte
+La CLI valide d'abord le bundle v3. Elle applique ensuite le contexte
 fermé `spares_current`, matérialise un bundle v2 strict séparé, et valide
-et smoke-teste cette sortie. Il n'adopte pas v3 comme entrée runtime de
-notebook. `-Force` sert uniquement à une répétition volontaire d'un build
+et smoke-teste cette sortie. Elle n'adopte pas v3 comme entrée runtime de
+notebook. `--force` sert uniquement à une répétition volontaire d'un build
 sur une sortie complète déjà créée par ce même workflow ; il ne fait pas
 partie de la commande de premier build.
 
@@ -486,24 +467,18 @@ Le build exécute déjà le smoke test runtime v2. Conserver `bundle_v3` comme
 le bundle complet validé. Pour calculer les indicateurs à partir du bundle
 v2 produit par ce même build :
 
-```powershell
-$bundle = (Resolve-Path `
-  "outputs/site_current/bundle_v2_operational").Path
-$workspace = Join-Path (Get-Location) "outputs/site_current/runtime"
-
-& .\scripts\render_orchidee.ps1 -Rebuild `
-  -Bundle $bundle `
-  -Workspace $workspace
+```console
+python scripts/orchidee.py render --rebuild --bundle "outputs/site_current/bundle_v2_operational" --workspace "outputs/site_current/runtime"
 ```
 
-Le wrapper affiche cette commande avec les chemins exacts résolus à la fin
-du build. `-Rebuild` construit le cache brut canonique avant de calculer les
+La CLI affiche cette commande avec les chemins exacts résolus à la fin du
+build. `--rebuild` construit le cache brut canonique avant de calculer les
 indicateurs ; les caches et les exports de rapport sont écrits sous l'espace de
 travail privé sélectionné.
 
 ## En cas d'échec de la validation
 
-Lancer `-Diagnose` d'abord : il liste tous les problèmes à la fois, alors
+Lancer `--diagnose` d'abord : il liste tous les problèmes à la fois, alors
 que les messages ci-dessous apparaissent un par un. Les échecs les plus
 fréquents sont :
 
