@@ -43,6 +43,10 @@ and their denominators.
 
 ## Current Operational Boundaries
 
+- Python 3.8 or newer is guaranteed on supported Windows and Linux operator
+  machines; PowerShell is not. `scripts/orchidee.py` owns command-line
+  orchestration and process sequencing, while R remains the owner of analytical
+  behavior.
 - `redsan` owns EDSaN retrieval, batching, and PMSI/BIOL normalization.
   ORCHIDEE consumes its outputs and does not maintain a second source client.
 - The preferred site handoff contains exactly the six unversioned blocks in
@@ -82,11 +86,13 @@ Notes:
 
 ## Rendering And Verification
 
-- Use `scripts/render_orchidee.ps1` for routine renders.
+- Use `python scripts/orchidee.py render` for routine renders.
 - Every render checks the canonical raw cache against both its input bundle and
-  the code that produces it, and rebuilds it when either changed. `-Rebuild`
+  the code that produces it, and rebuilds it when either changed. `--rebuild`
   only forces that work on a cache that is already current; it is not a rule to
   remember after a code change.
+- Run the standalone source suite with
+  `python scripts/orchidee.py run-r tests/run_tests.R`.
 - Do not reintroduce completion or `chu_native` as a fallback or implicit
   operational path.
 - Before changing code because a report looks wrong, determine whether the
