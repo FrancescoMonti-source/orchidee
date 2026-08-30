@@ -45,7 +45,7 @@ séparer, soit une duplication dans le code.
 
 | Décision | Implémentation | Effet |
 |------------------------|------------------------|------------------------|
-| Les groupes sont patient × année civile × bactérie normalisée, plus le type de prélèvement pour la vue par type | `R/spares_dedup.R` → `spares_dedup()` | Unité de résultat |
+| Les groupes sont patient × année civile × bactérie normalisée, plus le type de prélèvement pour le calcul par type de prélèvement | `R/spares_dedup.R` → `spares_dedup()` | Unité de résultat |
 | Deux lignes sont incompatibles s'il existe au moins un conflit `S`↔`R` sur un antibiotique informatif commun | `R/spares_shared_primitives.R` → `.spares_sr_conflict_pair()` | Composition des classes, donc le nombre d'isolats |
 | `ZIT` est non informatif : il ne crée jamais de conflit | `R/spares_shared_primitives.R` → `.spares_normalize_noninformative()` | Deux profils divergents uniquement sur `ZIT` fusionnent |
 | L'affectation aux classes est gloutonne au premier ajustement ; l'ordre fait donc partie de l'algorithme, pas de l'affichage | `R/spares_dedup.R` → `.spares_class_order_sort()` | Reproductibilité indépendante de l'ordre d'arrivée des lignes |
@@ -64,7 +64,7 @@ Ce document ne consigne que la mécanique commune.
 | `class_any_r` : un seul `R` suffit ; un molécule directe est une classe à un élément et suit le même code | `compute_ratb_indicator_result()` | Fluoroquinolones, C3G, carbapénèmes, fosfomycine |
 | `molecule_priority` : la première molécule *testée* dans l'ordre déclaré au catalogue est retenue, sans comparaison des autres | `compute_ratb_indicator_result()` ; ordre dans `molecule_values` | Méticilline : céfoxitine si testée, sinon oxacilline |
 | `phenotype_flag` : chaque isolat éligible compte pour un testé | `compute_ratb_indicator_result()` | Le dénominateur inclut `unknown` et `no_signal`, qui diluent la proportion |
-| Les vues publiables sont décidées par `sample_type_mode` | `R/ratb_indicator_helpers.R` → `resolve_ratb_scope_names()` | Vue globale, par type, ou les deux |
+| Les vues publiables sont décidées par `sample_type_mode` | `R/ratb_indicator_helpers.R` → `resolve_ratb_scope_names()` | Tous prélèvements confondus, par type de prélèvement, ou les deux |
 | Densité d'incidence = isolats × 1 000 / nuits éligibles de la même année | `R/ratb_indicator_helpers.R` | Incidences publiées |
 
 ## Phénotypes
@@ -91,7 +91,7 @@ Ce document ne consigne que la mécanique commune.
 | Décision | Implémentation | Effet |
 |------------------------|------------------------|------------------------|
 | Le rapport publie les années déclarées, et s'arrête si les données en portent une autre. L'incidence n'a pas d'exclusion propre : le dénominateur voit des années de bord parce qu'un séjour à cheval sur la borne de la fenêtre y dépose des nuits, et seules les années déclarées sont publiées | `config/pipeline.R` → `ratb$report_years` ; filtre et contrôle dans `orchidee_ratb_indicators.qmd` | Années publiées, proportions et incidences |
-| Les vues par type affichées sont limitées à la liste configurée, intersectée avec les types présents | `config/pipeline.R` → `ratb$indicator_sample_types` | Hémoculture et urines aujourd'hui |
+| Les proportions par type de prélèvement affichées sont limitées à la liste configurée, intersectée avec les types présents | `config/pipeline.R` → `ratb$indicator_sample_types` | Hémoculture et urines aujourd'hui |
 | Le seuil `n` masque des cellules de la carte de chaleur, pas des lignes de tableau | `config/pipeline.R` → `ratb$indicator_min_n` ; `R/ratb_report_helpers.R` → `prepare_ratb_indicator_heatmap()` | À 0, rien n'est masqué |
 
 ## Points ouverts
@@ -112,9 +112,12 @@ qu'une lecture les prenne pour un choix motivé.
 -   **Proportion carbapénémase sur hémoculture.** Le catalogue la marque comme
     indicateur de compatibilité, pour préserver une sortie demandée. La raison
     de fond n'est pas consignée.
--   **Comparabilité.** Rien dans le code ne garantit qu'une année ou un site
-    soit comparable à un autre : la normalisation locale, le périmètre et le
-    vocabulaire peuvent avoir changé entre deux exécutions.
+-   **Comparabilité analytique.** La borne chromatique commune rend les
+    couleurs cohérentes à l'intérieur d'un même rapport, mais elle est
+    recalculée à chaque rendu. Elle ne garantit pas qu'une année ou un site soit
+    analytiquement comparable à un autre : la normalisation locale, le
+    périmètre et le vocabulaire peuvent différer entre années, sites ou
+    exécutions.
 -   **Vocabulaire source mesuré.** Sur les lignes `LBLRES = SIR` de la fenêtre
     Rouen, `STRRES` ne prend que neuf valeurs : `S`, `R`, `SFP`, vide, `I`,
     `ZIT`, `NC`, `---S`, `---R`. Toute autre valeur arrête le build. Mesurer ce

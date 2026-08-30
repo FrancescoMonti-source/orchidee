@@ -171,14 +171,14 @@ resolve_table_note_lines <- function(file_stem) {
 
   if (startsWith(stem, "ratb_global_")) {
     return(c(
-      "Cette table présente, pour un taxon donné, une ligne par jeu comparé, indicateur et année pour les proportions annuelles de résistance en vue globale.",
+      "Cette table présente, pour un taxon donné, une ligne par jeu comparé, indicateur et année pour les proportions annuelles de résistance sur l'ensemble des prélèvements éligibles.",
       "Lire d'abord le nombre testé et le nombre résistant ; le pourcentage de résistance s'interprète ensuite à année et indicateur constants."
     ))
   }
 
   if (startsWith(stem, "ratb_incidence_global_")) {
     return(c(
-      "Cette table présente, pour un taxon donné, une ligne par jeu comparé, indicateur et année pour la densité d'incidence annuelle en vue globale.",
+      "Cette table présente, pour un taxon donné, une ligne par jeu comparé, indicateur et année pour la densité d'incidence annuelle sur l'ensemble des prélèvements éligibles.",
       "La densité publiée correspond au nombre d'isolats résistants pour 1000 nuits d'hospitalisation éligibles ; lire ensemble le nombre de résistants et le nombre de nuits."
     ))
   }
@@ -229,14 +229,14 @@ resolve_plot_note_lines <- function(file_stem) {
 
   if (startsWith(stem, "ratb_global_heatmap_")) {
     return(c(
-      "Cette figure représente, pour un taxon donné, les proportions annuelles de résistance en vue globale.",
+      "Cette figure représente, pour un taxon donné, les proportions annuelles de résistance sur l'ensemble des prélèvements éligibles.",
       "Chaque case correspond à un jeu comparé, une année et un indicateur ; la couleur code le pourcentage de résistance et le texte dans la case rappelle la valeur et le nombre testé."
     ))
   }
 
   if (startsWith(stem, "ratb_incidence_global_heatmap_")) {
     return(c(
-      "Cette figure représente, pour un taxon donné, la densité d'incidence annuelle en vue globale.",
+      "Cette figure représente, pour un taxon donné, la densité d'incidence annuelle sur l'ensemble des prélèvements éligibles.",
       "Chaque case correspond à un jeu comparé, une année et un indicateur ; la couleur code la densité pour 1000 nuits d'hospitalisation et le texte dans la case rappelle la valeur et le nombre d'isolats résistants."
     ))
   }
@@ -565,10 +565,10 @@ localize_ratb_publication_view <- function(
   )
 
   dplyr::case_when(
-    mode_chr == "global_and_by_type" ~ "globale et par type",
-    mode_chr == "global_only" ~ "globale",
-    mode_chr == "by_type_only" & has_values ~ paste0("par type", values_label),
-    mode_chr == "by_type_only" ~ "par type",
+    mode_chr == "global_and_by_type" ~ "tous prélèvements confondus et par type de prélèvement",
+    mode_chr == "global_only" ~ "tous prélèvements confondus",
+    mode_chr == "by_type_only" & has_values ~ paste0("par type de prélèvement", values_label),
+    mode_chr == "by_type_only" ~ "par type de prélèvement",
     TRUE ~ mode_chr
   )
 }
@@ -595,13 +595,13 @@ localize_ratb_notes <- function(x) {
     x_chr ==
       "Phenotype indicator. A strain is counted positive only when the final phenotype status is positive. Non-positive statuses map to FALSE." ~ "Indicateur phénotypique. Une souche n'est comptée positive que si le statut phénotypique final est positif. Les statuts non positifs alimentent tous le flag binaire `FALSE`.",
     x_chr ==
-      "Requested phenotype indicator. Published as annual global incidence only. A strain is counted positive only when the final phenotype status is positive. Non-positive statuses map to FALSE." ~ "Indicateur phénotypique demandé. Publié uniquement en densité d'incidence annuelle globale. Une souche n'est comptée positive que si le statut phénotypique final est positif. Les statuts non positifs alimentent tous le flag binaire `FALSE`.",
+      "Requested phenotype indicator. Published as annual global incidence only. A strain is counted positive only when the final phenotype status is positive. Non-positive statuses map to FALSE." ~ "Indicateur phénotypique demandé. Publié uniquement en densité d'incidence annuelle sur l'ensemble des prélèvements éligibles. Une souche n'est comptée positive que si le statut phénotypique final est positif. Les statuts non positifs alimentent tous le flag binaire `FALSE`.",
     x_chr ==
       "Requested phenotype indicator. Published as annual hemoculture proportion only. A strain is counted positive only when the final phenotype status is positive. Non-positive statuses map to FALSE." ~ "Indicateur phénotypique demandé. Publié uniquement en proportion annuelle sur `hemoculture`. Une souche n'est comptée positive que si le statut phénotypique final est positif. Les statuts non positifs alimentent tous le flag binaire `FALSE`.",
     x_chr ==
-      "Canonical phenotype indicator. Published as annual global proportion only. A strain is counted positive only when the final phenotype status is positive. Non-positive statuses map to FALSE." ~ "Indicateur phénotypique canonique. Publié uniquement en proportion annuelle globale. Une souche n'est comptée positive que si le statut phénotypique final est positif. Les statuts non positifs alimentent tous le flag binaire `FALSE`.",
+      "Canonical phenotype indicator. Published as annual global proportion only. A strain is counted positive only when the final phenotype status is positive. Non-positive statuses map to FALSE." ~ "Indicateur phénotypique canonique. Publié uniquement en proportion annuelle sur l'ensemble des prélèvements éligibles. Une souche n'est comptée positive que si le statut phénotypique final est positif. Les statuts non positifs alimentent tous le flag binaire `FALSE`.",
     x_chr ==
-      "Canonical phenotype indicator. Published as annual global incidence only. A strain contributes to the incidence numerator only when the final phenotype status is positive." ~ "Indicateur phénotypique canonique. Publié uniquement en densité d'incidence annuelle globale. Une souche contribue au numérateur seulement si son statut phénotypique final est positif.",
+      "Canonical phenotype indicator. Published as annual global incidence only. A strain contributes to the incidence numerator only when the final phenotype status is positive." ~ "Indicateur phénotypique canonique. Publié uniquement en densité d'incidence annuelle sur l'ensemble des prélèvements éligibles. Une souche contribue au numérateur seulement si son statut phénotypique final est positif.",
     x_chr ==
       "Compatibility phenotype indicator. Published as annual hemoculture proportion to preserve the currently requested output. A strain is counted positive only when the final phenotype status is positive. Non-positive statuses map to FALSE." ~ "Indicateur phénotypique de compatibilité. Publié en proportion annuelle sur `hemoculture` pour préserver la sortie actuellement demandée. Une souche n'est comptée positive que si le statut phénotypique final est positif. Les statuts non positifs alimentent tous le flag binaire `FALSE`.",
     x_chr == "Published in incidence only." ~ "Publié uniquement en incidence.",
@@ -888,7 +888,7 @@ build_ratb_global_output_block <- function(taxon, context) {
 
   if (nrow(global_tbl) == 0L) {
     note <- wrap_html_output(htmltools::tags$p(
-      "Aucune sortie de proportion globale n'est disponible pour ce taxon."
+      "Aucune proportion sur l'ensemble des prélèvements éligibles n'est disponible pour ce taxon."
     ))
     return(list(
       table = note,
@@ -930,7 +930,7 @@ build_ratb_global_output_block <- function(taxon, context) {
     file_stem = paste0("ratb_global_", slugify_filename(taxon)),
     caption = paste0(
       taxon,
-      " - tableau annuel des proportions de résistance (vue globale)"
+      " - tableau annuel des proportions de résistance (tous prélèvements confondus)"
     ),
     page_length = 20,
     scroll_y = "320px",
@@ -980,7 +980,7 @@ build_ratb_global_output_block <- function(taxon, context) {
     labs(
       title = paste0(
         taxon,
-        " - proportions annuelles de résistance (vue globale)"
+        " - proportions annuelles de résistance — tous prélèvements confondus"
       ),
       subtitle = paste0(
         "Proportions annuelles sur le périmètre analytique RATB hospitalisation. Seuil n_tested = ",
@@ -1021,7 +1021,7 @@ build_ratb_global_output_block <- function(taxon, context) {
       file_stem = paste0("ratb_global_heatmap_", slugify_filename(taxon)),
       caption = paste0(
         taxon,
-        " - carte thermique annuelle des proportions de résistance (vue globale)"
+        " - carte thermique annuelle des proportions de résistance (tous prélèvements confondus)"
       )
     )),
     plot = global_png_path,
@@ -1030,7 +1030,7 @@ build_ratb_global_output_block <- function(taxon, context) {
     pdf_button = wrap_html_output(show_download_button(
       global_pdf_path,
       paste0(
-        "Télécharger la carte thermique PDF des proportions globales pour ",
+        "Télécharger la carte thermique PDF des proportions de résistance, tous prélèvements confondus, pour ",
         taxon,
         " (",
         basename(global_pdf_path),
@@ -1055,7 +1055,7 @@ build_ratb_global_incidence_output_block <- function(taxon, context) {
 
   if (nrow(incidence_tbl) == 0L) {
     note <- wrap_html_output(htmltools::tags$p(
-      "Aucune sortie globale de densité d'incidence n'est disponible pour ce taxon."
+      "Aucune sortie de densité d'incidence n'est disponible pour ce taxon."
     ))
     return(list(
       table = note,
@@ -1095,7 +1095,7 @@ build_ratb_global_incidence_output_block <- function(taxon, context) {
     file_stem = paste0("ratb_incidence_global_", slugify_filename(taxon)),
     caption = paste0(
       taxon,
-      " - tableau annuel de densité d'incidence (vue globale)"
+      " - tableau annuel de densité d'incidence"
     ),
     page_length = 20,
     scroll_y = "320px",
@@ -1158,7 +1158,7 @@ build_ratb_global_incidence_output_block <- function(taxon, context) {
       oob = scales::squish
     ) +
     labs(
-      title = paste0(taxon, " - densité d'incidence annuelle (vue globale)"),
+      title = paste0(taxon, " - densité d'incidence annuelle"),
       subtitle = paste0(
         "Densité d'incidence annuelle sur le même périmètre analytique ; dénominateur = nuits d'hospitalisation éligibles. Borne supérieure commune = ",
         sprintf("%.2f", incidence_fill_limit),
@@ -1202,7 +1202,7 @@ build_ratb_global_incidence_output_block <- function(taxon, context) {
       ),
       caption = paste0(
         taxon,
-        " - carte thermique annuelle de densité d'incidence (vue globale)"
+        " - carte thermique annuelle de densité d'incidence"
       )
     )),
     plot = incidence_png_path,
@@ -1211,7 +1211,7 @@ build_ratb_global_incidence_output_block <- function(taxon, context) {
     pdf_button = wrap_html_output(show_download_button(
       incidence_pdf_path,
       paste0(
-        "Télécharger la carte thermique PDF de densité d'incidence globale pour ",
+        "Télécharger la carte thermique PDF de densité d'incidence pour ",
         taxon,
         " (",
         basename(incidence_pdf_path),
@@ -1242,7 +1242,7 @@ build_ratb_by_type_output_block <- function(taxon, context) {
 
   if (nrow(by_type_tbl) == 0L) {
     note <- wrap_html_output(htmltools::tags$p(
-      "Aucune sortie par type n'est disponible avec le filtre de types de prélèvement retenu pour ce rapport."
+      "Aucune proportion par type de prélèvement n'est disponible avec le filtre retenu pour ce rapport."
     ))
     return(list(
       table = note,
@@ -1280,7 +1280,7 @@ build_ratb_by_type_output_block <- function(taxon, context) {
     file_stem = paste0("ratb_by_type_", slugify_filename(taxon)),
     caption = paste0(
       taxon,
-      " - tableau annuel des proportions de résistance (par type)"
+      " - tableau annuel des proportions de résistance (par type de prélèvement)"
     ),
     page_length = 20,
     scroll_y = "320px",
@@ -1341,7 +1341,7 @@ build_ratb_by_type_output_block <- function(taxon, context) {
         " - proportions annuelles de résistance par type de prélèvement"
       ),
       subtitle = paste0(
-        "Vue par type du rapport limitée à ",
+        "Détail par type de prélèvement limité à ",
         paste(selected_sample_types, collapse = " et "),
         ". Seuil n_tested = ",
         report_config$indicator_min_n,
@@ -1391,7 +1391,7 @@ build_ratb_by_type_output_block <- function(taxon, context) {
     pdf_button = wrap_html_output(show_download_button(
       by_type_pdf_path,
       paste0(
-        "Télécharger la carte thermique PDF des proportions par type pour ",
+        "Télécharger la carte thermique PDF des proportions par type de prélèvement pour ",
         taxon,
         " (",
         basename(by_type_pdf_path),
@@ -1452,7 +1452,7 @@ build_ratb_phenotype_proportion_table_block <- function(
 
   if (nrow(phenotype_tbl) == 0L) {
     note_text <- if (is.null(sample_type_filter)) {
-      "Aucune sortie phénotypique de proportion globale n'est disponible pour ce bloc."
+      "Aucune sortie phénotypique de proportion sur l'ensemble des prélèvements éligibles n'est disponible pour ce bloc."
     } else {
       paste0(
         "Aucune sortie phénotypique de proportion n'est disponible pour le type de prélèvement `",
@@ -1531,7 +1531,7 @@ build_ratb_phenotype_incidence_table_block <- function(
 
   if (nrow(incidence_tbl) == 0L) {
     return(wrap_html_output(htmltools::tags$p(
-      "Aucune sortie phénotypique d'incidence globale n'est disponible pour ce bloc."
+      "Aucune sortie phénotypique de densité d'incidence n'est disponible pour ce bloc."
     )))
   }
 
