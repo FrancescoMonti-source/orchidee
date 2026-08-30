@@ -223,22 +223,22 @@ ouverts sont consignés dans
 
 1. Commencer par le catalogue des indicateurs publiés pour voir quelles sorties sont actuellement livrées et selon quelle logique de lecture.
 2. Lire ensuite les sections taxonomiques dans l'ordre du document d'expression de besoins.
-3. Pour chaque taxon, commencer par les proportions globales de résistance.
-4. Lire ensuite la densité d'incidence globale.
-5. Terminer par les sorties par type, limitées ici à `hemoculture` et `urines`.
+3. Pour chaque taxon, commencer par les proportions de résistance, tous prélèvements éligibles confondus.
+4. Lire ensuite la densité d'incidence annuelle, calculée sur le même ensemble de prélèvements éligibles.
+5. Terminer par les proportions de résistance par type de prélèvement, limitées ici à `hemoculture` et `urines`.
 6. Les indicateurs phénotypiques publiés couvrent désormais la grille canonique `2 taxons × 2 phénotypes × 2 métriques` pour `K. pneumoniae` et `Enterobacterales` ; une sortie additionnelle de compatibilité reste publiée pour respecter la demande actuelle : `K. pneumoniae` carbapénémase en proportion sur `hemoculture`.
 7. Ce rapport correspond à la livraison annuelle actuelle ; il ne couvre pas encore la déclinaison trimestrielle ni les autres stratifications demandées dans l'expression de besoins.
 8. Pour les décisions d'implémentation, leurs limites et les points ouverts, se reporter à `documentation/methods.md`.
-9. Les cartes thermiques utilisent une transformation de couleur réglée par `ratb_fill_transform` ; avec `"sqrt"`, les faibles écarts deviennent plus visibles (et le gros écarts moins visibles).
-10. Les cartes thermiques de densité d'incidence partagent une borne supérieure commune, réglée par `ratb_incidence_fill_limit_mode`, afin de rendre les taxons comparables entre eux. La borne supérieure actuelle est provisoire.
+9. Les cartes thermiques utilisent une transformation de couleur réglée par `ratb_fill_transform` ; avec `"sqrt"`, les faibles écarts deviennent plus visibles (et les grands écarts moins visibles).
+10. Les cartes thermiques de densité d'incidence partagent une borne supérieure commune au sein de ce rapport. Elle correspond actuellement au 97,5e percentile des valeurs d'incidence publiées et est recalculée à chaque rendu : les couleurs sont comparables dans un même rapport, pas entre deux rapports. Les valeurs supérieures à cette borne conservent leur valeur affichée mais partagent la couleur maximale.
 
 ## Périmètre de livraison
 
 - le même périmètre analytique hospitalisation éligible alimente la déduplication, les proportions annuelles de résistance, la densité d'incidence et les nuits d'hospitalisation éligibles
-- la densité d'incidence annuelle est publiée en vue globale uniquement ; elle se distingue des proportions par sa métrique finale, avec un dénominateur en nuits d'hospitalisation éligibles
+- la densité d'incidence annuelle est publiée sur l'ensemble des prélèvements éligibles, sans déclinaison par type de prélèvement ; elle se distingue des proportions par sa métrique finale, avec un dénominateur en nuits d'hospitalisation éligibles
 - le même catalogue biologique pilote les deux familles de métriques, avec des contrôles explicites de publication pour respecter la matrice demandée ; les familles actuellement normées sont `Fluoroquinolones = ofloxacine + levofloxacine + moxifloxacine + ciprofloxacine`, `C3G = cefotaxime + ceftazidime + ceftriaxone` et `Carbapénèmes = ertapénème + imipénème + méropénème`
-- les vues par type restent limitées à `hemoculture` et `urines`
-- les sorties phénotypiques publiées couvrent huit sorties canoniques (`K. pneumoniae` et `Enterobacterales`, BLSE et carbapénémase, en proportion globale et en incidence globale), auxquelles s'ajoute une sortie additionnelle de compatibilité : `K. pneumoniae` carbapénémase en proportion sur `hemoculture`
+- les proportions détaillées par type de prélèvement restent limitées à `hemoculture` et `urines`
+- les sorties phénotypiques publiées couvrent huit sorties canoniques (`K. pneumoniae` et `Enterobacterales`, BLSE et carbapénémase, en proportion sur l'ensemble des prélèvements éligibles et en densité d'incidence annuelle), auxquelles s'ajoute une sortie additionnelle de compatibilité : `K. pneumoniae` carbapénémase en proportion sur `hemoculture`
 - pour les indicateurs phénotypiques, une souche n'est comptée positive que si son statut phénotypique final est positif ; les statuts non positifs alimentent le flag binaire `FALSE`
 - les journées d'hospitalisation sont comptées en nuits selon une convention d'implémentation retenue faute de précision explicite dans l'expression de besoins, en cohérence avec une logique DIM
 - la déclinaison trimestrielle et les autres stratifications demandées (âge, sexe, infection, site de prélèvement, service, établissement, etc.) **ne sont pas encore** publiées dans ce rapport
@@ -625,7 +625,7 @@ show_audit_table(
 )
 ```
 
-Les résultats ci-dessous suivent l'ordre du document métier. Pour chaque taxon, lire d'abord les proportions globales de résistance, puis la densité d'incidence  globale, puis les proportions par type. Les sorties phénotypiques dérivées sont regroupées dans une section dédiée en fin de rapport.  
+Les résultats ci-dessous suivent l'ordre du document métier. Pour chaque taxon, lire d'abord les proportions de résistance, tous prélèvements éligibles confondus, puis la densité d'incidence annuelle, puis les proportions par type de prélèvement. Les sorties phénotypiques dérivées sont regroupées dans une section dédiée en fin de rapport.
 
 
 ```{r}
@@ -694,7 +694,7 @@ ratb_taxon_outputs <- build_ratb_taxon_outputs(
 )
 ```
 
-#### Global
+#### Proportions — tous prélèvements confondus
 
 ```{r}
 #| label: ratb_staphylococcus_aureus_global_display
@@ -709,7 +709,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$global$pdf_button
 ```
 
-#### Incidence
+#### Densité d'incidence
 
 ```{r}
 #| label: ratb_staphylococcus_aureus_incidence_display
@@ -724,7 +724,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$incidence$pdf_button
 ```
 
-#### Par type
+#### Proportions — par type de prélèvement
 
 ```{r}
 #| label: ratb_staphylococcus_aureus_by_type_display
@@ -755,7 +755,7 @@ ratb_taxon_outputs <- build_ratb_taxon_outputs(
 )
 ```
 
-#### Global
+#### Proportions — tous prélèvements confondus
 
 ```{r}
 #| label: ratb_enterobacterales_pooled_global_display
@@ -770,7 +770,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$global$pdf_button
 ```
 
-#### Incidence
+#### Densité d'incidence
 
 ```{r}
 #| label: ratb_enterobacterales_pooled_incidence_display
@@ -785,7 +785,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$incidence$pdf_button
 ```
 
-#### Par type
+#### Proportions — par type de prélèvement
 
 ```{r}
 #| label: ratb_enterobacterales_pooled_by_type_display
@@ -812,7 +812,7 @@ ratb_taxon_outputs <- build_ratb_taxon_outputs(
 )
 ```
 
-#### Global
+#### Proportions — tous prélèvements confondus
 
 ```{r}
 #| label: ratb_escherichia_coli_global_display
@@ -827,7 +827,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$global$pdf_button
 ```
 
-#### Incidence
+#### Densité d'incidence
 
 ```{r}
 #| label: ratb_escherichia_coli_incidence_display
@@ -842,7 +842,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$incidence$pdf_button
 ```
 
-#### Par type
+#### Proportions — par type de prélèvement
 
 ```{r}
 #| label: ratb_escherichia_coli_by_type_display
@@ -869,7 +869,7 @@ ratb_taxon_outputs <- build_ratb_taxon_outputs(
 )
 ```
 
-#### Global
+#### Proportions — tous prélèvements confondus
 
 ```{r}
 #| label: ratb_klebsiella_pneumoniae_global_display
@@ -884,7 +884,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$global$pdf_button
 ```
 
-#### Incidence
+#### Densité d'incidence
 
 ```{r}
 #| label: ratb_klebsiella_pneumoniae_incidence_display
@@ -899,7 +899,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$incidence$pdf_button
 ```
 
-#### Par type
+#### Proportions — par type de prélèvement
 
 ```{r}
 #| label: ratb_klebsiella_pneumoniae_by_type_display
@@ -926,7 +926,7 @@ ratb_taxon_outputs <- build_ratb_taxon_outputs(
 )
 ```
 
-#### Global
+#### Proportions — tous prélèvements confondus
 
 ```{r}
 #| label: ratb_enterobacter_cloacae_complex_global_display
@@ -941,7 +941,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$global$pdf_button
 ```
 
-#### Incidence
+#### Densité d'incidence
 
 ```{r}
 #| label: ratb_enterobacter_cloacae_complex_incidence_display
@@ -956,7 +956,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$incidence$pdf_button
 ```
 
-#### Par type
+#### Proportions — par type de prélèvement
 
 ```{r}
 #| label: ratb_enterobacter_cloacae_complex_by_type_display
@@ -983,7 +983,7 @@ ratb_taxon_outputs <- build_ratb_taxon_outputs(
 )
 ```
 
-#### Global
+#### Proportions — tous prélèvements confondus
 
 ```{r}
 #| label: ratb_autres_enterobacterales_global_display
@@ -998,7 +998,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$global$pdf_button
 ```
 
-#### Incidence
+#### Densité d'incidence
 
 ```{r}
 #| label: ratb_autres_enterobacterales_incidence_display
@@ -1013,7 +1013,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$incidence$pdf_button
 ```
 
-#### Par type
+#### Proportions — par type de prélèvement
 
 ```{r}
 #| label: ratb_autres_enterobacterales_by_type_display
@@ -1040,7 +1040,7 @@ ratb_taxon_outputs <- build_ratb_taxon_outputs(
 )
 ```
 
-#### Global
+#### Proportions — tous prélèvements confondus
 
 ```{r}
 #| label: ratb_enterococcus_faecium_global_display
@@ -1055,7 +1055,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$global$pdf_button
 ```
 
-#### Incidence
+#### Densité d'incidence
 
 ```{r}
 #| label: ratb_enterococcus_faecium_incidence_display
@@ -1070,7 +1070,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$incidence$pdf_button
 ```
 
-#### Par type
+#### Proportions — par type de prélèvement
 
 ```{r}
 #| label: ratb_enterococcus_faecium_by_type_display
@@ -1097,7 +1097,7 @@ ratb_taxon_outputs <- build_ratb_taxon_outputs(
 )
 ```
 
-#### Global
+#### Proportions — tous prélèvements confondus
 
 ```{r}
 #| label: ratb_enterococcus_faecalis_global_display
@@ -1112,7 +1112,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$global$pdf_button
 ```
 
-#### Incidence
+#### Densité d'incidence
 
 ```{r}
 #| label: ratb_enterococcus_faecalis_incidence_display
@@ -1127,7 +1127,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$incidence$pdf_button
 ```
 
-#### Par type
+#### Proportions — par type de prélèvement
 
 ```{r}
 #| label: ratb_enterococcus_faecalis_by_type_display
@@ -1154,7 +1154,7 @@ ratb_taxon_outputs <- build_ratb_taxon_outputs(
 )
 ```
 
-#### Global
+#### Proportions — tous prélèvements confondus
 
 ```{r}
 #| label: ratb_acinetobacter_baumannii_global_display
@@ -1169,7 +1169,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$global$pdf_button
 ```
 
-#### Incidence
+#### Densité d'incidence
 
 ```{r}
 #| label: ratb_acinetobacter_baumannii_incidence_display
@@ -1184,7 +1184,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$incidence$pdf_button
 ```
 
-#### Par type
+#### Proportions — par type de prélèvement
 
 ```{r}
 #| label: ratb_acinetobacter_baumannii_by_type_display
@@ -1211,7 +1211,7 @@ ratb_taxon_outputs <- build_ratb_taxon_outputs(
 )
 ```
 
-#### Global
+#### Proportions — tous prélèvements confondus
 
 ```{r}
 #| label: ratb_pseudomonas_aeruginosa_global_display
@@ -1226,7 +1226,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$global$pdf_button
 ```
 
-#### Incidence
+#### Densité d'incidence
 
 ```{r}
 #| label: ratb_pseudomonas_aeruginosa_incidence_display
@@ -1241,7 +1241,7 @@ prepare_plot_for_print(
 ratb_taxon_outputs$incidence$pdf_button
 ```
 
-#### Par type
+#### Proportions — par type de prélèvement
 
 ```{r}
 #| label: ratb_pseudomonas_aeruginosa_by_type_display
@@ -1272,7 +1272,7 @@ ratb_phenotype_output_sets <- list(
         "kpneumo_carbapenemase_prop_global"
       ),
       file_stem = "ratb_phenotype_kpneumo_prop_global",
-      caption = "Klebsiella pneumoniae - tableau annuel des proportions phénotypiques (vue globale)",
+      caption = "Klebsiella pneumoniae - tableau annuel des proportions phénotypiques (tous prélèvements confondus)",
       context = ratb_report_context
     ),
     incidence_global = build_ratb_phenotype_incidence_table_block(
@@ -1281,7 +1281,7 @@ ratb_phenotype_output_sets <- list(
         "kpneumo_carbapenemase_inc_global"
       ),
       file_stem = "ratb_phenotype_kpneumo_inc_global",
-      caption = "Klebsiella pneumoniae - tableau annuel des densités d'incidence phénotypiques (vue globale)",
+      caption = "Klebsiella pneumoniae - tableau annuel des densités d'incidence phénotypiques",
       context = ratb_report_context
     ),
     proportion_hemo = build_ratb_phenotype_proportion_table_block(
@@ -1299,7 +1299,7 @@ ratb_phenotype_output_sets <- list(
         "enterobacterales_carbapenemase_prop_global"
       ),
       file_stem = "ratb_phenotype_enterobacterales_prop_global",
-      caption = "Enterobacterales - tableau annuel des proportions phénotypiques (vue globale)",
+      caption = "Enterobacterales - tableau annuel des proportions phénotypiques (tous prélèvements confondus)",
       context = ratb_report_context
     ),
     incidence_global = build_ratb_phenotype_incidence_table_block(
@@ -1308,7 +1308,7 @@ ratb_phenotype_output_sets <- list(
         "enterobacterales_carbapenemase_inc_global"
       ),
       file_stem = "ratb_phenotype_enterobacterales_inc_global",
-      caption = "Enterobacterales - tableau annuel des densités d'incidence phénotypiques (vue globale)",
+      caption = "Enterobacterales - tableau annuel des densités d'incidence phénotypiques",
       context = ratb_report_context
     )
   )
@@ -1317,7 +1317,7 @@ ratb_phenotype_output_sets <- list(
 
 ### Klebsiella pneumoniae
 
-#### Proportions globales
+#### Proportions — tous prélèvements confondus
 
 ```{r}
 #| label: ratb_phenotype_kpneumo_prop_global_display
@@ -1325,7 +1325,7 @@ ratb_phenotype_output_sets <- list(
 ratb_phenotype_output_sets$kpneumo$proportion_global
 ```
 
-#### Densités d'incidence globales
+#### Densité d'incidence
 
 ```{r}
 #| label: ratb_phenotype_kpneumo_incidence_global_display
@@ -1343,7 +1343,7 @@ ratb_phenotype_output_sets$kpneumo$proportion_hemo
 
 ### Enterobacterales
 
-#### Proportions globales
+#### Proportions — tous prélèvements confondus
 
 ```{r}
 #| label: ratb_phenotype_enterobacterales_prop_global_display
@@ -1351,7 +1351,7 @@ ratb_phenotype_output_sets$kpneumo$proportion_hemo
 ratb_phenotype_output_sets$enterobacterales$proportion_global
 ```
 
-#### Densités d'incidence globales
+#### Densité d'incidence
 
 ```{r}
 #| label: ratb_phenotype_enterobacterales_incidence_global_display
