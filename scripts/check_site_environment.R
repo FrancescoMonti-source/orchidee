@@ -25,12 +25,12 @@ setwd(project_root)
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 6L || any(args %in% c("-h", "--help"))) {
   cat(
-    "Usage (PowerShell):\n",
-    "  & .\\scripts\\run_r.ps1 scripts/check_site_environment.R `\n",
-    "    <microbiology_observations> <bacteria_mapping> `\n",
-    "    <sample_type_mapping> <antibiotic_mapping> `\n",
-    "    <unit_mapping> `\n",
-    "    <incidence_exposure_by_year_um_uf_ta_de_profile>\n",
+    "Usage:\n",
+    "  python scripts/orchidee.py run-r scripts/check_site_environment.R ",
+    "<microbiology_observations> <bacteria_mapping> ",
+    "<sample_type_mapping> <antibiotic_mapping> ",
+    "<unit_mapping> ",
+    "<incidence_exposure_by_year_um_uf_ta_de_profile>\n",
     sep = ""
   )
   quit(

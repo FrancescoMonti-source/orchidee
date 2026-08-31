@@ -25,7 +25,7 @@ setwd(project_root)
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 1L || any(args %in% c("-h", "--help"))) {
   cat(
-    "Usage (PowerShell): & .\\scripts\\run_r.ps1 ",
+    "Usage: python scripts/orchidee.py run-r ",
     "scripts/emit_site_handoff_templates.R <output_directory>\n",
     sep = ""
   )

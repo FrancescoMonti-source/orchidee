@@ -37,7 +37,8 @@ paramètres de ligne de commande et ne sont pas versionnés.
 
 La reconstruction du cache n'est pas un réglage. Chaque rendu compare le cache
 à son bundle d'entrée et au code qui le produit, et le reconstruit dès que l'un
-des deux a changé. Le commutateur `-Rebuild` de `scripts/render_orchidee.ps1`
+des deux a changé. L'option `--rebuild` de
+`python scripts/orchidee.py render`
 ne sert qu'à forcer ce travail sur un cache déjà à jour.
 
 ## C — analytique

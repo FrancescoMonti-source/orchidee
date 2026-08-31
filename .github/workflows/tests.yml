@@ -4,9 +4,8 @@
 # under tempdir(). No clinical input, bundle or cache is read, so nothing
 # patient-derived ever reaches a GitHub runner.
 #
-# Windows remains the documented operator platform. This job is a gate, not a
-# second supported environment: it answers "do the tests still pass on a clean
-# machine", which is the question a laptop cannot answer about itself.
+# Windows and Linux are supported operator platforms. The suite runs through
+# the public Python CLI on both so the orchestration boundary is tested too.
 
 name: tests
 
@@ -20,16 +19,17 @@ permissions:
 
 jobs:
   run-tests:
-    name: Standalone source tests
-    runs-on: ubuntu-24.04
+    name: Standalone source tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+          - os: windows-2022
 
     env:
-      # renv.lock pins CRAN by name. Point it at the Posit binary mirror for
-      # Ubuntu noble instead, so a restore takes minutes rather than an hour.
-      # Provenance therefore differs from the lockfile: this job runs
-      # tests/run_tests.R, never scripts/setup_r_environment.R, whose stricter
-      # source and synchronisation checks belong to the operator install.
-      RENV_CONFIG_REPOS_OVERRIDE: https://packagemanager.posit.co/cran/__linux__/noble/latest
       # redsan is a private repository. The workflow token cannot read it, so a
       # PAT with read access is required; see the guard step below.
       GITHUB_PAT: ${{ secrets.REDSAN_PAT }}
@@ -39,6 +39,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Require the redsan access token
+        shell: bash
         run: |
           if [ -n "$GITHUB_PAT" ]; then exit 0; fi
           echo "::error::REDSAN_PAT is not set."
@@ -51,6 +52,7 @@ jobs:
           exit 1
 
       - name: Install system libraries
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -71,8 +73,23 @@ jobs:
           r-version: '4.5.3'
           use-public-rspm: true
 
-      - name: Restore the locked project library
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+
+      # renv.lock pins CRAN by name. Use the Posit binary mirror on Ubuntu so a
+      # restore takes minutes rather than an hour. This job runs the tests, not
+      # the stricter operator setup source checks.
+      - name: Restore the locked project library (Linux)
+        if: runner.os == 'Linux'
+        env:
+          RENV_CONFIG_REPOS_OVERRIDE: https://packagemanager.posit.co/cran/__linux__/noble/latest
+        uses: r-lib/actions/setup-renv@v2
+
+      - name: Restore the locked project library (Windows)
+        if: runner.os == 'Windows'
         uses: r-lib/actions/setup-renv@v2
 
       - name: Run the test suite
-        run: Rscript tests/run_tests.R
+        run: python scripts/orchidee.py run-r tests/run_tests.R

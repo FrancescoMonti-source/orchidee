@@ -22,7 +22,7 @@ orchidee_source_required_script(
 args <- commandArgs(trailingOnly = TRUE)
 if (any(args %in% c("-h", "--help"))) {
   cat(
-    "Usage (PowerShell): & .\\scripts\\run_r.ps1 ",
+    "Usage: python scripts/orchidee.py run-r ",
     "scripts/compare_operational_v2_gate.R ",
     "<baseline_bundle_dir> <baseline_runtime_dir> ",
     "<candidate_bundle_dir> <candidate_runtime_dir>\n",

@@ -51,7 +51,7 @@ args <- setdiff(args, c("-h", "--help", contract_args))
 
 if (help || length(args) != 1L) {
   cat(
-    "Usage (PowerShell): & .\\scripts\\run_r.ps1 ",
+    "Usage: python scripts/orchidee.py run-r ",
     "scripts/smoke_external_runtime_inputs.R ",
     "<bundle_dir> --contract=v2|v3\n",
     sep = ""

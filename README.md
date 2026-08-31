@@ -10,17 +10,19 @@ Deux parcours d'entrée (Rouen vs "autres") mènent au même rapport. Suivre uni
 
 ## Prérequis et installation
 
-Windows avec PowerShell, Git et Quarto. La version de R et les dépendances sont
-imposées par `renv.lock`. Depuis la racine d'un clone frais :
+Windows ou Linux, avec Git, Python 3.8 ou plus récent et Quarto. La version de
+R et les dépendances sont imposées par `renv.lock`. PowerShell n'est pas requis.
+Dans les commandes ci-dessous, remplacer `python` par `python3` si le système
+expose ainsi son interpréteur Python 3. Depuis la racine d'un clone frais :
 
-```powershell
-& .\scripts\setup.ps1
+```console
+python scripts/orchidee.py setup
 ```
 
 Pour vérifier une installation :
 
-```powershell
-& .\scripts\run_r.ps1 tests/run_tests.R
+```console
+python scripts/orchidee.py run-r tests/run_tests.R
 ```
 
 ## Rouen
@@ -44,40 +46,34 @@ machine.
 
 ### 1. Contrôler les deux chemins
 
-```powershell
-& .\scripts\build_rouen.ps1 `
-  -Bact "C:\protected\bact22_24" `
-  -Pmsi "C:\protected\pmsi" `
-  -DryRun
+```console
+python scripts/orchidee.py rouen --bact "C:\protected\bact22_24" --pmsi "C:\protected\pmsi" --dry-run
 ```
 
-`-DryRun` vérifie les chemins, l'environnement R verrouillé et les paquets
+`--dry-run` vérifie les chemins, l'environnement R verrouillé et les paquets
 requis sans ouvrir les objets cliniques. Attendre le `PASS`.
 
 ### 2. Lancer le build
 
-La même commande sans `-DryRun` :
+La même commande sans `--dry-run` :
 
-```powershell
-& .\scripts\build_rouen.ps1 `
-  -Bact "C:\protected\bact22_24" `
-  -Pmsi "C:\protected\pmsi" `
-  *> build.log
+```console
+python scripts/orchidee.py rouen --bact "C:\protected\bact22_24" --pmsi "C:\protected\pmsi" > build.log 2>&1
 ```
 
 Il peut durer une vingtaine de minutes et rester silencieux. Sans la
-redirection `*> build.log`, un échec affiche sa cause à l'écran et ne la laisse
+redirection vers `build.log`, un échec affiche sa cause à l'écran et ne la laisse
 dans aucun fichier ; avec elle, le déroulé complet, le `PASS` final et la
 commande de rendu de l'étape 3 se lisent dans `build.log` plutôt qu'à l'écran.
 
 Une exécution réussie finit par `PASS` et écrit `build_manifest.txt` : sans ce
 fichier, ne pas utiliser la sortie.
 
-La sortie par défaut est `outputs\rouen_current` ; `-Output` accepte un autre
+La sortie par défaut est `outputs/rouen_current` ; `--output` accepte un autre
 répertoire dédié, y compris protégé hors du dépôt. Le build refuse d'écrire
 par-dessus une sortie existante : pour un nouveau millésime de données, donner
-un `-Output` distinct — les deux builds restent alors côte à côte et
-comparables — ou ajouter `-Force` pour remplacer la sortie précédente.
+un `--output` distinct — les deux builds restent alors côte à côte et
+comparables — ou ajouter `--force` pour remplacer la sortie précédente.
 
 Ce que contient la sortie :
 
@@ -104,25 +100,23 @@ Si l'objectif est seulement de transmettre les données, s'arrêter ici.
 Le build affiche en dernière ligne la commande de rendu, avec les chemins de ce
 build déjà résolus. La copier telle quelle ; elle a cette forme :
 
-```powershell
-& .\scripts\render_orchidee.ps1 -Rebuild `
-  -Bundle "outputs\rouen_current\bundle_v2_operational" `
-  -Workspace "outputs\rouen_current\runtime"
+```console
+python scripts/orchidee.py render --rebuild --bundle "outputs/rouen_current/bundle_v2_operational" --workspace "outputs/rouen_current/runtime"
 ```
 
 Les deux chemins disent où lire et où écrire :
 
-- `-Bundle` est ce que le rapport lit : le `bundle_v2_operational/` de l'étape
+- `--bundle` est ce que le rapport lit : le `bundle_v2_operational/` de l'étape
   2. Le passer explicitement, plutôt que de compter sur la valeur par défaut,
   évite de calculer les indicateurs sur le bundle d'un run précédent.
-- `-Workspace` est le répertoire de travail du rendu ; il n'a pas besoin
+- `--workspace` est le répertoire de travail du rendu ; il n'a pas besoin
   d'exister, le rendu le crée. Il reçoit `cache/`, les calculs intermédiaires
   réutilisés d'un rendu à l'autre, et `downloads/`, les tableaux exportables du
   rapport. Son contenu dérive des données cliniques : le garder à côté du
   build, comme le fait la commande affichée, garde un millésime complet au même
   endroit et sous les mêmes règles de protection.
 
-`-Rebuild` n'est pas obligatoire : chaque rendu compare son cache de calcul au
+`--rebuild` n'est pas obligatoire : chaque rendu compare son cache de calcul au
 bundle demandé et au code qui l'a produit, et le reconstruit dès que l'un des
 deux a changé. Le laisser ne coûte rien de plus qu'une reconstruction certaine.
 
@@ -148,8 +142,8 @@ Ces fichiers peuvent être des CSV ou des objets RDS.
 Avant d'introduire des données locales, vérifier l'installation sur la fixture
 synthétique versionnée :
 
-```powershell
-& .\scripts\build_site.ps1 -RunSmokeTest
+```console
+python scripts/orchidee.py site --run-smoke-test
 ```
 
 Ce smoke test qualifie l'installation, pas vos données. La procédure site donne

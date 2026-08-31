@@ -60,16 +60,16 @@ if (length(args) == 8L) {
 }
 if (length(args) != 7L || "--help" %in% args || "-h" %in% args) {
   cat(
-    "Usage (PowerShell):\n",
-    "  & .\\scripts\\run_r.ps1 ",
-    "scripts/build_external_bundle_from_site_inputs.R `\n",
-    "    <microbiology_observations.{rds,csv,tsv,tab,txt}> `\n",
-    "    <bacteria_mapping.{rds,csv,tsv,tab,txt}> `\n",
-    "    <sample_type_mapping.{rds,csv,tsv,tab,txt}> `\n",
-    "    <antibiotic_mapping.{rds,csv,tsv,tab,txt}> `\n",
-    "    <unit_mapping.{rds,csv,tsv,tab,txt}> `\n",
-    "    <denominator.{rds,csv,tsv,tab,txt}> `\n",
-    "    <output_bundle_dir> `\n",
+    "Usage:\n",
+    "  python scripts/orchidee.py run-r ",
+    "scripts/build_external_bundle_from_site_inputs.R ",
+    "<microbiology_observations.{rds,csv,tsv,tab,txt}> ",
+    "<bacteria_mapping.{rds,csv,tsv,tab,txt}> ",
+    "<sample_type_mapping.{rds,csv,tsv,tab,txt}> ",
+    "<antibiotic_mapping.{rds,csv,tsv,tab,txt}> ",
+    "<unit_mapping.{rds,csv,tsv,tab,txt}> ",
+    "<denominator.{rds,csv,tsv,tab,txt}> ",
+    "<output_bundle_dir> ",
     "    [--operational-v2-output=<dir>] [--force] ",
     "[--no-next-steps]\n\n",
     "Inputs:\n",
@@ -116,8 +116,9 @@ bundle_known_output_paths <- function(output_dir) {
   )
 }
 
-quote_powershell_string <- function(value) {
-  paste0("'", gsub("'", "''", value, fixed = TRUE), "'")
+quote_operator_shell_argument <- function(value) {
+  shell_type <- if (.Platform$OS.type == "windows") "cmd" else "sh"
+  shQuote(value, type = shell_type)
 }
 
 site_build_lock_path <- function(output_dir) {
@@ -157,19 +158,13 @@ claim_site_build_locks <- function(output_dirs) {
       } else {
         "owner metadata unavailable"
       }
-      cleanup_command <- paste0(
-        "Remove-Item -LiteralPath ",
-        quote_powershell_string(lock_path),
-        " -Recurse -Force"
-      )
       stop(
         "Another site build holds the output lock ",
         lock_path,
         " (",
         owner,
-        "). Remove this lock only after confirming no build is running. ",
-        "PowerShell: ",
-        cleanup_command,
+        "). Remove this lock only after confirming no build is running: ",
+        lock_path,
         call. = FALSE
       )
     }
@@ -597,13 +592,12 @@ if (!is.na(operational_v2_output)) {
   )
   if (!suppress_next_steps) {
     cat(
-      "Next steps (PowerShell):\n",
-      "  $bundle = ", quote_powershell_string(v2_runtime_path), "\n",
-      "  $workspace = ",
-      quote_powershell_string(runtime_workspace_path),
+      "Optional indicator render:\n",
+      "  python scripts/orchidee.py render --rebuild ",
+      "--bundle ", quote_operator_shell_argument(v2_runtime_path), " ",
+      "--workspace ",
+      quote_operator_shell_argument(runtime_workspace_path),
       "\n",
-      "  & .\\scripts\\render_orchidee.ps1 -Rebuild ",
-      "-Bundle $bundle -Workspace $workspace\n",
       sep = ""
     )
   }

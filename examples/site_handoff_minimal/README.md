@@ -1,18 +1,18 @@
 # Installation smoke-test fixture
 
 These six CSV files contain no patient-derived data. They are the versioned
-fixture behind `build_site.ps1 -RunSmokeTest`, which answers one binary
+fixture behind `python scripts/orchidee.py site --run-smoke-test`, which answers one binary
 question: can this clone, with this R and these packages, run the v3 builder,
 the v2 projection, strict validation and the runtime smoke? A failure points at
 the installation. A success rules the installation out as the sole explanation,
 but it proves nothing about the data shapes the fixture never exercises, so it
 cannot place a later problem in local extraction or mapping on its own. Use
-`-Diagnose` for that.
+`--diagnose` for that.
 
 From the repository root, run:
 
-```powershell
-& .\scripts\build_site.ps1 -RunSmokeTest
+```console
+python scripts/orchidee.py site --run-smoke-test
 ```
 
 A successful run writes paired validated bundles under
@@ -30,9 +30,9 @@ Do not enlarge it to imitate a real site. Extra rows would make the self-test
 slower and no more conclusive, and a synthetic cohort is not what a site needs.
 The commands that serve onboarding are:
 
-- `build_site.ps1 -EmitTemplates` for the canonical headers and the
+- `python scripts/orchidee.py site --emit-templates` for the canonical headers and the
   ORCHIDEE mapping-reference kit;
-- `build_site.ps1 -Diagnose` for an aggregated report of contract problems in
+- `python scripts/orchidee.py site --diagnose` for an aggregated report of contract problems in
   the site's own six blocks.
 
 The contract itself is documented in
@@ -40,4 +40,5 @@ The contract itself is documented in
 
 `tests/test_site_onboarding.R` consumes these same files, so the fixture cannot
 drift from the known-good build path. Do not replace them with local clinical
-data; generate private working templates with `build_site.ps1 -EmitTemplates`.
+data; generate private working templates with
+`python scripts/orchidee.py site --emit-templates`.

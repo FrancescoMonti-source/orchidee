@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# Why: -Diagnose exists because the builder is fail-fast and truncates its
+# Why: --diagnose exists because the builder is fail-fast and truncates its
 # value lists. Three properties make it useful to a site, and each is asserted
 # below:
 #   1. a run without BLOCKING findings means the build and strict v3
@@ -12,6 +12,7 @@ source("R/external_bundle_validation_helpers.R")
 source("R/ratb_hospital_days_helpers.R")
 source("R/external_handoff_helpers.R")
 source("R/site_input_report_publication_helpers.R")
+source("tests/python_cli_helpers.R")
 
 block_names <- names(orchidee_handoff_site_input_spec())
 
@@ -131,8 +132,8 @@ blocking_checks <- function(result) {
   )[result$findings$severity == "BLOCKING"])
 }
 
-# The soundness invariant: whatever -Diagnose accepts, the operator path must
-# accept too. That path is the one build_site.ps1 runs -- v3 plus the
+# The soundness invariant: whatever --diagnose accepts, the operator path must
+# accept too. That path is the one `orchidee.py site` runs -- v3 plus the
 # spares_current projection to operational v2 -- so the v3 build alone would
 # leave the projection and v2 validation untested.
 assert_pass_implies_buildable <- function(result) {
@@ -154,7 +155,7 @@ assert_pass_implies_buildable <- function(result) {
   )
   if (!identical(build$status, 0L)) {
     stop(
-      "-Diagnose passed but the operator build failed for fixture '",
+      "--diagnose passed but the operator build failed for fixture '",
       result$label,
       "':\n",
       paste(utils::tail(build$output, 20L), collapse = "\n"),
@@ -613,7 +614,7 @@ independent_date_result <- run_case(
 # Deriving one format from the whole column, as as.Date() does, matched
 # "12/03/2024" against %Y/%m/%d as year 12 and never reached the %d/%m/%Y
 # branch, so a uniformly French column built a bundle dated in year 12 while
-# both -Diagnose and the build exited 0. A PASS that only proves the build
+# both --diagnose and the build exited 0. A PASS that only proves the build
 # completes cannot see that, hence the assertions on the stored values.
 french_date_observations <- clean_blocks$microbiology_observations
 french_date_observations$DATEPRELEV <- c("12/03/2024", "02/04/2024")
@@ -771,10 +772,10 @@ many_unmapped_uf_listed <- sort(many_unmapped_uf_values$value[
     many_unmapped_uf_values$check == "exposure_uf_not_covered"
 ])
 
-## Public operator wrapper ---------------------------------------------------
+## Public operator CLI -------------------------------------------------------
 ##
-## The R CLI is an implementation detail; sites reach -Diagnose through
-## build_site.ps1, including the -Output form the operator procedure documents.
+## The R CLI is an implementation detail; sites reach --diagnose through the
+## public Python CLI, including the --output form documented for operators.
 
 wrapper_diagnose <- NULL
 wrapper_diagnose_report <- NULL
@@ -785,97 +786,76 @@ wrapper_preserved_before <- NULL
 wrapper_preserved_after <- NULL
 wrapper_technical_staging <- NULL
 wrapper_unsafe_report <- NULL
-if (identical(.Platform$OS.type, "windows")) {
-  powershell <- Sys.which("powershell.exe")
-  if (!nzchar(powershell)) {
-    stop("Windows PowerShell 5.1 is required for the site wrapper test.")
-  }
-  run_wrapper_diagnose <- function(inputs, output = NULL, report = NULL) {
-    wrapper_args <- c(
-      "-NoProfile",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-File",
-      shQuote(
-        normalizePath("scripts/build_site.ps1", winslash = "\\", mustWork = TRUE)
-      ),
-      "-MicrobiologyObservations", shQuote(inputs[[1L]]),
-      "-BacteriaMapping", shQuote(inputs[[2L]]),
-      "-SampleTypeMapping", shQuote(inputs[[3L]]),
-      "-AntibioticMapping", shQuote(inputs[[4L]]),
-      "-UnitMapping", shQuote(inputs[[5L]]),
-      "-IncidenceExposure", shQuote(inputs[[6L]]),
-      if (is.null(output)) character() else c("-Output", shQuote(output)),
-      if (is.null(report)) character() else c("-Report", shQuote(report)),
-      "-Diagnose"
-    )
-    lines <- suppressWarnings(system2(
-      powershell,
-      wrapper_args,
-      stdout = TRUE,
-      stderr = TRUE
-    ))
-    status <- attr(lines, "status")
-    if (is.null(status)) status <- 0L
-    list(status = status, output = lines)
-  }
-
-  wrapper_inputs <- write_blocks(
-    file.path(test_root, "wrapper inputs"),
-    broken_blocks
+run_wrapper_diagnose <- function(inputs, output = NULL, report = NULL) {
+  wrapper_args <- c(
+    "site",
+    "--microbiology-observations", inputs[[1L]],
+    "--bacteria-mapping", inputs[[2L]],
+    "--sample-type-mapping", inputs[[3L]],
+    "--antibiotic-mapping", inputs[[4L]],
+    "--unit-mapping", inputs[[5L]],
+    "--incidence-exposure", inputs[[6L]],
+    if (is.null(output)) character() else c("--output", output),
+    if (is.null(report)) character() else c("--report", report),
+    "--diagnose"
   )
-  wrapper_output <- file.path(test_root, "wrapper output")
-  wrapper_diagnose <- run_wrapper_diagnose(wrapper_inputs, wrapper_output)
-  wrapper_diagnose_report <- file.path(wrapper_output, "diagnostics")
-
-  # A report artifact that cannot be replaced is a technical failure, not a
-  # verdict on the blocks, so the wrapper must surface 2 rather than the code
-  # reserved for blocking findings. Standing a directory in the place of one
-  # artifact makes it unreplaceable deterministically, with no file locking and
-  # no dependence on the account running the test.
-  technical_inputs <- write_blocks(
-    file.path(test_root, "wrapper technical inputs"),
-    clean_blocks
-  )
-  wrapper_technical_output <- file.path(test_root, "wrapper technical output")
-  wrapper_clean <- run_wrapper_diagnose(
-    technical_inputs,
-    wrapper_technical_output
-  )
-  wrapper_technical_report <- file.path(
-    wrapper_technical_output,
-    "diagnostics"
-  )
-  wrapper_preserved_names <- setdiff(
-    list.files(wrapper_technical_report),
-    "findings.csv"
-  )
-  wrapper_preserved_before <- tools::md5sum(
-    file.path(wrapper_technical_report, wrapper_preserved_names)
-  )
-  blocked_artifact <- file.path(wrapper_technical_report, "findings.csv")
-  unlink(blocked_artifact, force = TRUE)
-  dir.create(blocked_artifact)
-  wrapper_technical <- run_wrapper_diagnose(
-    technical_inputs,
-    wrapper_technical_output
-  )
-  wrapper_preserved_after <- tools::md5sum(
-    file.path(wrapper_technical_report, wrapper_preserved_names)
-  )
-  wrapper_technical_staging <-
-    length(orchidee_leftovers(wrapper_technical_report)) > 0L
-
-  # A setup mistake before R even starts is a technical failure too. The
-  # repository root is refused as an output directory, and that refusal used to
-  # leave the wrapper at 1 -- the code a caller reads as blocking findings in
-  # the site's own blocks.
-  wrapper_unsafe_report <- run_wrapper_diagnose(
-    technical_inputs,
-    report = normalizePath(".", winslash = "\\", mustWork = TRUE)
-  )
+  orchidee_run_cli(wrapper_args)
 }
 
+wrapper_inputs <- write_blocks(
+  file.path(test_root, "wrapper inputs"),
+  broken_blocks
+)
+wrapper_output <- file.path(test_root, "wrapper output")
+wrapper_diagnose <- run_wrapper_diagnose(wrapper_inputs, wrapper_output)
+wrapper_diagnose_report <- file.path(wrapper_output, "diagnostics")
+
+# A report artifact that cannot be replaced is a technical failure, not a
+# verdict on the blocks, so the wrapper must surface 2 rather than the code
+# reserved for blocking findings. Standing a directory in the place of one
+# artifact makes it unreplaceable deterministically, with no file locking and
+# no dependence on the account running the test.
+technical_inputs <- write_blocks(
+  file.path(test_root, "wrapper technical inputs"),
+  clean_blocks
+)
+wrapper_technical_output <- file.path(test_root, "wrapper technical output")
+wrapper_clean <- run_wrapper_diagnose(
+  technical_inputs,
+  wrapper_technical_output
+)
+wrapper_technical_report <- file.path(
+  wrapper_technical_output,
+  "diagnostics"
+)
+wrapper_preserved_names <- setdiff(
+  list.files(wrapper_technical_report),
+  "findings.csv"
+)
+wrapper_preserved_before <- tools::md5sum(
+  file.path(wrapper_technical_report, wrapper_preserved_names)
+)
+blocked_artifact <- file.path(wrapper_technical_report, "findings.csv")
+unlink(blocked_artifact, force = TRUE)
+dir.create(blocked_artifact)
+wrapper_technical <- run_wrapper_diagnose(
+  technical_inputs,
+  wrapper_technical_output
+)
+wrapper_preserved_after <- tools::md5sum(
+  file.path(wrapper_technical_report, wrapper_preserved_names)
+)
+wrapper_technical_staging <-
+  length(orchidee_leftovers(wrapper_technical_report)) > 0L
+
+# A setup mistake before R even starts is a technical failure too. The
+# repository root is refused as an output directory, and that refusal used to
+# leave the wrapper at 1 -- the code a caller reads as blocking findings in
+# the site's own blocks.
+wrapper_unsafe_report <- run_wrapper_diagnose(
+  technical_inputs,
+  report = normalizePath(".", winslash = "\\", mustWork = TRUE)
+)
 ## Stale report artifacts ----------------------------------------------------
 
 shared_report_dir <- file.path(test_root, "shared_report")
@@ -2115,54 +2095,52 @@ if (manifest_removal_blockable) {
   )
 }
 
-if (identical(.Platform$OS.type, "windows")) {
-  wrapper_findings <- read_report_table(wrapper_diagnose_report, "findings.csv")
-  stopifnot(
-    # The public operator entry point reaches the diagnostics, reports the same
-    # verdict, and honours -Output as the documented workflow requires.
-    identical(wrapper_diagnose$status, 1L),
-    dir.exists(wrapper_diagnose_report),
-    !is.null(wrapper_findings),
-    sum(wrapper_findings$severity == "BLOCKING") ==
-      length(expected_broken_blocking),
-    any(grepl(
-      "Correct the blocking findings above",
-      wrapper_diagnose$output,
-      fixed = TRUE
-    )),
-    # -Diagnose never builds, so no bundle may appear beside the report.
-    !dir.exists(file.path(dirname(wrapper_diagnose_report), "bundle_v3")),
+wrapper_findings <- read_report_table(wrapper_diagnose_report, "findings.csv")
+stopifnot(
+  # The public operator entry point reaches the diagnostics, reports the same
+  # verdict, and honours --output as the documented workflow requires.
+  identical(wrapper_diagnose$status, 1L),
+  dir.exists(wrapper_diagnose_report),
+  !is.null(wrapper_findings),
+  sum(wrapper_findings$severity == "BLOCKING") ==
+    length(expected_broken_blocking),
+  any(grepl(
+    "Correct the blocking findings above",
+    wrapper_diagnose$output,
+    fixed = TRUE
+  )),
+  # --diagnose never builds, so no bundle may appear beside the report.
+  !dir.exists(file.path(dirname(wrapper_diagnose_report), "bundle_v3")),
 
-    # A contract-satisfying handoff reaches PASS through the wrapper too.
-    identical(wrapper_clean$status, 0L),
+  # A contract-satisfying handoff reaches PASS through the wrapper too.
+  identical(wrapper_clean$status, 0L),
 
-    # A run that cannot publish its report exits 2 through the wrapper, says so,
-    # and leaves the previous report exactly as it found it.
-    identical(wrapper_technical$status, 2L),
-    any(grepl(
-      "this is not a verdict on the six blocks",
-      wrapper_technical$output,
-      fixed = TRUE
-    )),
-    !any(grepl(
-      "Correct the blocking findings above",
-      wrapper_technical$output,
-      fixed = TRUE
-    )),
-    length(wrapper_preserved_names) >= 3L,
-    identical(wrapper_preserved_before, wrapper_preserved_after),
-    isFALSE(wrapper_technical_staging),
-    !dir.exists(file.path(dirname(wrapper_technical_report), "bundle_v3")),
+  # A run that cannot publish its report exits 2 through the wrapper, says so,
+  # and leaves the previous report exactly as it found it.
+  identical(wrapper_technical$status, 2L),
+  any(grepl(
+    "this is not a verdict on the six blocks",
+    wrapper_technical$output,
+    fixed = TRUE
+  )),
+  !any(grepl(
+    "Correct the blocking findings above",
+    wrapper_technical$output,
+    fixed = TRUE
+  )),
+  length(wrapper_preserved_names) >= 3L,
+  identical(wrapper_preserved_before, wrapper_preserved_after),
+  isFALSE(wrapper_technical_staging),
+  !dir.exists(file.path(dirname(wrapper_technical_report), "bundle_v3")),
 
-    # A setup failure before R starts honours the same contract. Status 1 has to
-    # mean blocking findings and nothing else.
-    identical(wrapper_unsafe_report$status, 2L),
-    any(grepl(
-      "The diagnostics could not start",
-      wrapper_unsafe_report$output,
-      fixed = TRUE
-    ))
-  )
-}
+  # A setup failure before R starts honours the same contract. Status 1 has to
+  # mean blocking findings and nothing else.
+  identical(wrapper_unsafe_report$status, 2L),
+  any(grepl(
+    "The diagnostics could not start",
+    wrapper_unsafe_report$output,
+    fixed = TRUE
+  ))
+)
 
 cat("PASS: site input diagnostics\n")

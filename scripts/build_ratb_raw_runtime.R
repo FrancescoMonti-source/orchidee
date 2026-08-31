@@ -41,7 +41,7 @@ invisible(lapply(required_scripts, orchidee_source_required_script))
 args <- commandArgs(trailingOnly = TRUE)
 if (any(args %in% c("-h", "--help"))) {
   cat(
-    "Usage (PowerShell): & .\\scripts\\run_r.ps1 ",
+    "Usage: python scripts/orchidee.py run-r ",
     "scripts/build_ratb_raw_runtime.R [--force]\n",
     "Rebuilds the canonical raw dedup cache when its bundle or the code that ",
     "produces it changed; --force rebuilds a cache that is already current.\n",
