@@ -290,6 +290,14 @@ add_observation <- function(blocks, ...) {
 
 clean_result <- run_case("clean", clean_blocks)
 
+# A wholly empty stay-ID column must not switch to a patient-only build or PASS.
+without_stays <- clean_blocks$microbiology_observations
+without_stays$EVTID <- NA_character_
+without_stays_result <- run_case(
+  "without_stays",
+  with_blocks(microbiology_observations = without_stays)
+)
+
 # One fixture carrying every blocking class at once: the command exists to
 # report them together rather than one rebuild at a time.
 broken_blocks <- with_blocks(
@@ -1281,6 +1289,15 @@ invisible(lapply(all_results, assert_pass_implies_buildable))
 stopifnot(
   # A contract-satisfying handoff passes with no blocking finding.
   identical(clean_result$status, 0L),
+  identical(without_stays_result$status, 1L),
+  identical(
+    severity_of(without_stays_result, "microbiology_observations", "no_rows_in_scope"),
+    "BLOCKING"
+  ),
+  identical(
+    severity_of(without_stays_result, "microbiology_observations", "rows_without_evtid"),
+    "WARNING"
+  ),
   any(grepl("PASS:", clean_result$output, fixed = TRUE)),
   length(blocking_checks(clean_result)) == 0L,
 

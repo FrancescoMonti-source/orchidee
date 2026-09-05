@@ -46,10 +46,8 @@ orchidee_site_public_input_spec <- function() {
   # which unit hosted the patient at sampling time, from block 6. A site that
   # sends the column anyway is told it is ignored rather than having it used.
   #
-  # EVTID and HEUREPRELEV become expected columns because attribution needs
-  # both. Their *values* may be missing: an absent value costs the sample its
-  # unit, which is a diagnostic and an exclusion, not a reason to refuse a
-  # transmission that is otherwise usable.
+  # EVTID and HEUREPRELEV are required columns. A missing stay ID excludes
+  # the row from the build; a missing time leaves it outside the perimeter.
   microbiology$required_columns <- c(
     "PATID",
     "EVTID",
@@ -930,8 +928,8 @@ orchidee_site_prepare_handoff <- function(
               paste0(names(reasons), " (", as.integer(reasons), ")"),
               collapse = ", "
             ),
-            ". A missing EVTID or sampling time is the usual cause, and both ",
-            "are recoverable at the source."
+            ". Check the sampling time and the linked hospitalization intervals. ",
+            "Rows without EVTID are excluded from the build."
           ),
           n_rows = sum(occurrence %in% key[unresolved]),
           n_document_occurrences = sum(unresolved),

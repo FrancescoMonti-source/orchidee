@@ -231,7 +231,7 @@ Colonnes requises :
 | Colonne | Signification |
 | --- | --- |
 | `PATID` | Identifiant patient. |
-| `EVTID` | Identifiant du séjour / de l'épisode d'hospitalisation. Il relie le prélèvement à `hospitalization_intervals` et garde séparés des identifiants de prélèvement réutilisés d'un séjour à l'autre. La colonne est attendue ; une valeur manquante coûte au prélèvement son unité, pas le build. |
+| `EVTID` | Identifiant obligatoire du séjour / de l'épisode d'hospitalisation. Il relie le prélèvement à `hospitalization_intervals` et garde séparés des identifiants de prélèvement réutilisés d'un séjour à l'autre. La colonne doit exister ; toute ligne sans valeur est écartée et comptée dans les diagnostics. |
 | `ELTID` | Identifiant du prélèvement / événement de microbiologie. |
 | `HEUREPRELEV` | Heure de prélèvement, `HH:MM` ou `HH:MM:SS`, ou dans un `.rds` un `difftime` ou un nombre de secondes. L'heure doit être réelle et rester dans la journée : l'heure 24 et une seconde intercalaire sont refusées plutôt que reportées. La colonne est attendue ; sans valeur, le prélèvement ne peut pas être situé dans un séjour et sort du périmètre. |
 | `DATEPRELEV` | Date de prélèvement. Dans un fichier texte : `YYYY-MM-DD`, `DD/MM/YYYY` ou `YYYY/MM/DD`, formats mélangeables dans la même colonne, une heure en fin de valeur étant ignorée. Dans un `.rds` : une `Date` ou un numéro de jour entier. L'heure du prélèvement appartient à `HEUREPRELEV` ; le reste est refusé plutôt que deviné. |
@@ -273,8 +273,8 @@ P001,S001,MIC001,2024-03-12,09:15,Escherichia coli,Urine,Amoxicilline acide clav
 
 Ce bloc ne porte pas d'unité d'hospitalisation. C'est ORCHIDEE qui retient
 l'unité qui hébergeait le patient à l'heure exacte du prélèvement, à partir
-de `hospitalization_intervals`. Un prélèvement qu'il ne peut pas situer — pas
-d'`EVTID`, pas d'heure, ou aucun intervalle actif à cet instant — garde sa
+de `hospitalization_intervals`. Un prélèvement avec un `EVTID` qu'il ne peut
+pas situer — pas d'heure ou aucun intervalle actif à cet instant — garde sa
 ligne, reste auditable et sort du périmètre d'analyse ; `--diagnose` en donne
 le décompte et la raison. Une colonne `SEJUF` transmise malgré tout est
 ignorée, et signalée comme telle.
@@ -291,16 +291,15 @@ bactéries, antibiotiques et phénotypes confondus. C'est la règle RATB : un
 prélèvement de dépistage est exclu en totalité. Il n'est donc pas nécessaire
 de retirer soi-même ces lignes, il suffit de les marquer.
 
-L'identité du document est `PATID + EVTID + ELTID` quand le fichier porte
-des `EVTID`, `PATID + ELTID` quand il n'en porte aucun. Le dépistage n'est
-jamais propagé par le seul `ELTID` entre patients.
+L'identité du document est toujours `PATID + EVTID + ELTID`. Le dépistage
+n'est jamais propagé par le seul `ELTID` entre patients, ni par une clé qui
+omet le séjour.
 
-Une ligne sans `EVTID` dans un fichier qui en contient par ailleurs est une
-anomalie du système d'information hospitalier, pas un cas à traiter :
-ORCHIDEE la supprime avant tout calcul et `--diagnose` la signale en
-`WARNING` avec son décompte. La règle porte sur le fichier entier et non sur
-chaque groupe : une seule valeur renseignée suffit à rendre anormales toutes
-les lignes vides.
+Une ligne sans `EVTID` est écartée avant propagation du dépistage ;
+`--diagnose` la signale en `WARNING` avec son décompte. La colonne absente
+est une erreur de contrat. Si aucune ligne avec un séjour utilisable ne
+reste, le diagnostic est bloquant et le build échoue. Une colonne entièrement
+vide ne déclenche donc jamais de calcul au seul niveau patient.
 
 Plusieurs lignes peuvent viser la même cellule ORCHIDEE. Quand elles
 s'accordent, elles fusionnent. Quand elles se contredisent, `--diagnose`

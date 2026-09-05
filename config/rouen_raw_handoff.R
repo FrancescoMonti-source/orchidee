@@ -8,18 +8,9 @@
 
 rouen_structure_path_from_env <- function() {
   current <- Sys.getenv("ORCHIDEE_ROUEN_STRUCTURE_PATH", unset = "")
-  legacy <- Sys.getenv("ORCHIDEE_CONSORES_STRUCTURE_PATH", unset = "")
 
   if (nzchar(current)) {
     return(current)
-  }
-  if (nzchar(legacy)) {
-    warning(
-      "ORCHIDEE_CONSORES_STRUCTURE_PATH is deprecated; ",
-      "use ORCHIDEE_ROUEN_STRUCTURE_PATH.",
-      call. = FALSE
-    )
-    return(legacy)
   }
   file.path("ref", "rouen", "establishment_structure_2025.xlsx")
 }

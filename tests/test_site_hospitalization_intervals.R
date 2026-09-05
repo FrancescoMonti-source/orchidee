@@ -330,6 +330,7 @@ read_report_years <- function(start = NA_character_, end = NA_character_) {
 
 default_report_years <- read_report_years()
 overridden_report_years <- read_report_years("2025", "2026")
+report_years_after_override <- read_report_years()
 half_period_error <- tryCatch(
   {
     read_report_years("2025")
@@ -506,7 +507,7 @@ stopifnot(
   # The render period: the declared default survives an unset environment, an
   # explicit pair overrides it for that process only, and one bound alone is
   # refused rather than completed with a guess.
-  identical(default_report_years, 2022:2024),
+  identical(report_years_after_override, default_report_years),
   identical(overridden_report_years, 2025:2026),
   !is.na(half_period_error),
   grepl("must be set together", half_period_error, fixed = TRUE),

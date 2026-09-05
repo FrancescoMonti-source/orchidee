@@ -491,7 +491,7 @@ external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract 
       }
     }
 
-    non_missing_key_cols <- c("PATID", "ELTID", "DATEPRELEV", "souche_id", "bact_norm")
+    non_missing_key_cols <- c("PATID", "EVTID", "ELTID", "DATEPRELEV", "souche_id", "bact_norm")
     key_na <- vapply(non_missing_key_cols, function(col) any(is.na(sir_wide[[col]])), logical(1))
     if (any(key_na)) {
       errors <- external_bundle_add_issue(
@@ -501,6 +501,9 @@ external_bundle_validate_sir_wide <- function(sir_wide, sir_wide_meta, contract 
           paste(non_missing_key_cols[key_na], collapse = ", ")
         )
       )
+    }
+    if (any(!is.na(sir_wide$EVTID) & !nzchar(trimws(sir_wide$EVTID)))) {
+      errors <- external_bundle_add_issue(errors, "sir_wide$EVTID contains blank stay identifiers.")
     }
 
     if (nrow(unique(sir_wide[spec$row_grain_key])) != nrow(sir_wide)) {

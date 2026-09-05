@@ -659,18 +659,13 @@ if (block_ok[["microbiology_observations"]]) {
 
   obs$PATID <- orchidee_handoff_trim_or_na(obs$PATID)
   obs$ELTID <- orchidee_handoff_trim_or_na(obs$ELTID)
-  obs$EVTID <- if ("EVTID" %in% names(obs)) {
-    orchidee_handoff_trim_or_na(obs$EVTID)
-  } else {
-    rep(NA_character_, nrow(obs))
-  }
+  obs$EVTID <- orchidee_handoff_trim_or_na(obs$EVTID)
   obs$SEJUF <- orchidee_handoff_trim_or_na(obs$SEJUF)
 
-  # The build drops rows whose EVTID is missing while the column is otherwise
-  # populated, so the diagnostics drop them here too: every count below then
+  # The build drops rows whose EVTID is missing, so diagnostics do too: each count
   # describes the rows that actually enter the build. The drop is reported,
   # never silent, because those rows leave the analysis without failing it.
-  evtid_anomaly_rows <- orchidee_handoff_evtid_anomaly_rows(obs$EVTID)
+  evtid_anomaly_rows <- is.na(obs$EVTID)
   if (any_true(evtid_anomaly_rows)) {
     add_finding(
       "WARNING",
@@ -678,7 +673,7 @@ if (block_ok[["microbiology_observations"]]) {
       "rows_without_evtid",
       paste0(
         count_true(evtid_anomaly_rows),
-        " rows have no EVTID while other rows do. They are dropped from the ",
+        " rows have no EVTID. They are dropped from the ",
         "build: an occurrence without an event identifier cannot be attributed."
       ),
       n_rows = count_true(evtid_anomaly_rows)
@@ -706,24 +701,12 @@ if (block_ok[["microbiology_observations"]]) {
     n_document_occurrences = count_occurrences(document_key)
   )
 
-  if (any(!is.na(obs$EVTID))) {
-    add_finding(
-      "INFO",
-      "microbiology_observations",
-      "document_identity",
-      "EVTID is present: document occurrences are PATID + EVTID + ELTID."
-    )
-  } else {
-    add_finding(
-      "INFO",
-      "microbiology_observations",
-      "document_identity_fallback",
-      paste0(
-        "No usable EVTID: every document occurrence is identified by ",
-        "PATID + ELTID."
-      )
-    )
-  }
+  add_finding(
+    "INFO",
+    "microbiology_observations",
+    "document_identity",
+    "Document occurrences require PATID + EVTID + ELTID."
+  )
 
   ## Diagnostic scope and screening exclusion ---------------------------------
 
@@ -795,7 +778,7 @@ if (block_ok[["microbiology_observations"]]) {
         "microbiology_observations",
         "no_rows_in_scope",
         paste0(
-          "No rows remain after excluding screening document occurrences. ",
+          "No rows remain after excluding rows without EVTID and screening document occurrences. ",
           "The build cannot produce a bundle."
         )
       )

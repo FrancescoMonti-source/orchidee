@@ -186,6 +186,7 @@ seule entrée du runtime et du rapport.
 | Quelles décisions ont été prises, et où sont-elles dans le code ? | [`methods.md`](documentation/methods.md) |
 | Qu'est-ce qui est réglable, et que faut-il refaire après ? | [`knobs.md`](documentation/knobs.md) |
 | Quels indicateurs sont publiés ? | [`ratb_indicator_spec.csv`](documentation/ratb_indicator_spec.csv) |
+| Quel contrat chaque test protège-t-il, et pour quel établissement ? | [`test_inventory.md`](documentation/test_inventory.md) |
 
 La méthode et le périmètre publiés ne changent qu'après une décision explicite
 et la vérification correspondante.

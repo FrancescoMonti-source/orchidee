@@ -36,7 +36,7 @@ défaut. Ce qui suit ne concerne que les valeurs versionnées.
 |--------------------|--------------------|-----------------------------|
 | `runtime$external_bundle_v2_dir`, `runtime$external_workspace_dir` | `config/pipeline.R`, ou `ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR` et `ORCHIDEE_EXTERNAL_WORKSPACE_DIR` | Rendu concerné |
 | Fuseau de lecture des horodatages d'intervalle | `--timezone` de `python scripts/orchidee.py site` ; défaut `Europe/Paris` | Diagnostic et build du site concerné |
-| `ORCHIDEE_ROUEN_STRUCTURE_PATH` | environnement ; défaut dans `config/rouen_raw_handoff.R`. `ORCHIDEE_CONSORES_STRUCTURE_PATH` est déprécié et avertit | Build Rouen |
+| `ORCHIDEE_ROUEN_STRUCTURE_PATH` | environnement ; défaut dans `config/rouen_raw_handoff.R` | Build Rouen |
 | `paths$*` | `config/pipeline.R` | Rendu concerné |
 
 La reconstruction du cache n'est pas un réglage. Chaque rendu compare le cache

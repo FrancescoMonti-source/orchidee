@@ -84,12 +84,16 @@ build_fixture <- function(observations) {
 # within one source document without allowing reused ELTID values to suppress
 # unrelated patients or encounters. P5 covers the anomaly rule: its EVTID-less
 # row is dropped, so the screening it carried no longer suppresses its sibling.
-# The legacy fixture covers a source without the column at all, where every row
-# keeps the PATID + ELTID identity.
+# A missing column or a wholly empty EVTID column cannot enable a patient-only
+# build. The mixed fixture above still retains the rows with usable stay IDs.
 sir_wide <- build_fixture(microbiology_observations)
-legacy_sir_wide <- build_fixture(
-  microbiology_observations[, setdiff(names(microbiology_observations), "EVTID")]
-)
+for (event_ids in list(NULL, rep(NA_character_, nrow(microbiology_observations)),
+                       rep(" ", nrow(microbiology_observations)))) {
+  without_stays <- microbiology_observations
+  without_stays$EVTID <- event_ids
+  rejected <- tryCatch(build_fixture(without_stays), error = identity)
+  stopifnot(inherits(rejected, "error"), grepl("EVTID", conditionMessage(rejected)))
+}
 
 retained_keys <- sir_wide[, c("PATID", "EVTID", "ELTID")]
 expected_keys <- data.frame(
@@ -101,14 +105,6 @@ expected_keys <- data.frame(
   stringsAsFactors = FALSE
 )
 
-legacy_retained_keys <- legacy_sir_wide[, c("PATID", "EVTID", "ELTID")]
-legacy_expected_keys <- data.frame(
-  PATID = c("P2", "P6", "P7", "P8"),
-  EVTID = rep(NA_character_, 4L),
-  ELTID = c("REUSED", "CONTROL", "LEGACY", "MULTI_ROW"),
-  stringsAsFactors = FALSE
-)
-
 multi_row_isolate <- sir_wide[sir_wide$PATID == "P8", , drop = FALSE]
 
 validation <- external_bundle_validate_sir_wide(
@@ -116,15 +112,21 @@ validation <- external_bundle_validate_sir_wide(
   orchidee_handoff_build_sir_wide_meta(sir_wide, contract = contract),
   contract = contract
 )
-legacy_validation <- external_bundle_validate_sir_wide(
-  legacy_sir_wide,
-  orchidee_handoff_build_sir_wide_meta(legacy_sir_wide, contract = contract),
-  contract = contract
-)
+# Materialized bundles cannot bypass the input rule by carrying a missing or
+# blank stay ID. This boundary also protects externally supplied v2 bundles.
+for (event_id in c(NA_character_, " ")) {
+  invalid_sir <- sir_wide
+  invalid_sir$EVTID[[1L]] <- event_id
+  invalid_validation <- external_bundle_validate_sir_wide(
+    invalid_sir,
+    orchidee_handoff_build_sir_wide_meta(invalid_sir, contract = contract),
+    contract = contract
+  )
+  stopifnot(!isTRUE(invalid_validation$ok), any(grepl("EVTID", invalid_validation$errors)))
+}
 
 stopifnot(
   identical(retained_keys, expected_keys),
-  identical(legacy_retained_keys, legacy_expected_keys),
   nrow(multi_row_isolate) == 1L,
   identical(multi_row_isolate$cefotaxime, "R"),
   identical(multi_row_isolate$nb_resultats, 1),
@@ -132,8 +134,7 @@ stopifnot(
   identical(multi_row_isolate$carbapenemase_status_row, "negative"),
   isTRUE(multi_row_isolate$blse_flag),
   identical(multi_row_isolate$carbapenemase_flag, FALSE),
-  isTRUE(validation$ok),
-  isTRUE(legacy_validation$ok)
+  isTRUE(validation$ok)
 )
 
 cat("PASS: external handoff screening document key\n")
