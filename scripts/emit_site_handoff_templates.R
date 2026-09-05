@@ -46,7 +46,10 @@ if (file.exists(output_dir) && !dir.exists(output_dir)) {
 source("R/external_bundle_validation_helpers.R")
 source("R/ratb_hospital_days_helpers.R")
 source("R/external_handoff_helpers.R")
-spec <- orchidee_handoff_site_input_spec()
+source("R/site_handoff_preparation_helpers.R")
+# The templates are the *public* six blocks. The internal profiled-exposure
+# table is derived by ORCHIDEE and must never be emitted as something to fill.
+spec <- orchidee_site_public_input_spec()
 template_paths <- file.path(output_dir, paste0(names(spec), ".csv"))
 reference_tables <- orchidee_handoff_mapping_reference_tables(project_root)
 reference_dir <- file.path(output_dir, "mapping_reference")

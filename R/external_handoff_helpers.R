@@ -84,8 +84,13 @@ orchidee_handoff_site_input_spec <- function() {
   spec
 }
 
-orchidee_handoff_validate_site_input_columns <- function(site_inputs) {
-  spec <- orchidee_handoff_site_input_spec()
+# `spec` defaults to the internal construction contract, which the Rouen
+# adapter and the bundle builder validate against. The generic site path passes
+# `orchidee_site_public_input_spec()` instead: same rules, different six blocks.
+orchidee_handoff_validate_site_input_columns <- function(
+    site_inputs,
+    spec = orchidee_handoff_site_input_spec()
+  ) {
   if (!is.list(site_inputs)) {
     stop("site_inputs must be a named list.", call. = FALSE)
   }

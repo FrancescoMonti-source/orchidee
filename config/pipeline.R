@@ -6,6 +6,44 @@
 # transformations in mappings/, external reference extracts in ref/, and
 # implementation logic in R/.
 
+# The published period is a declared value, not a per-run convenience. It is
+# nevertheless not the same value at every site: Rouen publishes 2022-2024, and
+# a site onboarding with its own extract publishes its own consecutive years.
+# `python scripts/orchidee.py render --start-year ... --end-year ...` sets these
+# two variables for that render process only, so a period travels from the site
+# workflow to the report without anyone editing this shared file. Unset -- the
+# routine Rouen case -- the declared default below applies unchanged.
+orchidee_report_years_from_environment <- function(default_years) {
+  start <- Sys.getenv("ORCHIDEE_REPORT_START_YEAR", unset = "")
+  end <- Sys.getenv("ORCHIDEE_REPORT_END_YEAR", unset = "")
+  if (!nzchar(start) && !nzchar(end)) {
+    return(default_years)
+  }
+  if (!nzchar(start) || !nzchar(end)) {
+    stop(
+      "ORCHIDEE_REPORT_START_YEAR and ORCHIDEE_REPORT_END_YEAR must be set ",
+      "together; a period with one bound is not a period.",
+      call. = FALSE
+    )
+  }
+  parse_year <- function(value, name) {
+    if (!grepl("^[0-9]{4}$", value)) {
+      stop(name, " must be a four-digit calendar year: ", value, call. = FALSE)
+    }
+    as.integer(value)
+  }
+  start_year <- parse_year(start, "ORCHIDEE_REPORT_START_YEAR")
+  end_year <- parse_year(end, "ORCHIDEE_REPORT_END_YEAR")
+  if (end_year < start_year) {
+    stop(
+      "ORCHIDEE_REPORT_END_YEAR (", end_year, ") precedes ",
+      "ORCHIDEE_REPORT_START_YEAR (", start_year, ").",
+      call. = FALSE
+    )
+  }
+  seq.int(start_year, end_year)
+}
+
 orchidee_config <- list(
   runtime = list(
     # Local/private bundle paths remain outside version control and can be
@@ -49,7 +87,8 @@ orchidee_config <- list(
     # window boundary contributes nights to the year outside it, so the
     # incidence panel is restricted to the years declared here rather than
     # listing the boundary years to remove. The render stops if the analytical
-    # data carries a year that is not declared.
-    report_years = 2022:2024
+    # data carries a year that is not declared. A site render overrides the
+    # default through the environment; see the function above.
+    report_years = orchidee_report_years_from_environment(2022:2024)
   )
 )

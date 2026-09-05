@@ -11,10 +11,22 @@
 source("R/external_bundle_validation_helpers.R")
 source("R/ratb_hospital_days_helpers.R")
 source("R/external_handoff_helpers.R")
+source("R/site_handoff_preparation_helpers.R")
 source("R/site_input_report_publication_helpers.R")
 source("tests/python_cli_helpers.R")
 
-block_names <- names(orchidee_handoff_site_input_spec())
+block_names <- names(orchidee_site_public_input_spec())
+
+# Every case runs on the same declared period and zone. The fixtures below carry
+# 2023 and 2024 sample dates, so a narrower period would silently remove rows a
+# case exists to exercise.
+test_period <- c("2023", "2024")
+test_timezone <- "Europe/Paris"
+test_period_build_args <- c(
+  "--start-year=2023",
+  "--end-year=2024",
+  paste0("--timezone=", test_timezone)
+)
 
 rscript_path <- file.path(
   R.home("bin"),
@@ -70,7 +82,7 @@ run_case <- function(label, blocks, report_dir = NULL) {
   }
   result <- run_script(
     "scripts/diagnose_site_inputs.R",
-    c(input_paths, report_dir)
+    c(input_paths, report_dir, test_period, test_timezone)
   )
   result$label <- label
   result$report_dir <- report_dir
@@ -88,7 +100,7 @@ run_case_paths <- function(label, input_paths) {
   report_dir <- file.path(test_root, paste0(slug, "_report"))
   result <- run_script(
     "scripts/diagnose_site_inputs.R",
-    c(input_paths, report_dir)
+    c(input_paths, report_dir, test_period, test_timezone)
   )
   result$label <- label
   result$report_dir <- report_dir
@@ -150,6 +162,7 @@ assert_pass_implies_buildable <- function(result) {
         "--operational-v2-output=",
         file.path(bundle_dir, "bundle_v2_operational")
       ),
+      test_period_build_args,
       "--no-next-steps"
     )
   )
@@ -206,7 +219,6 @@ clean_blocks <- list(
     ELTID = c("MDIAG001", "MDIAG002"),
     DATEPRELEV = c("2024-03-12", "2024-04-02"),
     HEUREPRELEV = c("09:15", "10:00"),
-    SEJUF = c("UFDIAG1", "UFDIAG1"),
     souche_id = c("I1", "I1"),
     bacteria_local = c("E. coli", "E. coli"),
     sample_type_local = c("Urine", "Urine"),
@@ -239,16 +251,15 @@ clean_blocks <- list(
     de_domain_ref = "MÉDECINE",
     stringsAsFactors = FALSE
   ),
-  incidence_exposure_by_year_um_uf_ta_de_profile = data.frame(
-    calendar_year = 2024L,
-    SEJUM = "UMDIAG1",
-    SEJUF = "UFDIAG1",
-    CODE_TA = "03",
-    CODE_DE = "102",
-    de_domain_ref = "MÉDECINE",
-    denominator_profile_id = "midnight_presence",
-    exposure_value = 1000L,
-    exposure_unit = "patient_days",
+  # One uninterrupted visit per episode, each hosting its sample. Ten nights
+  # apiece, so the derived exposure is a number the assertions can name.
+  hospitalization_intervals = data.frame(
+    PATID = c("PDIAG001", "PDIAG002"),
+    EVTID = c("SDIAG001", "SDIAG002"),
+    DATENT = c("2024-03-10 08:00", "2024-04-01 08:00"),
+    DATSORT = c("2024-03-20 12:00", "2024-04-11 12:00"),
+    SEJUM = c("UMDIAG1", "UMDIAG1"),
+    SEJUF = c("UFDIAG1", "UFDIAG1"),
     stringsAsFactors = FALSE
   )
 )
@@ -304,10 +315,6 @@ broken_blocks <- with_blocks(
     HEUREPRELEV = c(
       "09:15", "09:15", "10:00", "11:30", "08:00", "08:00", "08:30"
     ),
-    SEJUF = c(
-      "UFDIAG1", "UFDIAG1", "UFDIAG1", "UFAUDIT", "UFDIAG1", "UFDIAG2",
-      "UFDIAG1"
-    ),
     souche_id = rep("I1", 7L),
     bacteria_local = c(
       "E. coli", "E. coli", "E. coli", "Staphylococcus aureus", "E. coli",
@@ -343,43 +350,26 @@ broken_blocks <- with_blocks(
     de_domain_ref = c("MÉDECINE", "MÉDECINE", "URGENCES"),
     stringsAsFactors = FALSE
   ),
-  incidence_exposure_by_year_um_uf_ta_de_profile = data.frame(
-    calendar_year = rep(2024L, 4L),
-    SEJUM = c("UMDIAG1", "UMDIAG1", "UMDIAG2", "UMDIAG3"),
-    SEJUF = c("UFDIAG1", "UFDIAG1", "UFDIAG2", "UFORPHAN"),
-    CODE_TA = c("03", "03", "20", "03"),
-    CODE_DE = c("102", "102", "211", "102"),
-    de_domain_ref = c("MÉDECINE", "MÉDECINE", "URGENCES", "MÉDECINE"),
-    denominator_profile_id = rep("midnight_presence", 4L),
-    exposure_value = c(1000L, 500L, 300L, 200L),
-    exposure_unit = rep("patient_days", 4L),
+  # Five valid episodes, ten nights each: one in 2023 and four in 2024. Every
+  # hosting unit is covered by unit_mapping, so the interval block itself is not
+  # what blocks this fixture -- the microbiology and mapping classes are.
+  hospitalization_intervals = data.frame(
+    PATID = c("PDIAG001", "PDIAG002", "PDIAG003", "PDIAG004", "PDIAG005"),
+    EVTID = c("SDIAG001", "SDIAG002", "SDIAG003", "SDIAG004", "SDIAG005"),
+    DATENT = c(
+      "2024-03-10 08:00", "2024-04-01 08:00", "2024-05-18 08:00",
+      "2023-06-09 08:00", "2024-06-29 08:00"
+    ),
+    DATSORT = c(
+      "2024-03-20 12:00", "2024-04-11 12:00", "2024-05-28 12:00",
+      "2023-06-19 12:00", "2024-07-09 12:00"
+    ),
+    SEJUM = c("UMDIAG1", "UMDIAG1", "UMDIAG1", "UMDIAG1", "UMDIAG2"),
+    SEJUF = c("UFDIAG1", "UFDIAG1", "UFDIAG1", "UFDIAG1", "UFDIAG2"),
     stringsAsFactors = FALSE
   )
 )
 broken_result <- run_case("broken", broken_blocks)
-
-# Values the builder rejects but a plain as.numeric() would accept.
-fractional_result <- run_case(
-  "fractional_exposure",
-  with_blocks(
-    incidence_exposure_by_year_um_uf_ta_de_profile = transform(
-      clean_blocks$incidence_exposure_by_year_um_uf_ta_de_profile,
-      exposure_value = 1.5
-    )
-  )
-)
-
-# An empty exposure_unit must be a finding, not an unresolved comparison that
-# aborts the run before the report is written.
-missing_unit_result <- run_case(
-  "missing_exposure_unit",
-  with_blocks(
-    incidence_exposure_by_year_um_uf_ta_de_profile = transform(
-      clean_blocks$incidence_exposure_by_year_um_uf_ta_de_profile,
-      exposure_unit = NA_character_
-    )
-  )
-)
 
 phenotype_typo_result <- run_case(
   "phenotype_typo",
@@ -402,12 +392,14 @@ phenotype_collapse_result <- run_case(
   )
 )
 
-# Two rows sharing the ORCHIDEE row grain but disagreeing on SEJUF.
+# Two rows sharing the ORCHIDEE row grain but disagreeing on the sampling time.
+# The unit is no longer a site-supplied attribute, so the conflict is carried by
+# the other row-grain attribute the contract names.
 row_grain_result <- run_case(
   "row_grain_conflict",
   add_observation(
     clean_blocks,
-    SEJUF = "UFDIAG2",
+    HEUREPRELEV = "11:45",
     antibiotic_local = "Cefotaxime",
     sir_result = "R"
   )
@@ -509,15 +501,15 @@ partial_schema_result <- run_case(
   )
 )
 
-# A microbiology row with no SEJUF still enters the build but leaves the
-# analytic perimeter.
+# A sample whose episode carries no hospitalization interval cannot be placed in
+# a unit. It still enters the build and leaves the analytic perimeter, exactly
+# as a missing unit did when the site supplied one.
 missing_sejuf_result <- run_case(
   "missing_sejuf",
   add_observation(
     clean_blocks,
-    SEJUF = NA_character_,
     ELTID = "MDIAG003",
-    EVTID = "SDIAG003"
+    EVTID = "SDIAG404"
   )
 )
 
@@ -577,19 +569,16 @@ blank_target_collision_result <- run_case(
 
 # One unreadable value must not blank a whole column and hide an independent
 # problem on another row.
-independent_exposure_result <- run_case(
-  "independent_exposure_problems",
+independent_interval_result <- run_case(
+  "independent_interval_problems",
   with_blocks(
-    incidence_exposure_by_year_um_uf_ta_de_profile = data.frame(
-      calendar_year = c(2024L, 2024L),
-      SEJUM = c("UMDIAG1", "UMDIAG2"),
+    hospitalization_intervals = data.frame(
+      PATID = c("PDIAG001", "PDIAG002"),
+      EVTID = c("SDIAG001", "SDIAG002"),
+      DATENT = c("12/03/2024", "2024-04-11 08:00"),
+      DATSORT = c("2024-03-20 12:00", "2024-04-01 12:00"),
+      SEJUM = c("UMDIAG1", "UMDIAG1"),
       SEJUF = c("UFDIAG1", "UFDIAG1"),
-      CODE_TA = c("03", "03"),
-      CODE_DE = c("102", "102"),
-      de_domain_ref = c("MÉDECINE", "MÉDECINE"),
-      denominator_profile_id = rep("midnight_presence", 2L),
-      exposure_value = c("1.5", "-1"),
-      exposure_unit = rep("patient_days", 2L),
       stringsAsFactors = FALSE
     )
   )
@@ -604,7 +593,7 @@ independent_date_observations <- clean_blocks$microbiology_observations[
 independent_date_observations$DATEPRELEV <- c(
   "not-a-date", "2024-03-12", "2024-03-12"
 )
-independent_date_observations$SEJUF <- c("UFDIAG1", "UFDIAG1", "UFDIAG2")
+independent_date_observations$HEUREPRELEV <- c("09:15", "09:15", "10:45")
 independent_date_result <- run_case(
   "independent_date_problems",
   with_blocks(microbiology_observations = independent_date_observations)
@@ -723,32 +712,13 @@ marker_lookalike_result <- run_case(
   )
 )
 
-# The projection stores the annual denominator with as.integer(), so a year
-# beyond that range fails v2 validation after v3 succeeded.
-overflow_result <- run_case(
-  "annual_exposure_overflow",
-  with_blocks(
-    incidence_exposure_by_year_um_uf_ta_de_profile = data.frame(
-      calendar_year = c(2024L, 2024L),
-      SEJUM = c("UMDIAG1", "UMDIAG2"),
-      SEJUF = c("UFDIAG1", "UFDIAG1"),
-      CODE_TA = c("03", "03"),
-      CODE_DE = c("102", "102"),
-      de_domain_ref = c("MÉDECINE", "MÉDECINE"),
-      denominator_profile_id = rep("midnight_presence", 2L),
-      exposure_value = rep(.Machine$integer.max, 2L),
-      exposure_unit = rep("patient_days", 2L),
-      stringsAsFactors = FALSE
-    )
-  )
-)
-
 # More offending values than the summary shows: every one must still reach the
 # site, or the correct-and-rerun loop comes straight back.
-many_uf_exposure <- do.call(
+many_uf_intervals <- do.call(
   rbind,
   lapply(seq_len(11L), function(index) {
-    row <- clean_blocks$incidence_exposure_by_year_um_uf_ta_de_profile
+    row <- clean_blocks$hospitalization_intervals[1L, , drop = FALSE]
+    row$EVTID <- sprintf("SEXTRA%02d", index)
     row$SEJUM <- sprintf("UMEXTRA%02d", index)
     row$SEJUF <- sprintf("UFEXTRA%02d", index)
     row
@@ -757,9 +727,9 @@ many_uf_exposure <- do.call(
 many_unmapped_uf_result <- run_case(
   "many_unmapped_uf",
   with_blocks(
-    incidence_exposure_by_year_um_uf_ta_de_profile = rbind(
-      clean_blocks$incidence_exposure_by_year_um_uf_ta_de_profile,
-      many_uf_exposure
+    hospitalization_intervals = rbind(
+      clean_blocks$hospitalization_intervals,
+      many_uf_intervals
     )
   )
 )
@@ -769,7 +739,7 @@ many_unmapped_uf_values <- read_report_table(
 )
 many_unmapped_uf_listed <- sort(many_unmapped_uf_values$value[
   many_unmapped_uf_values$block == "unit_mapping" &
-    many_unmapped_uf_values$check == "exposure_uf_not_covered"
+    many_unmapped_uf_values$check == "interval_uf_not_covered"
 ])
 
 ## Public operator CLI -------------------------------------------------------
@@ -794,7 +764,10 @@ run_wrapper_diagnose <- function(inputs, output = NULL, report = NULL) {
     "--sample-type-mapping", inputs[[3L]],
     "--antibiotic-mapping", inputs[[4L]],
     "--unit-mapping", inputs[[5L]],
-    "--incidence-exposure", inputs[[6L]],
+    "--hospitalization-intervals", inputs[[6L]],
+    "--start-year", test_period[[1L]],
+    "--end-year", test_period[[2L]],
+    "--timezone", test_timezone,
     if (is.null(output)) character() else c("--output", output),
     if (is.null(report)) character() else c("--report", report),
     "--diagnose"
@@ -978,18 +951,6 @@ no_domain_result <- run_case(
       de_domain_ref = NA_character_,
       stringsAsFactors = FALSE
     )
-  )
-)
-
-# The profile registry pairs midnight_presence with patient_days. Another unit
-# against that profile is not a denominator ORCHIDEE knows how to read.
-bad_profile_exposure <-
-  clean_blocks$incidence_exposure_by_year_um_uf_ta_de_profile
-bad_profile_exposure$exposure_unit <- "admissions"
-bad_profile_result <- run_case(
-  "unsupported_denominator_profile",
-  with_blocks(
-    incidence_exposure_by_year_um_uf_ta_de_profile = bad_profile_exposure
   )
 )
 
@@ -1287,23 +1248,20 @@ expected_broken_blocking <- sort(c(
   "bacteria_mapping/unmapped_local_labels",
   "antibiotic_mapping/unsupported_atb_norm",
   "unit_mapping/duplicate_sejuf",
-  "unit_mapping/exposure_uf_not_covered",
-  "incidence_exposure_by_year_um_uf_ta_de_profile/duplicate_grain_rows",
-  "incidence_exposure_by_year_um_uf_ta_de_profile/ta_de_disagrees_with_unit_mapping",
   "microbiology_observations/unsupported_sir_values"
 ))
 
 ## Every accepted fixture must really build ----------------------------------
 
 all_results <- list(
-  clean_result, broken_result, fractional_result, missing_unit_result,
+  clean_result, broken_result,
   phenotype_typo_result, phenotype_collapse_result, row_grain_result,
   unused_blank_result, incomplete_unit_result, screening_missing_patid_result,
   partial_schema_result, missing_sejuf_result, multi_label_result,
   missing_sample_type_label_result, missing_antibiotic_label_result,
-  missing_bacteria_label_result, marker_lookalike_result, overflow_result,
+  missing_bacteria_label_result, marker_lookalike_result,
   many_unmapped_uf_result, blank_target_collision_result,
-  independent_exposure_result, independent_date_result, mixed_date_result,
+  independent_interval_result, independent_date_result, mixed_date_result,
   french_date_result, trailing_time_result, impossible_time_result,
   out_of_range_time_result,
   contradictory_sir_result, collapsed_atb_result, mixed_sir_result,
@@ -1311,7 +1269,7 @@ all_results <- list(
   unreadable_result, not_a_table_result, duplicate_column_result,
   two_scope_result, scope_values_result, all_screening_result,
   missing_souche_result, conflicting_mapping_result, no_domain_result,
-  bad_profile_result, typed_time_result, typed_negative_result,
+  typed_time_result, typed_negative_result,
   typed_date_result, fractional_minute_result, datetime_suffix_result,
   fractional_day_result, fractional_numeric_result, tiny_fraction_result,
   reused_pass, reused_schema_failure, manifest_pass, lock_pass
@@ -1331,10 +1289,6 @@ stopifnot(
   identical(blocking_checks(broken_result), expected_broken_blocking),
 
   # Audit-only problems stay warnings and never block the build.
-  identical(
-    severity_of(broken_result, "unit_mapping", "microbiology_uf_not_covered"),
-    "WARNING"
-  ),
   identical(
     severity_of(
       broken_result,
@@ -1361,35 +1315,17 @@ stopifnot(
     ),
     "WARNING"
   ),
+  all(broken_result$findings$severity %in% c("BLOCKING", "WARNING", "INFO")),
+
+  # A sample ORCHIDEE cannot place in a hosting unit costs the row its
+  # perimeter, not the build.
   identical(
     severity_of(
       broken_result,
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
-      "year_not_covered"
+      "microbiology_observations",
+      "samples_without_hosting_unit"
     ),
     "WARNING"
-  ),
-  all(broken_result$findings$severity %in% c("BLOCKING", "WARNING", "INFO")),
-
-  # Denominator fields are validated as strictly as the builder validates them.
-  identical(fractional_result$status, 1L),
-  identical(
-    severity_of(
-      fractional_result,
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
-      "non_integer_value"
-    ),
-    "BLOCKING"
-  ),
-  identical(missing_unit_result$status, 1L),
-  !is.null(missing_unit_result$findings),
-  identical(
-    severity_of(
-      missing_unit_result,
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
-      "missing_required_value"
-    ),
-    "BLOCKING"
   ),
 
   # Optional phenotype statuses are validated, both per value and collapsed.
@@ -1522,18 +1458,6 @@ stopifnot(
     "BLOCKING"
   ),
 
-  # An annual total the operational v2 denominator cannot hold is blocking,
-  # even though v3 alone would accept it.
-  identical(overflow_result$status, 1L),
-  identical(
-    severity_of(
-      overflow_result,
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
-      "annual_exposure_overflow"
-    ),
-    "BLOCKING"
-  ),
-
   # Values beyond the tenth are truncated in the summary but kept in full.
   identical(many_unmapped_uf_result$status, 1L),
   identical(length(many_unmapped_uf_listed), 11L),
@@ -1566,20 +1490,20 @@ stopifnot(
   ),
 
   # One unreadable value does not hide an independent problem on another row.
-  identical(independent_exposure_result$status, 1L),
+  identical(independent_interval_result$status, 1L),
   identical(
     severity_of(
-      independent_exposure_result,
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
-      "non_integer_value"
+      independent_interval_result,
+      "hospitalization_intervals",
+      "timestamp_malformed"
     ),
     "BLOCKING"
   ),
   identical(
     severity_of(
-      independent_exposure_result,
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
-      "negative_exposure_value"
+      independent_interval_result,
+      "hospitalization_intervals",
+      "reversed_interval"
     ),
     "BLOCKING"
   ),
@@ -1847,11 +1771,13 @@ stopifnot(
     FALSE
   ),
 
-  # The projection total sits next to the profiled total: UFDIAG2 is mapped
-  # outside the perimeter and UFORPHAN has no unit row, so only the 1500
-  # patient-days of UFDIAG1 survive the spares_current context.
-  identical(as.numeric(year_coverage$exposure_total), 2000),
-  identical(as.numeric(year_coverage$exposure_in_spares_current), 1500),
+  # The projection total sits next to the profiled total, on exposure ORCHIDEE
+  # derived from the intervals: ten nights per stay, one stay in 2023 and four
+  # in 2024. UFDIAG2 is mapped outside the perimeter, so its ten 2024 nights
+  # are profiled but never reach the spares_current context.
+  identical(as.numeric(year_coverage$calendar_year), c(2023, 2024)),
+  identical(as.numeric(year_coverage$exposure_total), c(10, 40)),
+  identical(as.numeric(year_coverage$exposure_in_spares_current), c(10, 30)),
 
   # A reused report directory never mixes fresh findings with stale tables.
   isTRUE(stale_before),
@@ -1953,16 +1879,6 @@ stopifnot(
   identical(no_domain_result$status, 1L),
   identical(
     severity_of(no_domain_result, "unit_mapping", "no_de_domain_ref"),
-    "BLOCKING"
-  ),
-
-  identical(bad_profile_result$status, 1L),
-  identical(
-    severity_of(
-      bad_profile_result,
-      "incidence_exposure_by_year_um_uf_ta_de_profile",
-      "unsupported_denominator_profile"
-    ),
     "BLOCKING"
   ),
 

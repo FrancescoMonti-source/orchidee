@@ -212,7 +212,6 @@ cli_blocks <- list(
     ELTID = "L1",
     DATEPRELEV = as.Date("2024-01-15"),
     HEUREPRELEV = "09:00",
-    SEJUF = "UF1",
     bacteria_local = "E. coli local",
     sample_type_local = "Urine local",
     antibiotic_local = "Cefotaxime local",
@@ -242,8 +241,21 @@ cli_blocks <- list(
     de_domain_ref = c("MÉDECINE", "URGENCES"),
     stringsAsFactors = FALSE
   ),
-  incidence_exposure_by_year_um_uf_ta_de_profile = exposure
+  # The site sends its hospitalization intervals; ORCHIDEE derives the profiled
+  # exposure from them. These three visits are chosen to reproduce exactly the
+  # `exposure` table above: 100 nights in UF1 in 2024, 20 in UF2 in 2024 and 75
+  # in UF1 in 2025.
+  hospitalization_intervals = data.frame(
+    PATID = c("P1", "P2", "P3"),
+    EVTID = c("E1", "E2", "E3"),
+    DATENT = c("2024-01-01 08:00", "2024-01-01 08:00", "2025-01-01 08:00"),
+    DATSORT = c("2024-04-10 11:00", "2024-01-21 11:00", "2025-03-17 11:00"),
+    SEJUM = c("UM1", "UM2", "UM1"),
+    SEJUF = c("UF1", "UF2", "UF1"),
+    stringsAsFactors = FALSE
+  )
 )
+cli_period_args <- c("--start-year=2024", "--end-year=2025")
 cli_block_paths <- file.path(
   cli_input_dir,
   paste0(names(cli_blocks), ".rds")
@@ -261,7 +273,8 @@ cli_output <- system2(
     shQuote("scripts/build_external_bundle_from_site_inputs.R"),
     shQuote(unname(cli_block_paths)),
     shQuote(cli_v3_dir),
-    shQuote(paste0("--operational-v2-output=", cli_v2_dir))
+    shQuote(paste0("--operational-v2-output=", cli_v2_dir)),
+    cli_period_args
   ),
   stdout = TRUE,
   stderr = TRUE
@@ -335,7 +348,8 @@ cli_invalid_output <- suppressWarnings(
       shQuote("scripts/build_external_bundle_from_site_inputs.R"),
       shQuote(unname(cli_invalid_block_paths)),
       shQuote(cli_invalid_v3_dir),
-      shQuote(paste0("--operational-v2-output=", cli_invalid_v2_dir))
+      shQuote(paste0("--operational-v2-output=", cli_invalid_v2_dir)),
+      cli_period_args
     ),
     stdout = TRUE,
     stderr = TRUE
@@ -353,6 +367,7 @@ cli_invalid_force_output <- suppressWarnings(
       shQuote(unname(cli_invalid_block_paths)),
       shQuote(cli_v3_dir),
       shQuote(paste0("--operational-v2-output=", cli_v2_dir)),
+      cli_period_args,
       "--force"
     ),
     stdout = TRUE,
@@ -438,6 +453,7 @@ cli_colliding_output <- suppressWarnings(
       shQuote(unname(cli_block_paths)),
       shQuote(cli_v3_dir),
       shQuote(paste0("--operational-v2-output=", cli_colliding_v2_dir)),
+      cli_period_args,
       "--force"
     ),
     stdout = TRUE,
@@ -593,6 +609,8 @@ stopifnot(
   grepl(cli_v2_path_normalized, cli_render_command, fixed = TRUE),
   grepl("--workspace", cli_render_command, fixed = TRUE),
   grepl(cli_runtime_path_normalized, cli_render_command, fixed = TRUE),
+  grepl("--start-year 2024", cli_render_command, fixed = TRUE),
+  grepl("--end-year 2025", cli_render_command, fixed = TRUE),
   !any(grepl("PowerShell", cli_output, fixed = TRUE)),
   !any(grepl("$env:", cli_output, fixed = TRUE)),
   !identical(cli_seventh_block_status, 0L),
@@ -625,7 +643,7 @@ stopifnot(
 stopifnot(
   !identical(cli_invalid_status, 0L),
   any(grepl(
-    "disagrees with sample scope TA/DE mapping",
+    "have no unit_mapping row",
     cli_invalid_output,
     fixed = TRUE
   )),

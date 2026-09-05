@@ -38,11 +38,21 @@ SITE_INPUTS = (
     ("antibiotic_mapping", "antibiotic_mapping", "antibiotic_mapping.csv"),
     ("unit_mapping", "unit_mapping", "unit_mapping.csv"),
     (
-        "incidence_exposure",
-        "incidence_exposure_by_year_um_uf_ta_de_profile",
-        "incidence_exposure_by_year_um_uf_ta_de_profile.csv",
+        "hospitalization_intervals",
+        "hospitalization_intervals",
+        "hospitalization_intervals.csv",
     ),
 )
+
+# The versioned smoke fixture covers a single calendar year. The smoke test is a
+# statement about the installation, so it carries its own period rather than
+# asking the operator for one.
+SMOKE_TEST_PERIOD = (2024, 2024)
+
+# Hospitalization timestamps are local wall-clock readings. The zone that turns
+# them into instants is stated rather than inherited from whichever machine runs
+# the build.
+DEFAULT_TIMEZONE = "Europe/Paris"
 
 
 class OrchideeError(RuntimeError):
@@ -427,20 +437,50 @@ def _site_input_values(args: argparse.Namespace) -> dict[str, str]:
     return {dest: getattr(args, dest) for dest, _, _ in SITE_INPUTS}
 
 
+def resolve_period(
+    start_year: int | None,
+    end_year: int | None,
+) -> tuple[int, int]:
+    if start_year is None or end_year is None:
+        raise OrchideeError(
+            "--start-year and --end-year are both required: the analysis "
+            "period selects the microbiology rows and clips the exposure, so "
+            "it cannot be inferred from the files."
+        )
+    if end_year < start_year:
+        raise OrchideeError(
+            f"--end-year ({end_year}) precedes --start-year ({start_year})."
+        )
+    if start_year < 1900 or end_year > 2999:
+        raise OrchideeError(
+            f"Analysis period {start_year}-{end_year} is outside the "
+            "supported range."
+        )
+    return start_year, end_year
+
+
+def _site_period(args: argparse.Namespace) -> tuple[int, int]:
+    if args.run_smoke_test:
+        return SMOKE_TEST_PERIOD
+    return resolve_period(args.start_year, args.end_year)
+
+
 def _validate_site_arguments(args: argparse.Namespace) -> None:
     supplied = [
         dest for dest, _, _ in SITE_INPUTS if getattr(args, dest) is not None
     ]
+    period_supplied = args.start_year is not None or args.end_year is not None
     if args.emit_templates is not None:
-        if supplied or args.output or args.report or args.force:
+        if supplied or args.output or args.report or args.force or period_supplied:
             raise OrchideeError(
                 "--emit-templates cannot be combined with build options."
             )
         return
     if args.run_smoke_test:
-        if supplied or args.report:
+        if supplied or args.report or period_supplied:
             raise OrchideeError(
-                "--run-smoke-test cannot be combined with site input options."
+                "--run-smoke-test cannot be combined with site input options "
+                "or an analysis period; it carries its own."
             )
         return
     missing = [dest for dest, _, _ in SITE_INPUTS if dest not in supplied]
@@ -479,9 +519,36 @@ def _diagnose_setup_failure(message: str) -> int:
     return 2
 
 
+def run_site_diagnostics(
+    rscript: Path,
+    input_paths: Sequence[Path],
+    report_root: Path,
+    period: tuple[int, int],
+    timezone: str,
+) -> int:
+    """Run the aggregated diagnostics and return its own exit status."""
+
+    diagnoser = REPO_ROOT / "scripts" / "diagnose_site_inputs.R"
+    result = run_process(
+        [
+            rscript,
+            "--no-save",
+            "--no-restore",
+            diagnoser,
+            *input_paths,
+            report_root,
+            str(period[0]),
+            str(period[1]),
+            timezone,
+        ]
+    )
+    return result.returncode
+
+
 def _run_site_diagnose(args: argparse.Namespace) -> int:
     try:
         rscript = resolve_rscript()
+        period = _site_period(args)
         values = _site_input_values(args)
         input_paths = tuple(
             resolve_input_file(values[dest], label)
@@ -503,32 +570,26 @@ def _run_site_diagnose(args: argparse.Namespace) -> int:
 
     for (_, label, _), path in zip(SITE_INPUTS, input_paths):
         print(f"{label}: {path}")
+    print(f"Period: {period[0]}-{period[1]}")
+    print(f"Timezone: {args.timezone}")
     print(f"Report: {report_root}")
     print(f"R:      {rscript}")
 
-    diagnoser = REPO_ROOT / "scripts" / "diagnose_site_inputs.R"
     try:
-        result = run_process(
-            [
-                rscript,
-                "--no-save",
-                "--no-restore",
-                diagnoser,
-                *input_paths,
-                report_root,
-            ]
+        returncode = run_site_diagnostics(
+            rscript, input_paths, report_root, period, args.timezone
         )
     except OrchideeError as error:
         return _diagnose_setup_failure(str(error))
 
-    if result.returncode == 1:
+    if returncode == 1:
         print()
         print(
             "Correct the blocking findings above and rerun --diagnose. "
             "No bundle was built."
         )
         return 1
-    if result.returncode == 2:
+    if returncode == 2:
         print()
         print(
             "The diagnostics could not run or publish their report; this is "
@@ -536,11 +597,11 @@ def _run_site_diagnose(args: argparse.Namespace) -> int:
             f"Report: {report_root}"
         )
         return 2
-    if result.returncode != 0:
+    if returncode != 0:
         print()
         print(
             "Site input diagnostics failed unexpectedly "
-            f"(exit {result.returncode}); this is not a verdict on the six "
+            f"(exit {returncode}); this is not a verdict on the six "
             "blocks."
         )
         return 2
@@ -549,6 +610,7 @@ def _run_site_diagnose(args: argparse.Namespace) -> int:
 
 def _run_site_build(args: argparse.Namespace) -> int:
     rscript = resolve_rscript()
+    period = _site_period(args)
     values = _site_input_values(args)
     if args.run_smoke_test:
         print("Mode: installation smoke test on the versioned synthetic fixture")
@@ -575,6 +637,8 @@ def _run_site_build(args: argparse.Namespace) -> int:
 
     for (_, label, _), path in zip(SITE_INPUTS, input_paths):
         print(f"{label}: {path}")
+    print(f"Period: {period[0]}-{period[1]}")
+    print(f"Timezone: {args.timezone}")
     print(f"Output: {output_root}")
     print(f"R:      {rscript}")
 
@@ -649,6 +713,31 @@ def _run_site_build(args: argparse.Namespace) -> int:
         )
         return 0
 
+    # The build always runs the diagnostics first, on the same six blocks and
+    # the same period. Every blocking finding -- a contradictory S/I/R cell
+    # among them -- is a refusal here, so no build can quietly resolve one by
+    # keeping the last row it read. The report stays beside the bundles.
+    diagnostics_root = assert_safe_output_directory(
+        output_root / "diagnostics",
+        inputs=input_paths,
+        input_label="Site handoff inputs",
+    )
+    print(f"Diagnostics: {diagnostics_root}")
+    diagnostics_status = run_site_diagnostics(
+        rscript, input_paths, diagnostics_root, period, args.timezone
+    )
+    if diagnostics_status == 1:
+        raise OrchideeError(
+            "The six blocks carry blocking findings; no bundle was built. "
+            f"Correct them and retry. Report: {diagnostics_root}"
+        )
+    if diagnostics_status != 0:
+        raise OrchideeError(
+            "The diagnostics could not run or publish their report "
+            f"(exit {diagnostics_status}). No bundle was built, and this is "
+            "not a verdict on the six blocks."
+        )
+
     builder = REPO_ROOT / "scripts" / "build_external_bundle_from_site_inputs.R"
     command: list[str | Path] = [
         rscript,
@@ -658,6 +747,9 @@ def _run_site_build(args: argparse.Namespace) -> int:
         *input_paths,
         bundle_v3,
         f"--operational-v2-output={bundle_v2}",
+        f"--start-year={period[0]}",
+        f"--end-year={period[1]}",
+        f"--timezone={args.timezone}",
         "--no-next-steps",
     ]
     if args.force:
@@ -701,6 +793,10 @@ def _run_site_build(args: argparse.Namespace) -> int:
                 bundle_v2,
                 "--workspace",
                 runtime,
+                "--start-year",
+                str(period[0]),
+                "--end-year",
+                str(period[1]),
             ]
         )
     )
@@ -837,6 +933,16 @@ def command_render(args: argparse.Namespace) -> int:
             resolve_nonempty_repo_path(args.workspace, "Workspace")
         )
 
+    # The period travels to the render as two process-scoped variables rather
+    # than an edit of config/pipeline.R: a site's published years are its own,
+    # and a shared file edited per run would leave the next Rouen render
+    # publishing somebody else's period.
+    period: tuple[int, int] | None = None
+    if args.start_year is not None or args.end_year is not None:
+        period = resolve_period(args.start_year, args.end_year)
+        environment["ORCHIDEE_REPORT_START_YEAR"] = str(period[0])
+        environment["ORCHIDEE_REPORT_END_YEAR"] = str(period[1])
+
     quarto = resolve_quarto()
     version_result = run_process([quarto, "--version"], capture_output=True)
     if version_result.returncode != 0:
@@ -883,6 +989,20 @@ def command_render(args: argparse.Namespace) -> int:
     )
     print(f"Bundle source: {bundle_source}")
     print(f"Workspace source: {workspace_source}")
+    if period is not None:
+        print(f"Report period: {period[0]}-{period[1]} (this render only)")
+    else:
+        print("Report period: config/pipeline.R default")
+        for variable in (
+            "ORCHIDEE_REPORT_START_YEAR",
+            "ORCHIDEE_REPORT_END_YEAR",
+        ):
+            if environment.get(variable):
+                print_warning(
+                    f"{variable} is set in the environment and this render "
+                    "will use it. Pass --start-year and --end-year to bind "
+                    "the intended period to this invocation."
+                )
     if not bundle_was_explicit and bundle_value:
         print_warning(
             "A bundle environment override is active. This render may not use "
@@ -990,6 +1110,29 @@ def build_parser() -> argparse.ArgumentParser:
             metavar="PATH",
             help=f"path to {label}",
         )
+    site_parser.add_argument(
+        "--start-year",
+        dest="start_year",
+        type=int,
+        metavar="YEAR",
+        help="first published calendar year of the analysis period",
+    )
+    site_parser.add_argument(
+        "--end-year",
+        dest="end_year",
+        type=int,
+        metavar="YEAR",
+        help="last published calendar year of the analysis period",
+    )
+    site_parser.add_argument(
+        "--timezone",
+        default=DEFAULT_TIMEZONE,
+        metavar="ZONE",
+        help=(
+            "IANA zone the hospitalization timestamps are read in "
+            f"(default {DEFAULT_TIMEZONE})"
+        ),
+    )
     site_parser.add_argument("--output", metavar="DIRECTORY")
     site_parser.add_argument(
         "--report",
@@ -1025,6 +1168,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     render_parser.add_argument("--bundle", metavar="DIRECTORY")
     render_parser.add_argument("--workspace", metavar="DIRECTORY")
+    render_parser.add_argument(
+        "--start-year",
+        dest="start_year",
+        type=int,
+        metavar="YEAR",
+        help="first published calendar year; defaults to config/pipeline.R",
+    )
+    render_parser.add_argument(
+        "--end-year",
+        dest="end_year",
+        type=int,
+        metavar="YEAR",
+        help="last published calendar year; defaults to config/pipeline.R",
+    )
     render_parser.add_argument(
         "--dry-run",
         action="store_true",

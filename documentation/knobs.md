@@ -18,7 +18,10 @@ La classe est la règle :
 -   **C — analytique.** Change les chiffres publiés.
 
 Les chemins d'entrée cliniques ne sont pas des réglages : ils sont passés en
-paramètres de ligne de commande et ne sont pas versionnés.
+paramètres de ligne de commande et ne sont pas versionnés. La période
+d'analyse d'un établissement sans adaptateur non plus : elle est déclarée à
+chaque commande, `--start-year` et `--end-year`, et n'a pas de valeur par
+défaut. Ce qui suit ne concerne que les valeurs versionnées.
 
 ## A — affichage
 
@@ -32,6 +35,7 @@ paramètres de ligne de commande et ne sont pas versionnés.
 | Réglage | Où | À refaire |
 |--------------------|--------------------|-----------------------------|
 | `runtime$external_bundle_v2_dir`, `runtime$external_workspace_dir` | `config/pipeline.R`, ou `ORCHIDEE_EXTERNAL_BUNDLE_V2_DIR` et `ORCHIDEE_EXTERNAL_WORKSPACE_DIR` | Rendu concerné |
+| Fuseau de lecture des horodatages d'intervalle | `--timezone` de `python scripts/orchidee.py site` ; défaut `Europe/Paris` | Diagnostic et build du site concerné |
 | `ORCHIDEE_ROUEN_STRUCTURE_PATH` | environnement ; défaut dans `config/rouen_raw_handoff.R`. `ORCHIDEE_CONSORES_STRUCTURE_PATH` est déprécié et avertit | Build Rouen |
 | `paths$*` | `config/pipeline.R` | Rendu concerné |
 
@@ -50,7 +54,8 @@ correspondante de [`methods.md`](methods.md).
 
 | Réglage | Où | Ce qu'il déplace |
 |--------------------|--------------------|-----------------------------|
-| `ratb$report_years` | `config/pipeline.R` | Les années publiées. Une année présente dans les données mais non déclarée arrête le rendu |
+| `ratb$report_years` | `config/pipeline.R` | Les années publiées par un rendu qui ne déclare pas de période. C'est la valeur de Rouen. Une année présente dans les données mais non déclarée arrête le rendu |
+| `ORCHIDEE_REPORT_START_YEAR`, `ORCHIDEE_REPORT_END_YEAR` | environnement, posés par `--start-year` et `--end-year` de `python scripts/orchidee.py render` | Les années publiées par ce seul rendu. Les deux vont ensemble ; une seule des deux arrête le rendu. Sans elles, la valeur ci-dessus s'applique |
 | `ratb$indicator_sample_types` | `config/pipeline.R` | Quelles proportions par type de prélèvement sont publiées |
 | `ratb$indicator_min_n` | `config/pipeline.R` | Le masquage des cellules de carte de chaleur |
 | `target_start`, `target_end_exclusive` | `config/rouen_raw_handoff.R` | La fenêtre source Rouen, donc la population |
