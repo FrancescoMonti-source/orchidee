@@ -19,18 +19,9 @@
 
 ratb_default_rouen_structure_path <- function() {
   current <- Sys.getenv("ORCHIDEE_ROUEN_STRUCTURE_PATH", unset = "")
-  legacy <- Sys.getenv("ORCHIDEE_CONSORES_STRUCTURE_PATH", unset = "")
 
   if (nzchar(current)) {
     return(current)
-  }
-  if (nzchar(legacy)) {
-    warning(
-      "ORCHIDEE_CONSORES_STRUCTURE_PATH is deprecated; ",
-      "use ORCHIDEE_ROUEN_STRUCTURE_PATH.",
-      call. = FALSE
-    )
-    return(legacy)
   }
   file.path("ref", "rouen", "establishment_structure_2025.xlsx")
 }
@@ -421,6 +412,49 @@ ratb_is_pure_urgences <- function(um_values) {
   all(um_values %in% c("URGE", "URGP"))
 }
 
+# Keep disjoint visits to the same unit separate. Duplicate or overlapping
+# interval rows are merged into one half-open interval; a gap starts a new unit
+# stay. The validity flag keeps malformed rows visible to the caller's audit
+# instead of allowing them to bridge two valid intervals.
+#
+# This is the single implementation of the interval union. Rouen reaches it
+# through `build_ratb_pmsi_ta_de_denominator()`; the generic site path reaches
+# it through `R/site_handoff_preparation_helpers.R`. Neither owns a second copy.
+ratb_assign_unit_stay_intervals <- function(
+    interval_rows,
+    group_cols = c("PATID", "EVTID", "SEJUM", "SEJUF")
+  ) {
+  stopifnot(
+    is.data.frame(interval_rows),
+    all(c(group_cols, "DATENT", "DATSORT") %in% names(interval_rows))
+  )
+
+  order_cols <- c(group_cols, "DATENT", "DATSORT")
+  interval_rows <- interval_rows[
+    do.call(order, as.list(interval_rows[order_cols])), ,
+    drop = FALSE
+  ]
+
+  interval_rows %>%
+    group_by(dplyr::across(dplyr::all_of(group_cols))) %>%
+    mutate(
+      .valid_interval = !is.na(DATENT) &
+        !is.na(DATSORT) &
+        DATSORT >= DATENT,
+      .previous_valid_interval = lag(.valid_interval, default = FALSE),
+      .previous_max_datsort = lag(
+        cummax(if_else(.valid_interval, as.numeric(DATSORT), -Inf)),
+        default = -Inf
+      ),
+      .unit_stay_id = cumsum(
+        !.valid_interval |
+          !.previous_valid_interval |
+          as.numeric(DATENT) > .previous_max_datsort
+      )
+    ) %>%
+    ungroup()
+}
+
 ratb_split_stays_nights_by_year <- function(
     stays,
     id_cols = c("PATID", "EVTID")
@@ -804,29 +838,7 @@ build_ratb_pmsi_ta_de_denominator <- function(
       )
     )
 
-  # Keep disjoint visits to the same unit separate.  Duplicate or overlapping
-  # PMSI rows are merged into one half-open interval; a gap starts a new unit
-  # stay.  The validity flag also keeps malformed rows visible to the audit
-  # below instead of allowing them to bridge two valid intervals.
-  pmsi_unit_rows <- pmsi_unit_rows %>%
-    arrange(PATID, EVTID, SEJUM, SEJUF, DATENT, DATSORT) %>%
-    group_by(PATID, EVTID, SEJUM, SEJUF) %>%
-    mutate(
-      .valid_interval = !is.na(DATENT) &
-        !is.na(DATSORT) &
-        DATSORT >= DATENT,
-      .previous_valid_interval = lag(.valid_interval, default = FALSE),
-      .previous_max_datsort = lag(
-        cummax(if_else(.valid_interval, as.numeric(DATSORT), -Inf)),
-        default = -Inf
-      ),
-      .unit_stay_id = cumsum(
-        !.valid_interval |
-          !.previous_valid_interval |
-          as.numeric(DATENT) > .previous_max_datsort
-      )
-    ) %>%
-    ungroup()
+  pmsi_unit_rows <- ratb_assign_unit_stay_intervals(pmsi_unit_rows)
 
   ratb_unit_stay_scope_audit <- pmsi_unit_rows %>%
     group_by(PATID, EVTID, SEJUM, SEJUF, .unit_stay_id) %>%

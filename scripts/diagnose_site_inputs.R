@@ -43,7 +43,7 @@ project_root <- resolve_project_root()
 setwd(project_root)
 
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) != 7L || any(args %in% c("-h", "--help"))) {
+if (length(args) != 10L || any(args %in% c("-h", "--help"))) {
   cat(
     "Usage:\n",
     "  python scripts/orchidee.py run-r scripts/diagnose_site_inputs.R ",
@@ -52,9 +52,8 @@ if (length(args) != 7L || any(args %in% c("-h", "--help"))) {
     "<sample_type_mapping.{rds,csv,tsv,tab,txt}> ",
     "<antibiotic_mapping.{rds,csv,tsv,tab,txt}> ",
     "<unit_mapping.{rds,csv,tsv,tab,txt}> ",
-    "<incidence_exposure_by_year_um_uf_ta_de_profile",
-    ".{rds,csv,tsv,tab,txt}> ",
-    "<report_dir>\n\n",
+    "<hospitalization_intervals.{rds,csv,tsv,tab,txt}> ",
+    "<report_dir> <start_year> <end_year> <timezone>\n\n",
     "Reads the six blocks once and writes an aggregated report classified as\n",
     "BLOCKING, WARNING and INFO. Exit status is 0 when no BLOCKING finding\n",
     "remains, 1 when at least one does, and 2 when the diagnostics could not\n",
@@ -117,14 +116,30 @@ orchidee_source_required_script("phenotype_flag_helpers.R")
 orchidee_source_required_script("external_bundle_validation_helpers.R")
 orchidee_source_required_script("ratb_hospital_days_helpers.R")
 orchidee_source_required_script("external_handoff_helpers.R")
+orchidee_source_required_script("chu_sample_hospitalization_unit_attribution.R")
+orchidee_source_required_script("site_handoff_preparation_helpers.R")
 orchidee_source_required_script("site_input_report_publication_helpers.R")
 
 contract <- orchidee_external_contract_v3()
-spec <- orchidee_handoff_site_input_spec()
+# `spec` starts as the public contract -- what the site sends. After the shared
+# preparation runs, the exposure entry is swapped for the internal one, because
+# from that point the checks below describe the table ORCHIDEE derived.
+spec <- orchidee_site_public_input_spec()
+internal_spec <- orchidee_handoff_site_input_spec()
+exposure_block <- "incidence_exposure_by_year_um_uf_ta_de_profile"
 block_names <- names(spec)
 input_paths <- args[seq_along(block_names)]
 names(input_paths) <- block_names
 report_dir <- args[[7L]]
+period <- orchidee_site_resolve_period(args[[8L]], args[[9L]])
+timezone <- args[[10L]]
+if (!nzchar(timezone) || !(timezone %in% OlsonNames())) {
+  message(
+    "Unknown time zone: ", timezone,
+    ". Pass an IANA zone name such as ", orchidee_site_default_timezone(), "."
+  )
+  quit(status = 2L, runLast = FALSE)
+}
 
 ## ---------------------------------------------------------------------------
 ## Finding accumulation
@@ -406,6 +421,81 @@ for (block_name in block_names) {
   block_ok[[block_name]] <- block_is_ok
 }
 
+## ---------------------------------------------------------------------------
+## Shared preparation
+## ---------------------------------------------------------------------------
+##
+## Everything ORCHIDEE derives from the public blocks happens once, in
+## `orchidee_site_prepare_handoff()`, and the build calls exactly the same
+## function. That is what makes a PASS here a statement about the build rather
+## than about a second, similar reading of the same files.
+##
+## From this point on, `blocks$microbiology_observations` carries the SEJUF
+## ORCHIDEE attributed, and the exposure block is the table ORCHIDEE derived --
+## so every check below still describes what the builder will see.
+
+prepared <- NULL
+preparation_inputs_ready <- all(block_ok[c(
+  "microbiology_observations",
+  "bacteria_mapping",
+  "sample_type_mapping",
+  "antibiotic_mapping",
+  "unit_mapping",
+  "hospitalization_intervals"
+)])
+
+if (preparation_inputs_ready) {
+  prepared <- orchidee_site_prepare_handoff(
+    microbiology_observations = blocks$microbiology_observations,
+    bacteria_mapping = blocks$bacteria_mapping,
+    sample_type_mapping = blocks$sample_type_mapping,
+    antibiotic_mapping = blocks$antibiotic_mapping,
+    unit_mapping = blocks$unit_mapping,
+    hospitalization_intervals = blocks$hospitalization_intervals,
+    period = period,
+    timezone = timezone
+  )
+  for (finding in prepared$findings) {
+    add_finding(
+      severity = finding$severity,
+      block = finding$block,
+      check = finding$check,
+      detail = finding$detail,
+      n_rows = finding$n_rows,
+      n_document_occurrences = finding$n_document_occurrences,
+      values = finding$values
+    )
+  }
+  blocks$microbiology_observations <- prepared$microbiology_observations
+  block_ok[["microbiology_observations"]] <-
+    nrow(prepared$microbiology_observations) > 0L
+} else if (block_ok[["microbiology_observations"]]) {
+  # Another block failed its column contract, so no sample could be placed in a
+  # unit. The microbiology checks below are still worth running -- unmapped
+  # labels and contradictory results are expensive to discover one round later
+  # -- so the attributed column is present and empty, and says so.
+  blocks$microbiology_observations$SEJUF <- NA_character_
+  add_finding(
+    "INFO",
+    "microbiology_observations",
+    "attribution_not_attempted",
+    paste0(
+      "Sample-to-unit attribution was not attempted because another block ",
+      "failed its column contract. The perimeter counts below are therefore ",
+      "empty; the mapping and result checks are not."
+    )
+  )
+}
+
+spec[[exposure_block]] <- internal_spec[[exposure_block]]
+if (!is.null(prepared) && !is.null(prepared$site_inputs)) {
+  blocks[[exposure_block]] <- prepared$site_inputs[[exposure_block]]
+  block_ok[[exposure_block]] <- TRUE
+} else {
+  blocks[[exposure_block]] <- NULL
+  block_ok[[exposure_block]] <- FALSE
+}
+
 # An empty local label is not blocking everywhere: the builder only requires a
 # resolved bacterium, because bact_norm belongs to the canonical row grain. An
 # empty sample type or antibiotic costs analytic value, not the build.
@@ -569,18 +659,13 @@ if (block_ok[["microbiology_observations"]]) {
 
   obs$PATID <- orchidee_handoff_trim_or_na(obs$PATID)
   obs$ELTID <- orchidee_handoff_trim_or_na(obs$ELTID)
-  obs$EVTID <- if ("EVTID" %in% names(obs)) {
-    orchidee_handoff_trim_or_na(obs$EVTID)
-  } else {
-    rep(NA_character_, nrow(obs))
-  }
+  obs$EVTID <- orchidee_handoff_trim_or_na(obs$EVTID)
   obs$SEJUF <- orchidee_handoff_trim_or_na(obs$SEJUF)
 
-  # The build drops rows whose EVTID is missing while the column is otherwise
-  # populated, so the diagnostics drop them here too: every count below then
+  # The build drops rows whose EVTID is missing, so diagnostics do too: each count
   # describes the rows that actually enter the build. The drop is reported,
   # never silent, because those rows leave the analysis without failing it.
-  evtid_anomaly_rows <- orchidee_handoff_evtid_anomaly_rows(obs$EVTID)
+  evtid_anomaly_rows <- is.na(obs$EVTID)
   if (any_true(evtid_anomaly_rows)) {
     add_finding(
       "WARNING",
@@ -588,7 +673,7 @@ if (block_ok[["microbiology_observations"]]) {
       "rows_without_evtid",
       paste0(
         count_true(evtid_anomaly_rows),
-        " rows have no EVTID while other rows do. They are dropped from the ",
+        " rows have no EVTID. They are dropped from the ",
         "build: an occurrence without an event identifier cannot be attributed."
       ),
       n_rows = count_true(evtid_anomaly_rows)
@@ -616,24 +701,12 @@ if (block_ok[["microbiology_observations"]]) {
     n_document_occurrences = count_occurrences(document_key)
   )
 
-  if (any(!is.na(obs$EVTID))) {
-    add_finding(
-      "INFO",
-      "microbiology_observations",
-      "document_identity",
-      "EVTID is present: document occurrences are PATID + EVTID + ELTID."
-    )
-  } else {
-    add_finding(
-      "INFO",
-      "microbiology_observations",
-      "document_identity_fallback",
-      paste0(
-        "No usable EVTID: every document occurrence is identified by ",
-        "PATID + ELTID."
-      )
-    )
-  }
+  add_finding(
+    "INFO",
+    "microbiology_observations",
+    "document_identity",
+    "Document occurrences require PATID + EVTID + ELTID."
+  )
 
   ## Diagnostic scope and screening exclusion ---------------------------------
 
@@ -705,7 +778,7 @@ if (block_ok[["microbiology_observations"]]) {
         "microbiology_observations",
         "no_rows_in_scope",
         paste0(
-          "No rows remain after excluding screening document occurrences. ",
+          "No rows remain after excluding rows without EVTID and screening document occurrences. ",
           "The build cannot produce a bundle."
         )
       )

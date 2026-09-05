@@ -18,7 +18,118 @@ Cette procédure requiert Python 3.8 ou plus récent, sur Linux comme sur
 Windows. Les commandes emploient `python` ; utiliser `python3` si c'est le nom
 du lanceur installé.
 
-## Les six fichiers attendus
+## Commencer ici
+
+Votre travail consiste à extraire les données locales et à préparer les
+correspondances. ORCHIDEE attribue les prélèvements aux unités, compte les
+nuits et calcule les indicateurs. Vous pouvez suivre ce parcours sans connaître
+le fonctionnement de Rouen.
+
+### 1. Vérifier que les données sont disponibles
+
+Lire d'abord [l'exemple commenté](../examples/site_handoff_worked/README.md).
+Il montre quatre séjours inventés, les fichiers d'entrée et les résultats attendus.
+Vérifier dans vos sources :
+
+- des résultats de microbiologie avec date et heure du prélèvement et indication
+  diagnostic ou dépistage ;
+- les mouvements entre unités avec leurs dates et heures d'entrée et de sortie,
+  y compris pour les hospitalisations sans microbiologie ;
+- les mêmes identifiants de patient et de séjour dans les deux extractions.
+
+Si ces liens ou ces horaires ne sont pas disponibles, établir ce point avec
+l'équipe ORCHIDEE avant de préparer l'extraction complète.
+
+### 2. Installer et essayer avec des données inventées
+
+Récupérer le dépôt ORCHIDEE depuis l'accès transmis par l'équipe du projet.
+Sur Windows ou Linux, installer Git, Python 3.8 ou plus récent, Quarto et
+**R 4.5.3** (version déclarée dans `renv.lock`). Ouvrir un terminal dans le
+dossier du dépôt, celui qui contient `README.md` et `scripts/`.
+Toutes les commandes ci-dessous se lancent depuis ce dossier.
+
+```console
+python scripts/orchidee.py setup
+```
+
+`setup` installe les bibliothèques R aux versions prévues par le projet, dans
+une bibliothèque dédiée, puis vérifie leur installation. Il demande un accès
+aux sources de paquets et peut prendre plusieurs minutes. Il n'installe pas R,
+Python ou Quarto. Attendre le message `PASS`; en cas d'erreur, corriger le
+problème indiqué avant de continuer.
+
+```console
+python scripts/orchidee.py site --run-smoke-test
+```
+
+Cette commande essaie la construction avec des données inventées, sans ouvrir
+vos données. Attendre `PASS`. Elle écrit dans `outputs/site_smoke_test`.
+Pour répéter l'essai, utiliser un nouveau dossier avec `--output`.
+
+### 3. Extraire les données et préparer les correspondances
+
+```console
+python scripts/orchidee.py site --emit-templates "data/site_handoff"
+```
+
+Deux extractions sont nécessaires : les résultats de microbiologie et les
+mouvements entre unités d'hospitalisation. Vous préparez aussi quatre tables de
+correspondance : bactéries, types de prélèvement, antibiotiques et unités.
+Chaque extraction ou table est enregistrée dans son propre fichier.
+
+La commande ci-dessus crée un modèle CSV pour chacun et un dossier `mapping_reference` contenant
+les valeurs de correspondance autorisées ou reconnues. Remplir les modèles à
+partir de vos sources ; les colonnes sont expliquées plus bas. Conserver les
+identifiants et les codes comme du texte, notamment leurs zéros initiaux.
+Les fichiers peuvent aussi être placés dans un dossier protégé hors du dépôt.
+Ne pas les ajouter à Git. La commande refuse d'écraser des modèles existants.
+
+### 4. Contrôler vos données
+
+Copier [run_site_handoff.py](../examples/run_site_handoff.py) dans votre dossier
+de travail protégé et ouvrir cette copie dans votre éditeur. Dans le bloc
+`RÉGLAGES`, renseigner :
+
+- `ORCHIDEE_REPO` : chemin complet du dépôt ;
+- `SITE_INPUTS` : chemins complets des extractions et des tables de correspondance ;
+- `OUTPUT_DIR` : dossier protégé où écrire les résultats ;
+- `START_YEAR` et `END_YEAR` : première et dernière année, incluses
+  (par exemple 2022 et 2024, ou 2024 et 2024).
+
+Garder `STAGE = "diagnostics"`, enregistrer, puis lancer la copie :
+
+```console
+python "chemin/vers/run_site_handoff.py"
+```
+
+Le contrôle affiche les constats et écrit le détail dans `diagnostics/` sous
+votre dossier de sortie. Corriger les `BLOCKING` puis relancer. Lire aussi les
+`WARNING` : ils n'arrêtent pas le calcul, mais signalent des limites des données.
+Un diagnostic réussi confirme que les fichiers sont exploitables ; il ne valide
+pas à votre place le sens des correspondances locales.
+
+### 5. Construire, puis produire le rapport
+
+Dans la même copie, mettre `STAGE = "build"`, enregistrer et relancer la même
+commande. Le build recontrôle les données puis prépare les entrées du calcul.
+Attendre le message de réussite avant de continuer.
+
+Mettre ensuite `STAGE = "report"` et relancer. Cette étape utilise le build
+terminé ; elle ne le reconstruit pas. Le rapport est
+`orchidee_ratb_indicators.html`, à la racine du dépôt : l'ouvrir dans un navigateur.
+Les caches et tableaux exportés sont dans `runtime/` sous votre dossier de sortie.
+Le rapport et ces sorties dérivent des données hospitalières : les conserver
+avec les mêmes protections.
+
+Si vous changez les données, les correspondances ou les années, reprendre au
+stade `diagnostics`, puis `build`, avec un nouveau `OUTPUT_DIR` pour conserver
+l'ancien résultat. Un simple nouveau rendu utilise `STAGE = "report"`.
+
+Les sections suivantes servent de référence pendant la préparation des fichiers.
+Les commandes CLI détaillées en fin de page sont une alternative au fichier de
+lancement ; il n'est pas nécessaire de suivre les deux parcours.
+
+## Contenu et structure des données à fournir
 
 | Fichier | Contenu |
 |---|---|
@@ -27,52 +138,52 @@ du lanceur installé.
 | `sample_type_mapping` | Correspondance entre les types locaux de prélèvement et les types ORCHIDEE. |
 | `antibiotic_mapping` | Correspondance entre les noms locaux des antibiotiques et les noms ORCHIDEE. |
 | `unit_mapping` | Correspondance entre les unités d'hospitalisation et les codes TA/DE. |
-| `incidence_exposure_by_year_um_uf_ta_de_profile` | Journées d'hospitalisation par année et par unité. |
+| `hospitalization_intervals` | Séjours d'hospitalisation : une ligne par passage ininterrompu dans une unité. |
 
 Les noms ci-dessus ne portent pas de numéro de version. ORCHIDEE produit
 lui-même ses fichiers internes v2 et v3 ; l'établissement ne doit pas les
 construire.
 
+L'établissement transmet ce qu'il détient : des résultats, des
+correspondances et des séjours. Il ne calcule pas de dénominateur et
+n'indique pas l'unité d'un prélèvement. ORCHIDEE possède l'attribution des
+prélèvements aux unités, le comptage des nuits et le périmètre : ce sont des
+décisions d'analyse, et elles doivent être les mêmes d'un établissement à
+l'autre pour que les chiffres se comparent.
+
+Un exemple travaillé, quatre séjours inventés commentés ligne à ligne avec les
+chiffres attendus, est dans
+[`examples/site_handoff_worked/README.md`](../examples/site_handoff_worked/README.md).
+
 Formats acceptés : `.rds`, `.csv`, `.tsv`, `.tab` ou `.txt`. Les CSV peuvent
 utiliser la virgule ou le point-virgule. Les fichiers texte doivent être en
 UTF-8. Les sections suivantes donnent les colonnes attendues dans chaque
 fichier. Ces colonnes sont exactement celles que valide
-`orchidee_handoff_site_input_spec()` dans `R/external_handoff_helpers.R` ; ce
+`orchidee_site_public_input_spec()` dans `R/site_handoff_preparation_helpers.R` ; ce
 document en explique le sens pour un lecteur qui ne lit pas le code R, il n'en
 redéfinit pas la liste.
 
-Avant de lancer une commande ORCHIDEE sur un clone frais, restaurer
-l'environnement R depuis `renv.lock` :
+## La période d'analyse
 
-```console
-python scripts/orchidee.py setup
-```
+La période est définie par une première et une dernière année,
+`--start-year` et `--end-year`, bornes comprises. Ce n'est pas un filtre
+appliqué à la fin : la période
 
-Avant de travailler sur des données locales protégées, contrôler
-l'installation :
+- sélectionne les lignes de microbiologie, celles datées hors période étant
+  écartées avant tout autre contrôle et leur nombre signalé ;
+- découpe l'exposition, un séjour à cheval sur une borne ne conservant que
+  les nuits situées à l'intérieur ;
+- devient la période publiée par le rapport, transmise au rendu pour ce seul
+  processus.
 
-```console
-python scripts/orchidee.py site --run-smoke-test
-```
+Les deux mêmes nombres servent donc au diagnostic, au build et au rendu.
+`config/pipeline.R` n'est pas à modifier : la commande de rendu accepte
+`--start-year` et `--end-year`, et sans eux la valeur déclarée dans ce
+fichier — celle de Rouen — s'applique inchangée.
 
-Cette commande n'utilise que les fichiers de `examples/site_handoff_minimal/`
-et écrit sous `outputs/site_smoke_test/`. Elle exécute le même build v3, la
-même projection v2 et la même validation stricte qu'une vraie transmission,
-sur une observation synthétique unique : elle qualifie l'installation, pas
-vos données, et n'enseigne pas le contrat. Sur une répétition, choisir un
-autre `--output` ou suivre le message de collision.
-
-Si les six fichiers n'existent pas encore, générer des modèles CSV vides avec
-les en-têtes canoniques et le kit de référence de correspondance ORCHIDEE :
-
-```console
-python scripts/orchidee.py site --emit-templates "data/site_handoff"
-```
-
-La commande refuse d'écraser un fichier généré déjà existant. Remplir les six
-modèles de premier niveau avec les données locales protégées ; ne pas les
-committer. Le répertoire cible peut aussi se trouver dans un espace protégé
-hors du checkout.
+Les horodatages de `hospitalization_intervals` sont des lectures d'horloge
+locale. Le fuseau qui en fait des instants est déclaré, pas deviné : il vaut
+`Europe/Paris` par défaut et se change avec `--timezone`.
 
 ## Cibles de correspondance fournies par ORCHIDEE
 
@@ -99,7 +210,8 @@ Ces fichiers ont quatre rôles délibérément différents :
 
 | Fichiers | Signification |
 | --- | --- |
-| `supported_atb_norm.csv`, `allowed_denominator_profiles.csv` | Valeurs fermées acceptées par le builder actuel. |
+| `supported_atb_norm.csv` | Valeurs fermées acceptées par le builder actuel. |
+| `allowed_denominator_profiles.csv` | Profil de comptage et unité d'exposition qu'ORCHIDEE applique lui-même en dérivant l'exposition du bloc 6. Informatif : il n'y a rien à y choisir. |
 | `recognized_bact_norm.csv` | Cibles canoniques de bactéries reconnues par la taxonomie embarquée, avec leur ordre, famille et genre quand ils sont connus. Ce n'est pas une liste blanche valable pour tout le bundle. |
 | `current_indicator_naturepvt_norm.csv` | Cibles de type de prélèvement sélectionnées par le rapport actuel. Ce n'est pas une liste blanche valable pour tout le bundle. |
 | `reference_code_ta.csv`, `reference_code_de.csv` | Références nationales complètes. `included_in_spares_current` indique si ce composant TA ou du domaine DE est sélectionné aujourd'hui ; l'éligibilité effective de l'unité exige les deux. `FALSE` signifie hors du périmètre d'analyse actuel, pas une activité v3 invalide. |
@@ -108,24 +220,6 @@ Le kit de référence n'est pas un septième bloc de transmission et n'est pas
 retourné à ORCHIDEE. Par exemple, ORCHIDEE fournit `cefotaxime` comme cible
 supportée ; c'est le site qui décide si des libellés locaux comme `CTX` ou
 `CEFOTAX` signifient `cefotaxime`.
-
-ORCHIDEE écrit quatre fichiers internes par bundle matérialisé après
-validation :
-
-- `sir_wide.rds`
-- `sir_wide_meta.rds`
-- `sample_scope_reference.rds`
-- `denominator_bundle.rds`
-
-Ne pas construire ces quatre fichiers à la main pour une première
-transmission. Les noms de version de bundle décrivent ces sorties
-matérialisées, pas les six blocs possédés par le site.
-
-Le build conserve un bundle v3 complet et en dérive un bundle v2 strict, seule
-entrée du runtime. Il sélectionne pour cela le contexte fermé
-`spares_current` : périmètre RATB actuel (TA 03/20 et domaines DE ratifiés)
-et comptage de journées-patient `midnight_presence`. Un site ne configure pas
-cette sélection.
 
 ## Bloc 1 : microbiology_observations
 
@@ -137,9 +231,10 @@ Colonnes requises :
 | Colonne | Signification |
 | --- | --- |
 | `PATID` | Identifiant patient. |
+| `EVTID` | Identifiant obligatoire du séjour / de l'épisode d'hospitalisation. Il relie le prélèvement à `hospitalization_intervals` et garde séparés des identifiants de prélèvement réutilisés d'un séjour à l'autre. La colonne doit exister ; toute ligne sans valeur est écartée et comptée dans les diagnostics. |
 | `ELTID` | Identifiant du prélèvement / événement de microbiologie. |
+| `HEUREPRELEV` | Heure de prélèvement, `HH:MM` ou `HH:MM:SS`, ou dans un `.rds` un `difftime` ou un nombre de secondes. L'heure doit être réelle et rester dans la journée : l'heure 24 et une seconde intercalaire sont refusées plutôt que reportées. La colonne est attendue ; sans valeur, le prélèvement ne peut pas être situé dans un séjour et sort du périmètre. |
 | `DATEPRELEV` | Date de prélèvement. Dans un fichier texte : `YYYY-MM-DD`, `DD/MM/YYYY` ou `YYYY/MM/DD`, formats mélangeables dans la même colonne, une heure en fin de valeur étant ignorée. Dans un `.rds` : une `Date` ou un numéro de jour entier. L'heure du prélèvement appartient à `HEUREPRELEV` ; le reste est refusé plutôt que deviné. |
-| `SEJUF` | UF d'hospitalisation active au moment du prélèvement ; c'est au site d'établir cette attribution avant la transmission. ORCHIDEE l'utilise pour appliquer le périmètre RATB TA/DE. |
 | `bacteria_local` | Libellé local de la bactérie. |
 | `sample_type_local` | Libellé local du type de prélèvement. |
 | `antibiotic_local` | Libellé local de l'antibiotique. |
@@ -155,8 +250,6 @@ Colonnes optionnelles :
 
 | Colonne | Signification |
 | --- | --- |
-| `EVTID` | Identifiant du séjour / de l'épisode d'hospitalisation. Il garde séparés des identifiants de prélèvement réutilisés d'un séjour à l'autre. Fournir la colonne renseignée sur toutes les lignes, ou ne pas la fournir du tout. |
-| `HEUREPRELEV` | Heure de prélèvement, `HH:MM` ou `HH:MM:SS`, ou dans un `.rds` un `difftime` ou un nombre de secondes. L'heure doit être réelle et rester dans la journée : l'heure 24 et une seconde intercalaire sont refusées plutôt que reportées. |
 | `souche_id` ou `isolate_local_id` | Identifiant local de souche quand le laboratoire distingue plusieurs isolats pour un même prélèvement. |
 | `blse_status_row` ou `blse_status` | Statut BLSE optionnel : `positive`, `negative`, `unknown`, `no_signal`. |
 | `carbapenemase_status_row` ou `carbapenemase_status` | Statut carbapénémase optionnel : `positive`, `negative`, `unknown`, `no_signal`. |
@@ -174,9 +267,17 @@ qu'elle voulait dire.
 Exemple minimal :
 
 ```csv
-PATID,EVTID,ELTID,DATEPRELEV,HEUREPRELEV,SEJUF,bacteria_local,sample_type_local,antibiotic_local,sir_result,ratb_diagnostic_scope
-P001,S001,MIC001,2024-03-12,09:15,UF1234,Escherichia coli,Urine,Amoxicilline acide clavulanique,R,TRUE
+PATID,EVTID,ELTID,DATEPRELEV,HEUREPRELEV,bacteria_local,sample_type_local,antibiotic_local,sir_result,ratb_diagnostic_scope
+P001,S001,MIC001,2024-03-12,09:15,Escherichia coli,Urine,Amoxicilline acide clavulanique,R,TRUE
 ```
+
+Ce bloc ne porte pas d'unité d'hospitalisation. C'est ORCHIDEE qui retient
+l'unité qui hébergeait le patient à l'heure exacte du prélèvement, à partir
+de `hospitalization_intervals`. Un prélèvement avec un `EVTID` qu'il ne peut
+pas situer — pas d'heure ou aucun intervalle actif à cet instant — garde sa
+ligne, reste auditable et sort du périmètre d'analyse ; `--diagnose` en donne
+le décompte et la raison. Une colonne `SEJUF` transmise malgré tout est
+ignorée, et signalée comme telle.
 
 Important : `ratb_diagnostic_scope` n'est pas le périmètre hospitalier
 TA/DE. C'est la décision locale de microbiologie qui écarte le dépistage et
@@ -190,16 +291,15 @@ bactéries, antibiotiques et phénotypes confondus. C'est la règle RATB : un
 prélèvement de dépistage est exclu en totalité. Il n'est donc pas nécessaire
 de retirer soi-même ces lignes, il suffit de les marquer.
 
-L'identité du document est `PATID + EVTID + ELTID` quand le fichier porte
-des `EVTID`, `PATID + ELTID` quand il n'en porte aucun. Le dépistage n'est
-jamais propagé par le seul `ELTID` entre patients.
+L'identité du document est toujours `PATID + EVTID + ELTID`. Le dépistage
+n'est jamais propagé par le seul `ELTID` entre patients, ni par une clé qui
+omet le séjour.
 
-Une ligne sans `EVTID` dans un fichier qui en contient par ailleurs est une
-anomalie du système d'information hospitalier, pas un cas à traiter :
-ORCHIDEE la supprime avant tout calcul et `--diagnose` la signale en
-`WARNING` avec son décompte. La règle porte sur le fichier entier et non sur
-chaque groupe : une seule valeur renseignée suffit à rendre anormales toutes
-les lignes vides.
+Une ligne sans `EVTID` est écartée avant propagation du dépistage ;
+`--diagnose` la signale en `WARNING` avec son décompte. La colonne absente
+est une erreur de contrat. Si aucune ligne avec un séjour utilisable ne
+reste, le diagnostic est bloquant et le build échoue. Une colonne entièrement
+vide ne déclenche donc jamais de calcul au seul niveau patient.
 
 Plusieurs lignes peuvent viser la même cellule ORCHIDEE. Quand elles
 s'accordent, elles fusionnent. Quand elles se contredisent, `--diagnose`
@@ -303,10 +403,9 @@ n'est pas une de ces colonnes. La liste fermée exacte est générée dans
 ## Bloc 5 : unit_mapping
 
 Ce bloc mappe les codes UF d'hospitalisation vers la structure nationale
-TA/DE. Il doit couvrir chaque `SEJUF` présent dans l'exposition profilée.
-Les codes UF de microbiologie observés devraient aussi être listés quand une
-correspondance existe ; un UF non résolu reste visible en audit seul plutôt
-que de recevoir une correspondance inférée.
+TA/DE. Il doit couvrir chaque `SEJUF` présent dans `hospitalization_intervals`
+— toute unité qui héberge un patient. Une unité qui héberge sans être mappée
+est un constat bloquant : ORCHIDEE n'infère pas de correspondance.
 
 Colonnes requises :
 
@@ -331,48 +430,105 @@ du site. Ils contiennent les références nationales complètes et identifient
 le périmètre `spares_current` actuel sans traiter le reste de l'activité
 mappée comme invalide.
 
-## Bloc 6 : incidence_exposure_by_year_um_uf_ta_de_profile
+## Bloc 6 : hospitalization_intervals
 
-Ce bloc contient l'exposition hospitalière indépendamment des lignes de
-microbiologie. Il préserve la structure fine dont v3 a besoin ; ORCHIDEE en
-dérive le dénominateur annuel v2 pour le runtime actuel.
+Ce bloc contient les séjours d'hospitalisation, indépendamment de la
+microbiologie. Il remplace la table d'exposition qu'un site devait autrefois
+calculer lui-même : un établissement détient ses mouvements, pas la convention
+de comptage d'ORCHIDEE, et lui demander un dénominateur revenait à lui
+demander de deviner cette convention.
+
+ORCHIDEE en dérive deux choses : l'exposition profilée dont le dénominateur est
+tiré, et l'unité de chaque prélèvement.
+
+Grain attendu : **une ligne par passage ininterrompu d'un patient dans une
+unité d'hébergement**. Un transfert crée une nouvelle ligne. Inclure les
+hospitalisations sans aucune microbiologie : elles comptent au dénominateur.
 
 Colonnes requises :
 
 | Colonne | Signification |
 | --- | --- |
-| `calendar_year` | Année civile. |
-| `SEJUM` | UM d'hospitalisation du séjour dans l'unité. |
-| `SEJUF` | UF d'hospitalisation du séjour dans l'unité. |
-| `CODE_TA` | Code TA joint à `SEJUF`. |
-| `CODE_DE` | Code DE joint à `SEJUF`. |
-| `de_domain_ref` | Domaine DE national joint à `CODE_DE`. |
-| `denominator_profile_id` | Profil de comptage fermé ; actuellement `midnight_presence`. |
-| `exposure_value` | Exposition à ce grain exact. |
-| `exposure_unit` | Unité fixée par le profil ; actuellement `patient_days`. |
+| `PATID` | Identifiant patient. |
+| `EVTID` | Identifiant du séjour / de l'épisode d'hospitalisation. Le même que celui porté par `microbiology_observations`. |
+| `DATENT` | Date et heure d'entrée dans l'unité. |
+| `DATSORT` | Date et heure de sortie de l'unité. |
+| `SEJUM` | UM d'hospitalisation. |
+| `SEJUF` | UF d'hospitalisation. Doit figurer dans `unit_mapping`. |
 
-Grain attendu : une ligne par
-`calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE + de_domain_ref +
-denominator_profile_id`.
+```csv
+PATID,EVTID,DATENT,DATSORT,SEJUM,SEJUF
+P001,S001,2024-03-10 14:00,2024-03-12 09:00,UM1234,UF1234
+P001,S001,2024-03-12 09:00,2024-03-18 11:00,UM5678,UF5678
+```
 
-Les neuf colonnes sont toutes requises et non manquantes. Inclure
-l'exposition positive de toute activité mappée valide, même quand son TA/DE
-est hors du périmètre RATB actuel. La projection sélectionne
-`spares_current` et en dérive le total annuel actuel ; ne pas fournir une
-seconde table annuelle calculée indépendamment.
+### Comment les bornes se lisent
 
-`unit_mapping` doit couvrir chaque `SEJUF` de ce bloc. Ses valeurs de TA, DE
-et domaine DE doivent concorder exactement ; la validation stricte rejette
-les correspondances croisées manquantes ou contradictoires.
-Le couple profil/unité accepté est généré dans
-`mapping_reference/allowed_denominator_profiles.csv`.
+Un intervalle est **`[entrée, sortie)`** : l'instant d'entrée appartient au
+séjour, l'instant de sortie non. Il en découle :
+
+- **un transfert est adjacent, pas un chevauchement.** Une sortie à 09:00 et
+  l'entrée suivante à 09:00 décrivent un patient qui ne se trouve qu'à un seul
+  endroit ; il n'est pas compté deux fois ;
+- **des lignes dupliquées ou qui se recouvrent pour la même unité et le même
+  séjour fusionnent** en un seul intervalle occupé. Un export qui répète un
+  mouvement ne gonfle pas le dénominateur ;
+- **un retour dans une même unité après un passage ailleurs reste deux
+  visites.** Les nuits passées entre les deux ne sont pas absorbées ;
+- **une entrée et une sortie le même jour** sont valides. Le séjour compte zéro
+  nuit — une nuit est un changement de date — et peut malgré tout héberger un
+  prélèvement.
+
+### Ce qui arrête le workflow
+
+Ces situations sont bloquantes : elles n'ont pas de correction par défaut
+qu'ORCHIDEE puisse appliquer sans décider à la place du site.
+
+| Constat | Pourquoi |
+| --- | --- |
+| `PATID`, `EVTID`, `SEJUM` ou `SEJUF` manquant | Un intervalle sans patient, sans épisode ou sans unité ne se rattache à rien. |
+| `DATENT` ou `DATSORT` manquant, illisible ou hors calendrier | Une borne absente ou impossible n'est pas une borne. |
+| `DATSORT` antérieur à `DATENT` | Une sortie avant son entrée est une erreur de source, pas un séjour de durée nulle. |
+| Horodatage inexistant dans le fuseau déclaré | L'heure sautée au passage à l'heure d'été ne désigne aucun instant. |
+| Horodatage ambigu dans le fuseau déclaré | L'heure répétée au passage à l'heure d'hiver en désigne deux ; ORCHIDEE n'en choisit pas une. |
+| Deux unités différentes occupées en même temps dans un même séjour, sur une durée strictement positive | Il n'existe pas de partage défendable de la nuit entre les deux unités. |
+
+Le dernier point vise les doubles occupations réelles, pas les transferts :
+une sortie et l'entrée suivante au même instant ne se chevauchent pas.
+
+### Représentation des horodatages
+
+Stricte, et volontairement plus stricte que `DATEPRELEV`. Les formes acceptées
+dans un fichier texte sont :
+
+```text
+YYYY-MM-DD
+YYYY-MM-DD HH:MM
+YYYY-MM-DD HH:MM:SS
+```
+
+`T` est accepté à la place de l'espace. Une date seule vaut minuit. Toute
+autre écriture est refusée plutôt qu'interprétée : `12/03/2024` désigne deux
+jours différents selon la convention, et une borne d'hospitalisation ne se
+devine pas. Dans un `.rds`, un `POSIXct` ou une `Date` sont lus directement.
+
+Les valeurs sont lues dans le fuseau donné par `--timezone`, `Europe/Paris`
+par défaut.
+
+### Ce qu'ORCHIDEE en dérive
+
+L'exposition profilée interne, au grain `année + UM + UF + TA + DE + domaine +
+profil`, en journées-patient `midnight_presence`, jointe à `unit_mapping` pour
+le TA/DE. La projection `spares_current` en tire ensuite le total annuel du
+seul périmètre publié. Un site ne construit ni ne configure aucune de ces deux
+tables.
 
 ## Construire et valider les bundles ORCHIDEE
 
 Depuis la racine du dépôt, lancer d'abord le contrôle préalable sans risque :
 
 ```console
-python scripts/orchidee.py site --microbiology-observations "data/site_handoff/microbiology_observations.csv" --bacteria-mapping "data/site_handoff/bacteria_mapping.csv" --sample-type-mapping "data/site_handoff/sample_type_mapping.csv" --antibiotic-mapping "data/site_handoff/antibiotic_mapping.csv" --unit-mapping "data/site_handoff/unit_mapping.csv" --incidence-exposure "data/site_handoff/incidence_exposure_by_year_um_uf_ta_de_profile.csv" --dry-run
+python scripts/orchidee.py site --microbiology-observations "data/site_handoff/microbiology_observations.csv" --bacteria-mapping "data/site_handoff/bacteria_mapping.csv" --sample-type-mapping "data/site_handoff/sample_type_mapping.csv" --antibiotic-mapping "data/site_handoff/antibiotic_mapping.csv" --unit-mapping "data/site_handoff/unit_mapping.csv" --hospitalization-intervals "data/site_handoff/hospitalization_intervals.csv" --start-year 2022 --end-year 2024 --dry-run
 ```
 
 Cette commande ne lit que les en-têtes des fichiers délimités ; les entrées
@@ -384,7 +540,7 @@ Une fois que `--dry-run` passe, remplacer `--dry-run` par `--diagnose` dans la
 même commande :
 
 ```console
-python scripts/orchidee.py site --microbiology-observations "data/site_handoff/microbiology_observations.csv" --bacteria-mapping "data/site_handoff/bacteria_mapping.csv" --sample-type-mapping "data/site_handoff/sample_type_mapping.csv" --antibiotic-mapping "data/site_handoff/antibiotic_mapping.csv" --unit-mapping "data/site_handoff/unit_mapping.csv" --incidence-exposure "data/site_handoff/incidence_exposure_by_year_um_uf_ta_de_profile.csv" --diagnose
+python scripts/orchidee.py site --microbiology-observations "data/site_handoff/microbiology_observations.csv" --bacteria-mapping "data/site_handoff/bacteria_mapping.csv" --sample-type-mapping "data/site_handoff/sample_type_mapping.csv" --antibiotic-mapping "data/site_handoff/antibiotic_mapping.csv" --unit-mapping "data/site_handoff/unit_mapping.csv" --hospitalization-intervals "data/site_handoff/hospitalization_intervals.csv" --start-year 2022 --end-year 2024 --diagnose
 ```
 
 `--diagnose` lit les six blocs une seule fois et signale **tous** les
@@ -425,6 +581,12 @@ Un `PASS` est une promesse : le build que cette procédure lance ensuite
 aboutit sur ces blocs — bundle v3, projection `spares_current` vers le v2
 opérationnel, et validation stricte des deux.
 
+Le build relance lui-même ce diagnostic, sur les mêmes six blocs et la même
+période, et refuse de construire tant qu'un constat bloquant subsiste. Aucun
+appel de la CLI ne peut donc contourner le diagnostic : deux résultats S/I/R
+qui se contredisent, en particulier, ne peuvent pas être tranchés en silence
+par le builder en gardant la dernière ligne reçue.
+
 Quand elle signale `PASS`, relancer exactement la même commande sans
 `--dry-run` ni `--diagnose` pour un premier build. Si le contrôle préalable
 signale une sortie existante complète, choisir un autre `--output` ou,
@@ -435,6 +597,13 @@ doivent vivre dans un espace de travail externe protégé. Utiliser
 `python scripts/orchidee.py site --help` pour voir toutes les options
 supportées.
 
+Pour ne pas retaper six chemins et deux années à chaque étape, copier
+[`examples/run_site_handoff.py`](../examples/run_site_handoff.py) à côté des
+données protégées. Ce fichier ne contient aucun calcul : il enregistre les
+chemins, la sortie et la période en haut, et enchaîne les mêmes
+commandes que ci-dessus. Il démarre au stade `diagnostics` ; on passe à
+`build` puis à `report` après avoir lu la sortie du stade précédent.
+
 La CLI valide d'abord le bundle v3. Elle applique ensuite le contexte
 fermé `spares_current`, matérialise un bundle v2 strict séparé, et valide
 et smoke-teste cette sortie. Elle n'adopte pas v3 comme entrée runtime de
@@ -443,6 +612,25 @@ sur une sortie complète déjà créée par ce même workflow ; il ne fait pas
 partie de la commande de premier build.
 
 ## Utiliser le bundle obtenu
+
+ORCHIDEE écrit quatre fichiers internes par bundle matérialisé après
+validation :
+
+- `sir_wide.rds`
+- `sir_wide_meta.rds`
+- `sample_scope_reference.rds`
+- `denominator_bundle.rds`
+
+Ne pas construire ces quatre fichiers à la main pour une première
+transmission. Les noms de version de bundle décrivent ces sorties
+matérialisées, pas les six blocs possédés par le site.
+
+Le build conserve un bundle v3 complet et en dérive un bundle v2 strict, seule
+entrée du runtime. Il sélectionne pour cela le contexte fermé
+`spares_current` : périmètre RATB actuel (TA 03/20 et domaines DE ratifiés)
+et comptage de journées-patient `midnight_presence`. Un site ne configure pas
+cette sélection.
+
 
 La disposition de sortie par défaut est :
 
@@ -468,8 +656,13 @@ le bundle complet validé. Pour calculer les indicateurs à partir du bundle
 v2 produit par ce même build :
 
 ```console
-python scripts/orchidee.py render --rebuild --bundle "outputs/site_current/bundle_v2_operational" --workspace "outputs/site_current/runtime"
+python scripts/orchidee.py render --rebuild --bundle "outputs/site_current/bundle_v2_operational" --workspace "outputs/site_current/runtime" --start-year 2022 --end-year 2024
 ```
+
+`--start-year` et `--end-year` doivent répéter la période du build : ce sont
+les années que le rapport publie. Elles ne valent que pour ce processus et ne
+modifient pas `config/pipeline.R`, dont la valeur déclarée reste celle de
+Rouen.
 
 La CLI affiche cette commande avec les chemins exacts résolus à la fin du
 build. `--rebuild` construit le cache brut canonique avant de calculer les
@@ -490,6 +683,11 @@ fréquents sont :
 - toutes les lignes de microbiologie sont marquées hors
   `ratb_diagnostic_scope` ;
 - `SEJUF` est dupliqué dans `unit_mapping` ;
+- une unité de `hospitalization_intervals` n'a pas de ligne dans
+  `unit_mapping` ;
+- un intervalle est renversé, incomplet, ou porte un horodatage que le fuseau
+  déclaré rend impossible ou ambigu ;
+- un séjour place le patient dans deux unités à la fois ;
 - `DATEPRELEV` ou `HEUREPRELEV` a un format non supporté ;
 - deux lignes donnent des résultats S/I/R contradictoires pour le même
   prélèvement, la même bactérie, le même isolat et le même antibiotique.
@@ -508,8 +706,9 @@ L'hôpital possède :
 - la correspondance des bactéries, types de prélèvement et antibiotiques
   locaux vers les valeurs ORCHIDEE ;
 - la correspondance des unités locales vers l'information TA/DE ;
-- le calcul de l'exposition hospitalière profilée, indépendamment de la
-  microbiologie.
+- l'extraction des séjours d'hospitalisation au grain unité, y compris ceux
+  sans microbiologie ;
+- la déclaration de la période d'analyse.
 
 ORCHIDEE possède :
 
@@ -518,5 +717,8 @@ ORCHIDEE possède :
 - l'exclusion du dépistage / matériel non diagnostique au niveau de
   l'occurrence de document, avec l'identité et la règle d'anomalie `EVTID`
   décrites sous le Bloc 1 ;
+- l'attribution de chaque prélèvement à l'unité qui hébergeait le patient à
+  l'heure du prélèvement ;
+- le comptage des nuits, l'union des intervalles et le découpage annuel ;
 - l'application du périmètre RATB ;
 - l'exécution de la déduplication brute et du calcul des indicateurs.

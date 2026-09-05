@@ -11,7 +11,8 @@ Deux parcours d'entrée (Rouen vs "autres") mènent au même rapport. Suivre uni
 ## Prérequis et installation
 
 Windows ou Linux, avec Git, Python 3.8 ou plus récent et Quarto. La version de
-R et les dépendances sont imposées par `renv.lock`. PowerShell n'est pas requis.
+R et les dépendances sont imposées par `renv.lock`. Installer R 4.5.3
+avant de lancer `setup`, qui installe les paquets R du projet. PowerShell n'est pas requis.
 Dans les commandes ci-dessous, remplacer `python` par `python3` si le système
 expose ainsi son interpréteur Python 3. Depuis la racine d'un clone frais :
 
@@ -32,15 +33,16 @@ dépôt : un run ordinaire ne demande de préparer ni configuration ni
 correspondance. Il y a deux chemins à fournir, l'export bactériologie et
 l'export PMSI produit par `redsan`, et trois commandes à lancer.
 
-Le build traduit ces deux exports dans les six blocs de base — les mêmes que
-les autres établissements produisent eux-mêmes — puis en dérive les bundles.
-Un bundle est un répertoire de quatre fichiers validés : la microbiologie, sa
-description, le périmètre des unités et le dénominateur. Ces quatre fichiers
-sont tout ce que le calcul des indicateurs a besoin de savoir de
-l'établissement ; le vocabulaire local n'y apparaît plus.
+Le build traduit ces deux exports dans les six blocs de construction internes,
+puis en dérive les bundles. Un bundle est un répertoire de quatre fichiers
+validés : la microbiologie, sa description, le périmètre des unités et le
+dénominateur. Ces quatre fichiers sont tout ce que le calcul des indicateurs a
+besoin de savoir de l'établissement ; le vocabulaire local n'y apparaît plus.
 
-C'est le point de rencontre des deux parcours : après le build, Rouen suit
-exactement le même chemin que les autres. Le calcul des indicateurs est une
+Les deux parcours produisent les mêmes six blocs internes, par des chemins
+différents : Rouen les dérive de BACT et PMSI, un autre établissement les
+dérive des six fichiers qu'il transmet. C'est le point de rencontre : après le
+build, Rouen suit exactement le même chemin que les autres. Le calcul des indicateurs est une
 étape distincte, à ne lancer que si le rapport doit être produit sur cette
 machine.
 
@@ -79,7 +81,7 @@ Ce que contient la sortie :
 
 | Chemin | Rôle |
 |---|---|
-| `site_inputs/` | Les six blocs de base : les deux exports traduits dans le format commun, celui que les autres établissements fournissent eux-mêmes. |
+| `site_inputs/` | Les six blocs de construction internes : les deux exports traduits dans le format commun dont les bundles sont dérivés. |
 | `bundle_v3/` | Tout le détail conservé : l'exposition hospitalière au grain fin, y compris l'activité hors périmètre RATB. C'est l'archive de référence de ce build, à conserver. |
 | `bundle_v2_operational/` | Le dénominateur déjà réduit au total annuel du seul périmètre publié. C'est la seule entrée de l'étape 3. |
 | `adapter_audit.rds` | Trace interne du build ; aucune action à faire dessus. |
@@ -126,8 +128,15 @@ un navigateur et se transmet tel quel.
 
 ## Autre établissement
 
-ORCHIDEE attend six fichiers. Il en définit le contenu et le format ; votre
-équipe décide comment les produire à partir de ses propres systèmes :
+**Votre parcours est ici :
+[documentation/site_contract.md](documentation/site_contract.md).** Il donne le
+nom et la structure attendue de chaque fichier, les modèles à remplir et les
+commandes de vérification puis de calcul. Tout ce qui suit dans cette page en
+est le résumé.
+
+Vous fournissez les résultats de microbiologie, les mouvements hospitaliers
+et les correspondances entre votre vocabulaire local et celui d'ORCHIDEE.
+Votre équipe les extrait de ses propres systèmes et les enregistre séparément :
 
 1.  les résultats de microbiologie : prélèvement, bactérie, antibiotique,
     résultat S/I/R et indication diagnostic ou dépistage ;
@@ -135,9 +144,25 @@ ORCHIDEE attend six fichiers. Il en définit le contenu et le format ; votre
 3.  la traduction de vos types de prélèvement ;
 4.  la traduction de vos noms d'antibiotiques ;
 5.  la correspondance entre vos unités d'hospitalisation et les codes TA/DE ;
-6.  les journées d'hospitalisation, par année et par unité.
+6.  les séjours d'hospitalisation, une ligne par passage ininterrompu dans une
+    unité, y compris les séjours sans microbiologie.
 
-Ces fichiers peuvent être des CSV ou des objets RDS. 
+Ces fichiers peuvent être des CSV ou des objets RDS.
+
+Vous transmettez ce que vous détenez : des résultats, des correspondances et
+des séjours. Vous ne calculez pas de dénominateur et n'indiquez pas l'unité
+d'un prélèvement. ORCHIDEE possède l'attribution des prélèvements aux unités,
+le comptage des nuits et le périmètre, pour que ces décisions soient les mêmes
+d'un établissement à l'autre. Vous déclarez en revanche la période analysée,
+de la première à la dernière année incluse, la même à chaque étape.
+
+Trois documents, dans cet ordre :
+
+| Pour | Lire |
+|---|---|
+| Le contrat : chaque fichier, chaque colonne, chaque commande | [`site_contract.md`](documentation/site_contract.md) |
+| Un exemple travaillé : quatre séjours inventés, les chiffres attendus | [`examples/site_handoff_worked/`](examples/site_handoff_worked/README.md) |
+| Un fichier de lancement à copier et remplir | [`examples/run_site_handoff.py`](examples/run_site_handoff.py) |
 
 Avant d'introduire des données locales, vérifier l'installation sur la fixture
 synthétique versionnée :
@@ -146,11 +171,7 @@ synthétique versionnée :
 python scripts/orchidee.py site --run-smoke-test
 ```
 
-Ce smoke test qualifie l'installation, pas vos données. La procédure site donne
-le nom et la structure attendue de chaque fichier, les modèles à remplir et les
-commandes de vérification puis de calcul :
-
-[documentation/site_contract.md](documentation/site_contract.md)
+Ce smoke test qualifie l'installation, pas vos données.
 
 ## Mainteneurs
 
@@ -165,6 +186,7 @@ seule entrée du runtime et du rapport.
 | Quelles décisions ont été prises, et où sont-elles dans le code ? | [`methods.md`](documentation/methods.md) |
 | Qu'est-ce qui est réglable, et que faut-il refaire après ? | [`knobs.md`](documentation/knobs.md) |
 | Quels indicateurs sont publiés ? | [`ratb_indicator_spec.csv`](documentation/ratb_indicator_spec.csv) |
+| Quel contrat chaque test protège-t-il, et pour quel établissement ? | [`test_inventory.md`](documentation/test_inventory.md) |
 
 La méthode et le périmètre publiés ne changent qu'après une décision explicite
 et la vérification correspondante.

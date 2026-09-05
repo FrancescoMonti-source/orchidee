@@ -30,7 +30,7 @@ if (length(args) != 6L || any(args %in% c("-h", "--help"))) {
     "<microbiology_observations> <bacteria_mapping> ",
     "<sample_type_mapping> <antibiotic_mapping> ",
     "<unit_mapping> ",
-    "<incidence_exposure_by_year_um_uf_ta_de_profile>\n",
+    "<hospitalization_intervals>\n",
     sep = ""
   )
   quit(
@@ -62,11 +62,13 @@ if (length(missing_packages) > 0L) {
 }
 
 source("R/external_handoff_helpers.R")
+source("R/site_handoff_preparation_helpers.R")
 
-block_names <- names(orchidee_handoff_site_input_spec())
+spec <- orchidee_site_public_input_spec()
+block_names <- names(spec)
 names(args) <- block_names
 input_schemas <- lapply(args, orchidee_handoff_read_table_schema)
-orchidee_handoff_validate_site_input_columns(input_schemas)
+orchidee_handoff_validate_site_input_columns(input_schemas, spec = spec)
 
 if (any(tolower(tools::file_ext(args)) == "rds")) {
   cat(

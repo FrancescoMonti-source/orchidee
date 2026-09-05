@@ -3,6 +3,7 @@
 source("R/external_bundle_validation_helpers.R")
 source("R/ratb_hospital_days_helpers.R")
 source("R/external_handoff_helpers.R")
+source("R/site_handoff_preparation_helpers.R")
 source("tests/python_cli_helpers.R")
 
 capture_error <- function(expr) {
@@ -62,15 +63,20 @@ run_r_script <- function(script, args = character(), env = character()) {
   list(status = status, output = output)
 }
 
-spec <- orchidee_handoff_site_input_spec()
+# The public contract: what a site fills in and hands over. The internal
+# profiled-exposure block is derived by ORCHIDEE and is not a template.
+spec <- orchidee_site_public_input_spec()
 expected_blocks <- c(
   "microbiology_observations",
   "bacteria_mapping",
   "sample_type_mapping",
   "antibiotic_mapping",
   "unit_mapping",
-  "incidence_exposure_by_year_um_uf_ta_de_profile"
+  "hospitalization_intervals"
 )
+# The versioned fixture covers 2024 only; the smoke test carries the same
+# period, so a wrapper run on those files declares it explicitly.
+example_period_args <- c("--start-year", "2024", "--end-year", "2024")
 empty_blocks <- lapply(spec, function(block_spec) {
   block <- as.data.frame(
     setNames(
@@ -92,14 +98,15 @@ names(alias_blocks$microbiology_observations)[
   names(alias_blocks$microbiology_observations) == "ratb_diagnostic_scope"
 ] <- "is_diagnostic"
 alias_validation <- capture_error(
-  orchidee_handoff_validate_site_input_columns(alias_blocks)
+  orchidee_handoff_validate_site_input_columns(alias_blocks, spec = spec)
 )
 
 ambiguous_alias_blocks <- empty_blocks
 ambiguous_alias_blocks$microbiology_observations$is_diagnostic <- logical()
 ambiguous_alias_error <- capture_error(
   orchidee_handoff_validate_site_input_columns(
-    ambiguous_alias_blocks
+    ambiguous_alias_blocks,
+    spec = spec
   )
 )
 
@@ -107,7 +114,7 @@ swapped_blocks <- empty_blocks
 swapped_blocks$bacteria_mapping <- empty_blocks$sample_type_mapping
 swapped_blocks$sample_type_mapping <- empty_blocks$bacteria_mapping
 swapped_error <- capture_error(
-  orchidee_handoff_validate_site_input_columns(swapped_blocks)
+  orchidee_handoff_validate_site_input_columns(swapped_blocks, spec = spec)
 )
 
 duplicate_column_blocks <- empty_blocks
@@ -115,7 +122,8 @@ names(duplicate_column_blocks$bacteria_mapping)[[2L]] <-
   names(duplicate_column_blocks$bacteria_mapping)[[1L]]
 duplicate_column_error <- capture_error(
   orchidee_handoff_validate_site_input_columns(
-    duplicate_column_blocks
+    duplicate_column_blocks,
+    spec = spec
   )
 )
 
@@ -245,7 +253,8 @@ run_site_wrapper <- function(
     "--sample-type-mapping", input_paths[[3L]],
     "--antibiotic-mapping", input_paths[[4L]],
     "--unit-mapping", input_paths[[5L]],
-    "--incidence-exposure", input_paths[[6L]],
+    "--hospitalization-intervals", input_paths[[6L]],
+    example_period_args,
     "--output", output_path
   )
   if (dry_run) wrapper_args <- c(wrapper_args, "--dry-run")

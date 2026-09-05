@@ -7,6 +7,7 @@
 orchidee_handoff_site_input_spec <- function() {
   microbiology_required <- c(
     "PATID",
+    "EVTID",
     "ELTID",
     "DATEPRELEV",
     "SEJUF",
@@ -84,8 +85,13 @@ orchidee_handoff_site_input_spec <- function() {
   spec
 }
 
-orchidee_handoff_validate_site_input_columns <- function(site_inputs) {
-  spec <- orchidee_handoff_site_input_spec()
+# `spec` defaults to the internal construction contract, which the Rouen
+# adapter and the bundle builder validate against. The generic site path passes
+# `orchidee_site_public_input_spec()` instead: same rules, different six blocks.
+orchidee_handoff_validate_site_input_columns <- function(
+    site_inputs,
+    spec = orchidee_handoff_site_input_spec()
+  ) {
   if (!is.list(site_inputs)) {
     stop("site_inputs must be a named list.", call. = FALSE)
   }
@@ -804,52 +810,12 @@ orchidee_handoff_map_values <- function(
   mapped
 }
 
-# A source that carries EVTID must carry it on every row: a gap in an otherwise
-# populated column is a hospital-system anomaly, and those rows are dropped
-# rather than kept on a degraded document key. A column that is absent, or
-# entirely empty, is not an anomaly: that source has no event identity to lose
-# and keeps every row on the PATID + ELTID key.
-orchidee_handoff_evtid_anomaly_rows <- function(EVTID) {
-  if (!any(!is.na(EVTID))) {
-    return(rep(FALSE, length(EVTID)))
-  }
-  is.na(EVTID)
-}
-
-# Screening exclusion follows the document identity the source can support:
-# PATID + EVTID + ELTID when it carries EVTID, PATID + ELTID when it does not.
-# Rows with a missing EVTID beside populated ones are dropped upstream, so a
-# partially filled EVTID is refused here instead of being silently degraded.
-# ELTID alone is never propagated across patients. Rows without a usable
-# PATID + ELTID pair receive NA and never carry screening.
+# A document belongs to one patient and one stay. Missing identity never
+# propagates screening to another occurrence; there is no patient-only key.
 orchidee_handoff_document_occurrence_key <- function(PATID, EVTID, ELTID) {
   document_key <- rep(NA_character_, length(PATID))
-  usable <- !is.na(PATID) & !is.na(ELTID)
-  usable_rows <- which(usable)
-  if (length(usable_rows) == 0L) {
-    return(document_key)
-  }
-
-  event <- EVTID[usable_rows]
-  if (any(!is.na(event)) && any(is.na(event))) {
-    stop(
-      "Document identity needs EVTID on every row or on none; ",
-      "rows missing it must be dropped before this point.",
-      call. = FALSE
-    )
-  }
-
-  document_key[usable_rows] <- if (all(is.na(event))) {
-    paste("patient_sample", PATID[usable_rows], ELTID[usable_rows], sep = "\r")
-  } else {
-    paste(
-      "event_sample",
-      PATID[usable_rows],
-      event,
-      ELTID[usable_rows],
-      sep = "\r"
-    )
-  }
+  usable <- !is.na(PATID) & !is.na(EVTID) & !is.na(ELTID)
+  document_key[usable] <- paste(PATID[usable], EVTID[usable], ELTID[usable], sep = "\r")
   document_key
 }
 
@@ -943,14 +909,10 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
     paste0("microbiology_observations$", diagnostic_col)
   )
   obs$PATID <- orchidee_handoff_trim_or_na(obs$PATID)
-  obs$EVTID <- if ("EVTID" %in% names(obs)) {
-    orchidee_handoff_trim_or_na(obs$EVTID)
-  } else {
-    rep(NA_character_, nrow(obs))
-  }
+  obs$EVTID <- orchidee_handoff_trim_or_na(obs$EVTID)
   obs$ELTID <- orchidee_handoff_trim_or_na(obs$ELTID)
 
-  dropped <- orchidee_handoff_evtid_anomaly_rows(obs$EVTID)
+  dropped <- is.na(obs$EVTID)
   if (any(dropped)) {
     obs <- obs[!dropped, , drop = FALSE]
     diagnostic_scope <- diagnostic_scope[!dropped]
@@ -975,7 +937,7 @@ orchidee_handoff_build_sir_wide_from_microbiology <- function(
   obs <- obs[!drop_mask, , drop = FALSE]
   if (nrow(obs) == 0L) {
     stop(
-      "No rows remain after excluding screening document occurrences from ",
+      "No rows remain after excluding rows without EVTID and screening document occurrences from ",
       "microbiology_observations (", diagnostic_col, " exclusion).",
       call. = FALSE
     )

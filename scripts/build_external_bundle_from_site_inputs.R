@@ -46,9 +46,34 @@ operational_v2_output <- if (length(operational_v2_args) == 0L) {
 if (!is.na(operational_v2_output) && !nzchar(operational_v2_output)) {
   stop("--operational-v2-output requires a directory.", call. = FALSE)
 }
+
+single_option_value <- function(args, flag) {
+  matched <- grep(paste0("^", flag, "="), args, value = TRUE)
+  if (length(matched) > 1L) {
+    stop("Pass at most one ", flag, " option.", call. = FALSE)
+  }
+  if (length(matched) == 0L) {
+    return(NA_character_)
+  }
+  sub(paste0("^", flag, "="), "", matched[[1L]])
+}
+start_year_args <- grep("^--start-year=", args, value = TRUE)
+end_year_args <- grep("^--end-year=", args, value = TRUE)
+timezone_args <- grep("^--timezone=", args, value = TRUE)
+start_year_value <- single_option_value(args, "--start-year")
+end_year_value <- single_option_value(args, "--end-year")
+timezone_value <- single_option_value(args, "--timezone")
+
 args <- setdiff(
   args,
-  c("--force", "--no-next-steps", operational_v2_args)
+  c(
+    "--force",
+    "--no-next-steps",
+    operational_v2_args,
+    start_year_args,
+    end_year_args,
+    timezone_args
+  )
 )
 
 if (length(args) == 8L) {
@@ -68,9 +93,10 @@ if (length(args) != 7L || "--help" %in% args || "-h" %in% args) {
     "<sample_type_mapping.{rds,csv,tsv,tab,txt}> ",
     "<antibiotic_mapping.{rds,csv,tsv,tab,txt}> ",
     "<unit_mapping.{rds,csv,tsv,tab,txt}> ",
-    "<denominator.{rds,csv,tsv,tab,txt}> ",
+    "<hospitalization_intervals.{rds,csv,tsv,tab,txt}> ",
     "<output_bundle_dir> ",
-    "    [--operational-v2-output=<dir>] [--force] ",
+    "    --start-year=<YYYY> --end-year=<YYYY> [--timezone=<ZONE>] ",
+    "[--operational-v2-output=<dir>] [--force] ",
     "[--no-next-steps]\n\n",
     "Inputs:\n",
     "  microbiology_observations: long local S/I/R observations with the\n",
@@ -80,8 +106,13 @@ if (length(args) != 7L || "--help" %in% args || "-h" %in% args) {
     "  antibiotic_mapping: antibiotic_local + atb_norm.\n",
     "  unit_mapping: one row per SEJUF with CODE_TA, CODE_DE and\n",
     "    de_domain_ref directly in this block.\n",
-    "  incidence exposure: calendar_year + SEJUM + SEJUF + CODE_TA + CODE_DE +\n",
-    "    de_domain_ref + denominator_profile_id + exposure_value + exposure_unit.\n",
+    "  hospitalization_intervals: PATID + EVTID + DATENT + DATSORT + SEJUM +\n",
+    "    SEJUF, one uninterrupted unit visit per row. ORCHIDEE derives the\n",
+    "    profiled exposure and each sample's hosting unit from this block;\n",
+    "    a site does not compute a denominator.\n",
+    "  --start-year / --end-year: the consecutive calendar years to analyse.\n",
+    "  --timezone: IANA zone the interval timestamps are read in; defaults\n",
+    "    to Europe/Paris.\n",
     "  This builder always constructs the complete v3 contract; unit_mapping\n",
     "    must contain CODE_TA, CODE_DE and de_domain_ref.\n",
     "  --operational-v2-output: validate v3, then materialize its closed\n",
@@ -97,8 +128,17 @@ bacteria_mapping_path <- args[[2L]]
 sample_type_mapping_path <- args[[3L]]
 antibiotic_mapping_path <- args[[4L]]
 unit_mapping_path <- args[[5L]]
-denominator_path <- args[[6L]]
+hospitalization_intervals_path <- args[[6L]]
 output_bundle_dir <- args[[7L]]
+
+if (is.na(start_year_value) || is.na(end_year_value)) {
+  stop(
+    "--start-year and --end-year are both required: the analysis period ",
+    "selects the microbiology rows and clips the exposure, and cannot be ",
+    "inferred from the files.",
+    call. = FALSE
+  )
+}
 
 bundle_file_names <- c(
   "sir_wide.rds",
@@ -257,24 +297,111 @@ orchidee_source_required_script("phenotype_flag_helpers.R")
 orchidee_source_required_script("external_bundle_validation_helpers.R")
 orchidee_source_required_script("ratb_hospital_days_helpers.R")
 orchidee_source_required_script("external_handoff_helpers.R")
+orchidee_source_required_script("chu_sample_hospitalization_unit_attribution.R")
+orchidee_source_required_script("site_handoff_preparation_helpers.R")
 orchidee_source_required_script("ratb_canonical_runtime_helpers.R")
 
 contract <- orchidee_external_contract_v3()
+period <- orchidee_site_resolve_period(start_year_value, end_year_value)
+timezone <- if (is.na(timezone_value)) {
+  orchidee_site_default_timezone()
+} else {
+  timezone_value
+}
+if (!nzchar(timezone) || !(timezone %in% OlsonNames())) {
+  stop(
+    "Unknown time zone: ", timezone,
+    ". Pass an IANA zone name such as ", orchidee_site_default_timezone(), ".",
+    call. = FALSE
+  )
+}
 
 microbiology_observations <- orchidee_handoff_read_table(microbiology_path)
 bacteria_mapping <- orchidee_handoff_read_table(bacteria_mapping_path)
 sample_type_mapping <- orchidee_handoff_read_table(sample_type_mapping_path)
 antibiotic_mapping <- orchidee_handoff_read_table(antibiotic_mapping_path)
 unit_mapping <- orchidee_handoff_read_table(unit_mapping_path)
-denominator_input <- orchidee_handoff_read_table(denominator_path)
+hospitalization_intervals <- orchidee_handoff_read_table(
+  hospitalization_intervals_path
+)
 
-bundle <- orchidee_handoff_build_external_bundle_from_site_inputs(
+public_site_inputs <- list(
   microbiology_observations = microbiology_observations,
   bacteria_mapping = bacteria_mapping,
   sample_type_mapping = sample_type_mapping,
   antibiotic_mapping = antibiotic_mapping,
   unit_mapping = unit_mapping,
-  incidence_exposure_by_year_um_uf_ta_de_profile = denominator_input
+  hospitalization_intervals = hospitalization_intervals
+)
+orchidee_handoff_validate_site_input_columns(
+  public_site_inputs,
+  spec = orchidee_site_public_input_spec()
+)
+
+# The same preparation `scripts/diagnose_site_inputs.R` reports on. The
+# operator CLI runs the diagnostics before reaching this script, so a blocking
+# finding here means the two disagreed, which is a defect in one of them and
+# not something to build through.
+prepared <- orchidee_site_prepare_handoff(
+  microbiology_observations = microbiology_observations,
+  bacteria_mapping = bacteria_mapping,
+  sample_type_mapping = sample_type_mapping,
+  antibiotic_mapping = antibiotic_mapping,
+  unit_mapping = unit_mapping,
+  hospitalization_intervals = hospitalization_intervals,
+  period = period,
+  timezone = timezone
+)
+blocking <- Filter(
+  function(finding) identical(finding$severity, "BLOCKING"),
+  prepared$findings
+)
+if (length(blocking) > 0L) {
+  stop(
+    "The site inputs carry blocking findings; no bundle was built:\n  ",
+    paste(
+      vapply(
+        blocking,
+        function(finding) {
+          paste0(finding$block, " / ", finding$check, ": ", finding$detail)
+        },
+        character(1)
+      ),
+      collapse = "\n  "
+    ),
+    "\nRun `python scripts/orchidee.py site --diagnose` for the complete list.",
+    call. = FALSE
+  )
+}
+if (is.null(prepared$site_inputs)) {
+  stop(
+    "The site preparation produced no usable input set for ",
+    period$label,
+    ".",
+    call. = FALSE
+  )
+}
+for (finding in prepared$findings) {
+  if (identical(finding$severity, "WARNING")) {
+    cat("WARNING: ", finding$block, " / ", finding$check, ": ",
+        finding$detail, "\n", sep = "")
+  }
+}
+cat(
+  "Analysis period: ", period$label,
+  " (timestamps read in ", prepared$timezone, ")\n",
+  sep = ""
+)
+
+bundle <- orchidee_handoff_build_external_bundle_from_site_inputs(
+  microbiology_observations =
+    prepared$site_inputs$microbiology_observations,
+  bacteria_mapping = prepared$site_inputs$bacteria_mapping,
+  sample_type_mapping = prepared$site_inputs$sample_type_mapping,
+  antibiotic_mapping = prepared$site_inputs$antibiotic_mapping,
+  unit_mapping = prepared$site_inputs$unit_mapping,
+  incidence_exposure_by_year_um_uf_ta_de_profile =
+    prepared$site_inputs$incidence_exposure_by_year_um_uf_ta_de_profile
 )
 
 run_canonical_runtime_smoke <- function(bundle, label) {
@@ -596,7 +723,9 @@ if (!is.na(operational_v2_output)) {
       "  python scripts/orchidee.py render --rebuild ",
       "--bundle ", quote_operator_shell_argument(v2_runtime_path), " ",
       "--workspace ",
-      quote_operator_shell_argument(runtime_workspace_path),
+      quote_operator_shell_argument(runtime_workspace_path), " ",
+      "--start-year ", period$start_year, " ",
+      "--end-year ", period$end_year,
       "\n",
       sep = ""
     )

@@ -20,14 +20,18 @@ A successful run writes paired validated bundles under
 
 ## This is not onboarding material
 
-The fixture is deliberately one synthetic observation. It is a self-test, not a
-worked example, and it teaches nothing about a real handoff: it exercises no
-deduplication, no screening exclusion, no phenotype, no resistance and no
-perimeter filtering, because a single in-perimeter row makes each of those a
-no-op.
+The fixture is deliberately one synthetic observation and one hospitalization
+interval. It is a self-test, not a worked example, and it teaches nothing about
+a real handoff: it exercises no deduplication, no screening exclusion, no
+phenotype, no resistance, no transfer and no perimeter filtering, because a
+single in-perimeter row makes each of those a no-op.
 
 Do not enlarge it to imitate a real site. Extra rows would make the self-test
-slower and no more conclusive, and a synthetic cohort is not what a site needs.
+slower and no more conclusive. A worked example already exists for that purpose
+and is kept separate on purpose: `examples/site_handoff_worked/`, four invented
+stays with a transfer, a return to a unit, an out-of-perimeter unit and the
+expected numbers spelled out.
+
 The commands that serve onboarding are:
 
 - `python scripts/orchidee.py site --emit-templates` for the canonical headers and the

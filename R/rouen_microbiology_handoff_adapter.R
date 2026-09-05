@@ -409,7 +409,7 @@ build_rouen_microbiology_handoff <- function(
 
   # Same anomaly rule as the shared handoff, applied before Rouen scopes its own
   # screening documents so a dropped row cannot mark an occurrence.
-  dropped_evtid_rows <- orchidee_handoff_evtid_anomaly_rows(target_raw$EVTID)
+  dropped_evtid_rows <- is.na(target_raw$EVTID)
   rows_dropped_without_evtid <- sum(dropped_evtid_rows)
   target_raw <- target_raw[!dropped_evtid_rows, , drop = FALSE]
 
