@@ -82,7 +82,7 @@ Ce document ne consigne que la mécanique commune.
 |------------------------|------------------------|------------------------|
 | Une nuit est une différence de dates : entrée et sortie le même jour valent zéro | `R/ratb_hospital_days_helpers.R` | Séjours courts |
 | Un séjour à cheval sur deux années est réparti selon le chevauchement réel | `R/ratb_hospital_days_helpers.R` → `ratb_split_stays_nights_by_year()` | Aucune année ne reçoit un séjour entier qui la dépasse |
-| Les nuits sont comptées par unité puis sommées sur les unités éligibles de l'épisode | `R/ratb_hospital_days_helpers.R` | Un transfert entre unités éligibles ne compte pas deux fois |
+| Les intervalles de chaque unité sont réunis avant le découpage annuel, puis les nuits sont sommées sur les unités éligibles de l'épisode | `R/ratb_hospital_days_helpers.R` | Un retour dans une unité après une autre et un transfert entre unités éligibles ne comptent pas deux fois |
 | Le dénominateur est calculé indépendamment de la microbiologie | `R/ratb_hospital_days_helpers.R` | Un séjour sans prélèvement contribue aux nuits |
 | La définition d'exposition est un profil déclaré, pas une convention implicite : `midnight_presence`, en `patient_days`. Le contrat v3 porte l'axe du profil sur chaque ligne, et le registre n'en contient qu'un | `R/external_bundle_validation_helpers.R` → `ratb_denominator_profile_registry()` | Une définition alternative s'ajouterait au registre sans changer le contrat |
 

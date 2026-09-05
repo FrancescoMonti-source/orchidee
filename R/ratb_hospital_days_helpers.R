@@ -804,8 +804,32 @@ build_ratb_pmsi_ta_de_denominator <- function(
       )
     )
 
-  ratb_unit_stay_scope_audit <- pmsi_unit_rows %>%
+  # Keep disjoint visits to the same unit separate.  Duplicate or overlapping
+  # PMSI rows are merged into one half-open interval; a gap starts a new unit
+  # stay.  The validity flag also keeps malformed rows visible to the audit
+  # below instead of allowing them to bridge two valid intervals.
+  pmsi_unit_rows <- pmsi_unit_rows %>%
+    arrange(PATID, EVTID, SEJUM, SEJUF, DATENT, DATSORT) %>%
     group_by(PATID, EVTID, SEJUM, SEJUF) %>%
+    mutate(
+      .valid_interval = !is.na(DATENT) &
+        !is.na(DATSORT) &
+        DATSORT >= DATENT,
+      .previous_valid_interval = lag(.valid_interval, default = FALSE),
+      .previous_max_datsort = lag(
+        cummax(if_else(.valid_interval, as.numeric(DATSORT), -Inf)),
+        default = -Inf
+      ),
+      .unit_stay_id = cumsum(
+        !.valid_interval |
+          !.previous_valid_interval |
+          as.numeric(DATENT) > .previous_max_datsort
+      )
+    ) %>%
+    ungroup()
+
+  ratb_unit_stay_scope_audit <- pmsi_unit_rows %>%
+    group_by(PATID, EVTID, SEJUM, SEJUF, .unit_stay_id) %>%
     summarise(
       n_pmsi_rows = n(),
       datent_min = ratb_safe_min_datetime(DATENT),
@@ -831,6 +855,7 @@ build_ratb_pmsi_ta_de_denominator <- function(
       ),
       .groups = "drop"
     ) %>%
+    select(-.unit_stay_id) %>%
     left_join(event_bounds_lookup, by = c("PATID", "EVTID")) %>%
     mutate(
       nights_provisional = as.integer(as.Date(datsort_max) - as.Date(datent_min)),
