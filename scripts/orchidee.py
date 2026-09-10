@@ -759,29 +759,41 @@ def _run_site_build(args: argparse.Namespace) -> int:
         and bool(build_id_v3)
         and build_id_v3 == build_id_v2
     )
+    force_build = args.force or args.run_smoke_test
     if existing_bundles and not complete:
-        raise OrchideeError(
-            "Output contains an incomplete or incompatible site build: "
-            f"{output_root}. Choose another --output. After confirming no "
-            "build is running, remove the two partial bundle directories "
-            "before reusing this output."
-        )
+        if args.run_smoke_test:
+            print_warning(
+                f"Output contains an incomplete site build: {output_root}. "
+                "Smoke test will overwrite it."
+            )
+        else:
+            raise OrchideeError(
+                "Output contains an incomplete or incompatible site build: "
+                f"{output_root}. Choose another --output. After confirming no "
+                "build is running, remove the two partial bundle directories "
+                "before reusing this output."
+            )
     if complete:
         if args.dry_run:
             suffix = (
                 "; a real build with --force would replace the two bundles."
-                if args.force
+                if force_build
                 else "; use --force or another --output for a real build."
             )
             print_warning(
                 f"Complete site outputs already exist under {output_root}{suffix}"
             )
-        elif not args.force:
+        elif not force_build:
             raise OrchideeError(
                 f"Complete site outputs already exist under {output_root}. "
                 "Review them, then pass --force or choose another --output."
             )
-    elif args.force:
+        elif args.run_smoke_test and not args.force:
+            print_warning(
+                f"Complete smoke test outputs already exist under {output_root}; "
+                "overwriting them for rerun."
+            )
+    elif args.force and not args.run_smoke_test:
         print_warning(
             "--force is unnecessary because no compatible output exists."
         )
@@ -848,7 +860,7 @@ def _run_site_build(args: argparse.Namespace) -> int:
         f"--timezone={args.timezone}",
         "--no-next-steps",
     ]
-    if args.force:
+    if force_build:
         command.append("--force")
     result = run_process(command)
     if result.returncode != 0:

@@ -44,9 +44,14 @@ l'équipe ORCHIDEE avant de préparer l'extraction complète.
 
 Récupérer le dépôt ORCHIDEE depuis l'accès transmis par l'équipe du projet.
 Sur Windows ou Linux, installer Git, Python 3.8 ou plus récent, Quarto et
-**R 4.5.3** (version déclarée dans `renv.lock`). Ouvrir un terminal dans le
-dossier du dépôt, celui qui contient `README.md` et `scripts/`.
-Toutes les commandes ci-dessous se lancent depuis ce dossier.
+**R 4.5.3** (version déclarée dans `renv.lock`). Si votre environnement dispose
+déjà d'une version R récente (R 4.3.x ou 4.4.x), vous pouvez exécuter le projet
+sans réinstaller R en positionnant la variable d'environnement
+`ORCHIDEE_ALLOW_R_MISMATCH=1` (ou en spécifiant le chemin exact vers l'exécutable
+Rscript via `ORCHIDEE_R`).
+
+Ouvrir un terminal dans le dossier du dépôt, celui qui contient `README.md` et
+`scripts/`. Toutes les commandes ci-dessous se lancent depuis ce dossier.
 
 ```console
 python scripts/orchidee.py setup
@@ -63,13 +68,13 @@ python scripts/orchidee.py site --run-smoke-test
 ```
 
 Cette commande essaie la construction avec des données inventées, sans ouvrir
-vos données. Attendre `PASS`. Elle écrit dans `outputs/site_smoke_test`.
-Pour répéter l'essai, utiliser un nouveau dossier avec `--output`.
+vos données. Attendre `PASS`. Elle écrit dans `outputs/site_smoke_test` (les
+exécutions successives réécrivent proprement cette sortie de test sans échec).
 
 ### 3. Extraire les données et préparer les correspondances
 
 ```console
-python scripts/orchidee.py site --emit-templates "data/site_handoff"
+python scripts/orchidee.py site --emit-templates "data/mon_etablissement"
 ```
 
 Deux extractions sont nécessaires : les résultats de microbiologie et les
@@ -82,7 +87,8 @@ les valeurs de correspondance autorisées ou reconnues. Remplir les modèles à
 partir de vos sources ; les colonnes sont expliquées plus bas. Conserver les
 identifiants et les codes comme du texte, notamment leurs zéros initiaux.
 Les fichiers peuvent aussi être placés dans un dossier protégé hors du dépôt.
-Ne pas les ajouter à Git. La commande refuse d'écraser des modèles existants.
+Ne pas les ajouter à Git. La commande refuse d'écraser des fichiers existants
+afin de protéger les données déjà préparées par l'établissement.
 
 ### 4. Contrôler vos données
 
@@ -225,6 +231,13 @@ supportée ; c'est le site qui décide si des libellés locaux comme `CTX` ou
 
 Ce bloc contient une ligne par résultat local S/I/R pour un prélèvement, une
 bactérie et un antibiotique.
+
+**Règle de filtrage des antibiotiques :** Seuls les résultats pour les
+antibiotiques supportés par ORCHIDEE (listés dans le fichier
+`mapping_reference/supported_atb_norm.csv` émis par `--emit-templates`) doivent
+être inclus dans ce fichier. Les observations pour tout autre antibiotique testé
+par le laboratoire de microbiologie doivent être impérativement filtrées et
+écartées par l'établissement en amont de la transmission.
 
 Colonnes requises :
 

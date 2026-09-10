@@ -349,5 +349,177 @@ class TestResolveRscriptTolerance(unittest.TestCase):
                 self.assertIn("ORCHIDEE_ALLOW_R_MISMATCH", str(ctx.exception))
 
 
+class TestSmokeTestRerunBehavior(unittest.TestCase):
+    def setUp(self) -> None:
+        from unittest.mock import patch
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.output_dir = Path(self.temp_dir.name)
+
+    def tearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    def _create_bundles(self, build_id: str = "b123") -> tuple[Path, Path]:
+        bundle_v3 = self.output_dir / "bundle_v3"
+        bundle_v2 = self.output_dir / "bundle_v2_operational"
+        bundle_v3.mkdir(parents=True, exist_ok=True)
+        bundle_v2.mkdir(parents=True, exist_ok=True)
+        manifest_v3 = (
+            f"build_id: {build_id}\n"
+            "status: complete\n"
+            "workflow: site_handoff\n"
+            "contract_version: v3\n"
+            "role: durable_v3\n"
+            "runtime_smoke: PASS\n"
+            "created_at_utc: 2026-01-01 00:00:00 UTC\n"
+        )
+        (bundle_v3 / "build_manifest.txt").write_text(manifest_v3, encoding="utf-8")
+        manifest_v2 = (
+            f"build_id: {build_id}\n"
+            "status: complete\n"
+            "workflow: site_handoff\n"
+            "contract_version: v2\n"
+            "role: operational_v2\n"
+            "runtime_smoke: PASS\n"
+            "created_at_utc: 2026-01-01 00:00:00 UTC\n"
+        )
+        (bundle_v2 / "build_manifest.txt").write_text(manifest_v2, encoding="utf-8")
+        return bundle_v3, bundle_v2
+
+    def test_normal_build_fails_if_output_exists_without_force(self) -> None:
+        from unittest.mock import patch
+        from scripts.orchidee import _run_site_build
+
+        self._create_bundles()
+        args = argparse.Namespace(
+            run_smoke_test=False,
+            force=False,
+            dry_run=False,
+            output=str(self.output_dir),
+            timezone="Europe/Paris",
+            start_year=2024,
+            end_year=2024,
+            microbiology_observations=str(REPO_ROOT / "examples" / "site_handoff_minimal" / "microbiology_observations.csv"),
+            bacteria_mapping=str(REPO_ROOT / "examples" / "site_handoff_minimal" / "bacteria_mapping.csv"),
+            sample_type_mapping=str(REPO_ROOT / "examples" / "site_handoff_minimal" / "sample_type_mapping.csv"),
+            antibiotic_mapping=str(REPO_ROOT / "examples" / "site_handoff_minimal" / "antibiotic_mapping.csv"),
+            unit_mapping=str(REPO_ROOT / "examples" / "site_handoff_minimal" / "unit_mapping.csv"),
+            hospitalization_intervals=str(REPO_ROOT / "examples" / "site_handoff_minimal" / "hospitalization_intervals.csv"),
+        )
+        with patch("scripts.orchidee.resolve_rscript", return_value=Path("Rscript")):
+            with self.assertRaises(OrchideeError) as ctx:
+                _run_site_build(args)
+            self.assertIn("Complete site outputs already exist", str(ctx.exception))
+
+    def test_smoke_test_allows_rerun_dry_run_when_output_exists(self) -> None:
+        from unittest.mock import patch
+        from scripts.orchidee import _run_site_build
+
+        self._create_bundles()
+        args = argparse.Namespace(
+            run_smoke_test=True,
+            force=False,
+            dry_run=True,
+            output=str(self.output_dir),
+            timezone="Europe/Paris",
+            start_year=None,
+            end_year=None,
+        )
+        with patch("scripts.orchidee.resolve_rscript", return_value=Path("Rscript")):
+            with patch("scripts.orchidee.run_process") as mock_proc:
+                mock_proc.return_value = unittest.mock.Mock(returncode=0)
+                status = _run_site_build(args)
+                self.assertEqual(status, 0)
+
+    def test_smoke_test_passes_force_to_builder_on_rerun(self) -> None:
+        from unittest.mock import patch
+        from scripts.orchidee import _run_site_build
+
+        self._create_bundles()
+        args = argparse.Namespace(
+            run_smoke_test=True,
+            force=False,
+            dry_run=False,
+            output=str(self.output_dir),
+            timezone="Europe/Paris",
+            start_year=None,
+            end_year=None,
+        )
+        with patch("scripts.orchidee.resolve_rscript", return_value=Path("Rscript")):
+            with patch("scripts.orchidee.run_site_diagnostics", return_value=0):
+                with patch("scripts.orchidee.run_process") as mock_proc:
+                    mock_proc.return_value = unittest.mock.Mock(returncode=0)
+                    with patch("scripts.orchidee.valid_site_manifest", return_value=True):
+                        with patch("scripts.orchidee.manifest_value", return_value="b456"):
+                            status = _run_site_build(args)
+                            self.assertEqual(status, 0)
+                            builder_call = mock_proc.call_args_list[1]
+                            command = builder_call[0][0]
+                            self.assertIn("--force", command)
+
+    def test_smoke_test_overwrites_incomplete_build_without_error(self) -> None:
+        from unittest.mock import patch
+        from scripts.orchidee import _run_site_build
+
+        bundle_v3 = self.output_dir / "bundle_v3"
+        bundle_v3.mkdir(parents=True)
+        args = argparse.Namespace(
+            run_smoke_test=True,
+            force=False,
+            dry_run=True,
+            output=str(self.output_dir),
+            timezone="Europe/Paris",
+            start_year=None,
+            end_year=None,
+        )
+        with patch("scripts.orchidee.resolve_rscript", return_value=Path("Rscript")):
+            with patch("scripts.orchidee.run_process") as mock_proc:
+                mock_proc.return_value = unittest.mock.Mock(returncode=0)
+                status = _run_site_build(args)
+                self.assertEqual(status, 0)
+
+
+class TestRunSiteHandoffStage(unittest.TestCase):
+    def setUp(self) -> None:
+        import importlib.util
+        run_script = REPO_ROOT / "examples" / "run_site_handoff.py"
+        spec = importlib.util.spec_from_file_location("run_site_handoff", run_script)
+        assert spec is not None and spec.loader is not None
+        self.module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.module)
+
+    def test_parse_args_defaults_to_none(self) -> None:
+        args = self.module.parse_args([])
+        self.assertIsNone(args.stage)
+
+    def test_parse_args_accepts_valid_stages(self) -> None:
+        for stage in ("diagnostics", "build", "report"):
+            args = self.module.parse_args(["--stage", stage])
+            self.assertEqual(args.stage, stage)
+
+    def test_parse_args_rejects_invalid_stage(self) -> None:
+        from unittest.mock import patch
+        with self.assertRaises(SystemExit):
+            with patch("sys.stderr"):
+                self.module.parse_args(["--stage", "invalid_stage"])
+
+    def test_main_uses_cli_stage_override(self) -> None:
+        from unittest.mock import patch
+        with patch.object(self.module, "run", return_value=0) as mock_run:
+            status = self.module.main(["--stage", "diagnostics"])
+            self.assertEqual(status, 0)
+            self.assertEqual(mock_run.call_count, 2)
+            self.assertIn("1/4", mock_run.call_args_list[0][0][0])
+            self.assertIn("2/4", mock_run.call_args_list[1][0][0])
+
+    def test_main_falls_back_to_stage_variable_when_no_cli_arg(self) -> None:
+        from unittest.mock import patch
+        with patch.object(self.module, "STAGE", "report"):
+            with patch.object(self.module, "run", return_value=0) as mock_run:
+                status = self.module.main([])
+                self.assertEqual(status, 0)
+                self.assertEqual(mock_run.call_count, 1)
+                self.assertIn("4/4", mock_run.call_args[0][0])
+
+
 if __name__ == "__main__":
     unittest.main()

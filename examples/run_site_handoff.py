@@ -14,15 +14,19 @@ Marche à suivre :
 4. lire le rapport, corriger ce qui est signalé BLOCKING, relancer ;
 5. quand le diagnostic passe, mettre STAGE à `build`, puis à `report` si les
    indicateurs doivent être calculés sur cette machine.
+   Alternativement, passer l'argument CLI `--stage {diagnostics,build,report}`.
 
 Lancement :
 
     python run_site_handoff.py
+    # ou :
+    python run_site_handoff.py --stage build
 
 Il n'y a rien d'autre à installer que ce que `python scripts/orchidee.py
 setup` a déjà mis en place.
 """
 
+import argparse
 import subprocess
 import sys
 from pathlib import Path
@@ -66,6 +70,7 @@ END_YEAR = 2024
 #   "build"       — relance le diagnostic, puis construit les bundles ;
 #   "report"      — calcule les indicateurs depuis le build déjà terminé.
 # Ne passer au stade suivant qu'après avoir lu la sortie du précédent.
+# (Peut aussi être surchargé en ligne de commande via --stage).
 STAGE = "diagnostics"
 
 # Mettre à True pour remplacer une sortie complète déjà construite au même
@@ -111,9 +116,28 @@ def period_arguments():
     ]
 
 
-def main():
-    if STAGE not in STAGES:
-        print(f"STAGE doit valoir l'un de {', '.join(STAGES)} ; lu : {STAGE!r}")
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Fichier de lancement ORCHIDEE pour site partenaire.",
+    )
+    parser.add_argument(
+        "--stage",
+        choices=STAGES,
+        default=None,
+        help=(
+            "Stade d'exécution ('diagnostics', 'build' ou 'report'). "
+            "Si omis, la valeur de STAGE définie dans le script s'applique."
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    parsed = parse_args(argv)
+    stage = parsed.stage if parsed.stage is not None else STAGE
+
+    if stage not in STAGES:
+        print(f"STAGE doit valoir l'un de {', '.join(STAGES)} ; lu : {stage!r}")
         return 2
     if END_YEAR < START_YEAR:
         print(f"END_YEAR ({END_YEAR}) précède START_YEAR ({START_YEAR}).")
@@ -122,9 +146,9 @@ def main():
     print(f"Dépôt   : {ORCHIDEE_REPO}")
     print(f"Sortie  : {OUTPUT_DIR}")
     print(f"Période : {START_YEAR}-{END_YEAR}")
-    print(f"Stade   : {STAGE}")
+    print(f"Stade   : {stage}")
 
-    if STAGE != "report":
+    if stage != "report":
         # Étape 1 — contrôle préalable des chemins et des colonnes. Elle lit les en-têtes CSV
         # ou désérialise les RDS et ne crée pas de répertoire de sortie.
         status = run(
@@ -164,10 +188,10 @@ def main():
                 "les données fournies ; voir le message ci-dessus."
             )
             return status
-        if STAGE == "diagnostics":
+        if stage == "diagnostics":
             print(
                 "\nDiagnostic passé. Relire les WARNING, puis mettre "
-                'STAGE = "build" dans ce fichier et le relancer.'
+                'STAGE = "build" (ou passer --stage build) et relancer.'
             )
             return 0
 
@@ -188,10 +212,10 @@ def main():
         if status != 0:
             print("\nLe build n'a pas abouti ; voir le message ci-dessus.")
             return status
-        if STAGE == "build":
+        if stage == "build":
             print(
                 "\nBundles construits. Si les indicateurs doivent être calculés "
-                'ici, mettre STAGE = "report" et relancer ; sinon, la '
+                'ici, mettre STAGE = "report" (ou passer --stage report) et relancer ; sinon, la '
                 "transmission est terminée."
             )
             return 0
