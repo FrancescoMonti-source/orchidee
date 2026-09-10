@@ -9,6 +9,7 @@ error reporting, and mutual exclusion rules.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import tempfile
 import unittest
@@ -308,6 +309,44 @@ class TestSiteArgumentsAndPrecedence(unittest.TestCase):
 
     def test_run_site_alias_exists_and_callable(self) -> None:
         self.assertIs(run_site, command_site)
+
+
+class TestResolveRscriptTolerance(unittest.TestCase):
+    def test_explicit_orchidee_r_with_version_mismatch_proceeds_with_warning(self) -> None:
+        from unittest.mock import patch
+        from scripts.orchidee import resolve_rscript
+
+        fake_rscript = Path(__file__).resolve()
+        with patch.dict(os.environ, {"ORCHIDEE_R": str(fake_rscript)}):
+            with patch("scripts.orchidee.rscript_version", return_value="4.4.2"):
+                resolved = resolve_rscript()
+                self.assertEqual(resolved, fake_rscript)
+
+    def test_allow_r_mismatch_uses_available_installation(self) -> None:
+        from unittest.mock import patch
+        from scripts.orchidee import resolve_rscript
+
+        fake_rscript = Path(__file__).resolve()
+        with patch.dict(os.environ, {"ORCHIDEE_ALLOW_R_MISMATCH": "1"}, clear=False):
+            if "ORCHIDEE_R" in os.environ:
+                del os.environ["ORCHIDEE_R"]
+            with patch("scripts.orchidee._unique_paths", return_value=[fake_rscript]):
+                with patch("scripts.orchidee.rscript_version", return_value="4.4.2"):
+                    resolved = resolve_rscript()
+                    self.assertEqual(resolved, fake_rscript)
+
+    def test_error_message_mentions_orchidee_r_and_allow_mismatch(self) -> None:
+        from unittest.mock import patch
+        from scripts.orchidee import resolve_rscript, OrchideeError
+
+        with patch.dict(os.environ, {"ORCHIDEE_ALLOW_R_MISMATCH": ""}, clear=False):
+            if "ORCHIDEE_R" in os.environ:
+                del os.environ["ORCHIDEE_R"]
+            with patch("scripts.orchidee._unique_paths", return_value=[]):
+                with self.assertRaises(OrchideeError) as ctx:
+                    resolve_rscript()
+                self.assertIn("ORCHIDEE_R", str(ctx.exception))
+                self.assertIn("ORCHIDEE_ALLOW_R_MISMATCH", str(ctx.exception))
 
 
 if __name__ == "__main__":

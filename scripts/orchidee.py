@@ -145,6 +145,7 @@ def _unique_paths(candidates: Sequence[Path | None]) -> list[Path]:
 
 def resolve_rscript(*additional_candidates: str | Path | None) -> Path:
     lock = read_lock_metadata()
+    allow_mismatch = bool(os.environ.get("ORCHIDEE_ALLOW_R_MISMATCH"))
     explicit = os.environ.get("ORCHIDEE_R")
     if explicit:
         path = Path(explicit).expanduser()
@@ -155,9 +156,10 @@ def resolve_rscript(*additional_candidates: str | Path | None) -> Path:
         resolved = path.resolve()
         actual = rscript_version(resolved)
         if actual != lock.r_version:
-            raise OrchideeError(
+            print_warning(
                 f"ORCHIDEE_R points to R {actual or 'unknown'}, but "
-                f"renv.lock requires R {lock.r_version}: {resolved}"
+                f"renv.lock declares R {lock.r_version}. Proceeding with "
+                f"the explicitly configured R at: {resolved}"
             )
         return resolved
 
@@ -189,7 +191,7 @@ def resolve_rscript(*additional_candidates: str | Path | None) -> Path:
     on_path = shutil.which("Rscript") or shutil.which("Rscript.exe")
     candidates.append(Path(on_path) if on_path else None)
 
-    mismatches: list[str] = []
+    mismatches: list[tuple[Path, str]] = []
     for candidate in _unique_paths(candidates):
         if not candidate.is_file():
             continue
@@ -198,15 +200,25 @@ def resolve_rscript(*additional_candidates: str | Path | None) -> Path:
         if actual == lock.r_version:
             return resolved
         if actual:
-            mismatches.append(f"{resolved} (R {actual})")
+            mismatches.append((resolved, actual))
 
+    if allow_mismatch and mismatches:
+        resolved, actual = mismatches[0]
+        print_warning(
+            f"Using R {actual} at {resolved} (ORCHIDEE_ALLOW_R_MISMATCH is set); "
+            f"renv.lock declares R {lock.r_version}."
+        )
+        return resolved
+
+    mismatch_descriptions = [f"{path} (R {ver})" for path, ver in mismatches]
     message = (
-        f"Rscript for R {lock.r_version} was not found. Install that version "
-        "or set ORCHIDEE_R to its Rscript executable."
+        f"Rscript for R {lock.r_version} was not found. Install R {lock.r_version}, "
+        "or set ORCHIDEE_R to the path of an existing Rscript executable (or "
+        "set ORCHIDEE_ALLOW_R_MISMATCH=1 to proceed with an existing installation)."
     )
-    if mismatches:
-        message += " Other R installations were ignored: " + ", ".join(
-            mismatches
+    if mismatch_descriptions:
+        message += " Other R installations found: " + ", ".join(
+            mismatch_descriptions
         ) + "."
     raise OrchideeError(message)
 
