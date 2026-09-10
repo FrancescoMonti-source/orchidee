@@ -43,6 +43,7 @@ SITE_INPUTS = (
         "hospitalization_intervals.csv",
     ),
 )
+SITE_INPUT_EXTENSIONS = (".csv", ".tsv", ".tab", ".txt", ".rds")
 
 # The versioned smoke fixture covers a single calendar year. The smoke test is a
 # statement about the installation, so it carries its own period rather than
@@ -240,6 +241,17 @@ def resolve_input_file(value: str | Path, label: str) -> Path:
     return path.resolve()
 
 
+def resolve_input_directory(value: str | Path) -> Path:
+    path = resolve_nonempty_repo_path(value, "--input-dir")
+    if path.is_file():
+        raise OrchideeError(
+            f"--input-dir must be a directory, not an existing file: {path}"
+        )
+    if not path.is_dir():
+        raise OrchideeError(f"Input directory not found: {path}")
+    return path.resolve()
+
+
 def assert_safe_output_directory(
     output: str | Path,
     *,
@@ -427,6 +439,42 @@ def command_run_r(args: argparse.Namespace) -> int:
     return 0
 
 
+def _discover_site_inputs(
+    input_dir: Path,
+    *,
+    skip_destinations: set[str] | None = None,
+) -> dict[str, Path]:
+    try:
+        children = [child for child in input_dir.iterdir() if child.is_file()]
+    except OSError as error:
+        raise OrchideeError(
+            f"Cannot read input directory: {input_dir}"
+        ) from error
+
+    discovered: dict[str, Path] = {}
+    skip = skip_destinations or set()
+    for dest, _, _ in SITE_INPUTS:
+        if dest in skip:
+            continue
+        matches = [
+            child
+            for child in children
+            if child.stem.lower() == dest.lower()
+            and child.suffix.lower() in SITE_INPUT_EXTENSIONS
+        ]
+        if len(matches) == 1:
+            discovered[dest] = matches[0].resolve()
+        elif len(matches) > 1:
+            matching_names = ", ".join(sorted(m.name for m in matches))
+            flag = "--" + dest.replace("_", "-")
+            raise OrchideeError(
+                f"Ambiguous site input for '{dest}' in {input_dir}: found "
+                f"multiple matching files ({matching_names}). "
+                f"Specify {flag} explicitly."
+            )
+    return discovered
+
+
 def _site_input_values(args: argparse.Namespace) -> dict[str, str]:
     if args.run_smoke_test:
         fixture = REPO_ROOT / "examples" / "site_handoff_minimal"
@@ -434,7 +482,25 @@ def _site_input_values(args: argparse.Namespace) -> dict[str, str]:
             dest: str(fixture / filename)
             for dest, _, filename in SITE_INPUTS
         }
-    return {dest: getattr(args, dest) for dest, _, _ in SITE_INPUTS}
+    explicit: dict[str, str] = {
+        dest: getattr(args, dest)
+        for dest, _, _ in SITE_INPUTS
+        if getattr(args, dest, None) is not None
+    }
+    discovered: dict[str, Path] = {}
+    if getattr(args, "input_dir", None) is not None:
+        input_dir = resolve_input_directory(args.input_dir)
+        discovered = _discover_site_inputs(
+            input_dir,
+            skip_destinations=set(explicit.keys()),
+        )
+    values: dict[str, str] = {}
+    for dest, _, _ in SITE_INPUTS:
+        if dest in explicit:
+            values[dest] = explicit[dest]
+        elif dest in discovered:
+            values[dest] = str(discovered[dest])
+    return values
 
 
 def resolve_period(
@@ -470,23 +536,41 @@ def _validate_site_arguments(args: argparse.Namespace) -> None:
         dest for dest, _, _ in SITE_INPUTS if getattr(args, dest) is not None
     ]
     period_supplied = args.start_year is not None or args.end_year is not None
+    input_dir_supplied = getattr(args, "input_dir", None) is not None
     if args.emit_templates is not None:
-        if supplied or args.output or args.report or args.force or period_supplied:
+        if (
+            supplied
+            or input_dir_supplied
+            or args.output
+            or args.report
+            or args.force
+            or period_supplied
+        ):
             raise OrchideeError(
                 "--emit-templates cannot be combined with build options."
             )
         return
     if args.run_smoke_test:
-        if supplied or args.report or period_supplied:
+        if supplied or input_dir_supplied or args.report or period_supplied:
             raise OrchideeError(
                 "--run-smoke-test cannot be combined with site input options "
                 "or an analysis period; it carries its own."
             )
         return
-    missing = [dest for dest, _, _ in SITE_INPUTS if dest not in supplied]
+    values = _site_input_values(args)
+    missing = [dest for dest, _, _ in SITE_INPUTS if dest not in values]
     if missing:
         flags = ", ".join("--" + value.replace("_", "-") for value in missing)
+        if input_dir_supplied:
+            raise OrchideeError(
+                f"Missing required site inputs: {flags}. They were neither "
+                "supplied explicitly nor found in --input-dir: "
+                f"{args.input_dir}"
+            )
         raise OrchideeError(f"Missing required site inputs: {flags}")
+    for dest, val in values.items():
+        if getattr(args, dest, None) is None:
+            setattr(args, dest, val)
     if args.report and not args.diagnose:
         raise OrchideeError("--report is available only with --diagnose.")
     if args.diagnose and args.force:
@@ -812,6 +896,9 @@ def command_site(args: argparse.Namespace) -> int:
     return _run_site_build(args)
 
 
+run_site = command_site
+
+
 def command_rouen(args: argparse.Namespace) -> int:
     bact = resolve_input_file(args.bact, "BACT")
     pmsi = resolve_input_file(args.pmsi, "PMSI")
@@ -1054,6 +1141,77 @@ def command_render(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_site_arguments(parser: argparse.ArgumentParser) -> None:
+    site_mode = parser.add_mutually_exclusive_group()
+    site_mode.add_argument(
+        "--run-smoke-test",
+        action="store_true",
+        help="run the complete workflow on the versioned synthetic fixture",
+    )
+    site_mode.add_argument(
+        "--emit-templates",
+        metavar="DIRECTORY",
+        help="create the six templates and mapping-reference kit",
+    )
+    site_mode.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="check paths, R packages and input columns without building",
+    )
+    site_mode.add_argument(
+        "--diagnose",
+        action="store_true",
+        help="report all handoff-contract findings without building",
+    )
+    parser.add_argument(
+        "--input-dir",
+        dest="input_dir",
+        metavar="DIRECTORY",
+        help="directory containing canonical site handoff files",
+    )
+    for dest, label, _ in SITE_INPUTS:
+        parser.add_argument(
+            "--" + dest.replace("_", "-"),
+            dest=dest,
+            metavar="PATH",
+            help=f"path to {label}",
+        )
+    parser.add_argument(
+        "--start-year",
+        dest="start_year",
+        type=int,
+        metavar="YEAR",
+        help="first published calendar year of the analysis period",
+    )
+    parser.add_argument(
+        "--end-year",
+        dest="end_year",
+        type=int,
+        metavar="YEAR",
+        help="last published calendar year of the analysis period",
+    )
+    parser.add_argument(
+        "--timezone",
+        default=DEFAULT_TIMEZONE,
+        metavar="ZONE",
+        help=(
+            "IANA zone the hospitalization timestamps are read in "
+            f"(default {DEFAULT_TIMEZONE})"
+        ),
+    )
+    parser.add_argument("--output", metavar="DIRECTORY")
+    parser.add_argument(
+        "--report",
+        metavar="DIRECTORY",
+        help="diagnostic report directory (with --diagnose only)",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="replace a complete compatible build",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1082,68 +1240,7 @@ def build_parser() -> argparse.ArgumentParser:
         "site",
         help="build or diagnose the six-block handoff from an external site",
     )
-    site_mode = site_parser.add_mutually_exclusive_group()
-    site_mode.add_argument(
-        "--run-smoke-test",
-        action="store_true",
-        help="run the complete workflow on the versioned synthetic fixture",
-    )
-    site_mode.add_argument(
-        "--emit-templates",
-        metavar="DIRECTORY",
-        help="create the six templates and mapping-reference kit",
-    )
-    site_mode.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="check paths, R packages and input columns without building",
-    )
-    site_mode.add_argument(
-        "--diagnose",
-        action="store_true",
-        help="report all handoff-contract findings without building",
-    )
-    for dest, label, _ in SITE_INPUTS:
-        site_parser.add_argument(
-            "--" + dest.replace("_", "-"),
-            dest=dest,
-            metavar="PATH",
-            help=f"path to {label}",
-        )
-    site_parser.add_argument(
-        "--start-year",
-        dest="start_year",
-        type=int,
-        metavar="YEAR",
-        help="first published calendar year of the analysis period",
-    )
-    site_parser.add_argument(
-        "--end-year",
-        dest="end_year",
-        type=int,
-        metavar="YEAR",
-        help="last published calendar year of the analysis period",
-    )
-    site_parser.add_argument(
-        "--timezone",
-        default=DEFAULT_TIMEZONE,
-        metavar="ZONE",
-        help=(
-            "IANA zone the hospitalization timestamps are read in "
-            f"(default {DEFAULT_TIMEZONE})"
-        ),
-    )
-    site_parser.add_argument("--output", metavar="DIRECTORY")
-    site_parser.add_argument(
-        "--report",
-        metavar="DIRECTORY",
-        help="diagnostic report directory (with --diagnose only)",
-    )
-    site_parser.add_argument(
-        "--force",
-        action="store_true",
-        help="replace a complete compatible build",
-    )
+    _add_site_arguments(site_parser)
     site_parser.set_defaults(handler=command_site)
 
     rouen_parser = subparsers.add_parser(

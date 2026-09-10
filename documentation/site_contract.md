@@ -528,6 +528,12 @@ tables.
 Depuis la racine du dépôt, lancer d'abord le contrôle préalable sans risque :
 
 ```console
+python scripts/orchidee.py site --input-dir "data/site_handoff" --start-year 2022 --end-year 2024 --dry-run
+```
+
+Lorsque `--input-dir` est renseigné, ORCHIDEE découvre automatiquement les six fichiers canoniques (`.csv`, `.tsv`, `.tab`, `.txt`, `.rds`). Des options individuelles (comme `--bacteria-mapping`) peuvent être fournies pour remplacer un fichier spécifique ou tout spécifier bloc par bloc :
+
+```console
 python scripts/orchidee.py site --microbiology-observations "data/site_handoff/microbiology_observations.csv" --bacteria-mapping "data/site_handoff/bacteria_mapping.csv" --sample-type-mapping "data/site_handoff/sample_type_mapping.csv" --antibiotic-mapping "data/site_handoff/antibiotic_mapping.csv" --unit-mapping "data/site_handoff/unit_mapping.csv" --hospitalization-intervals "data/site_handoff/hospitalization_intervals.csv" --start-year 2022 --end-year 2024 --dry-run
 ```
 
@@ -540,7 +546,7 @@ Une fois que `--dry-run` passe, remplacer `--dry-run` par `--diagnose` dans la
 même commande :
 
 ```console
-python scripts/orchidee.py site --microbiology-observations "data/site_handoff/microbiology_observations.csv" --bacteria-mapping "data/site_handoff/bacteria_mapping.csv" --sample-type-mapping "data/site_handoff/sample_type_mapping.csv" --antibiotic-mapping "data/site_handoff/antibiotic_mapping.csv" --unit-mapping "data/site_handoff/unit_mapping.csv" --hospitalization-intervals "data/site_handoff/hospitalization_intervals.csv" --start-year 2022 --end-year 2024 --diagnose
+python scripts/orchidee.py site --input-dir "data/site_handoff" --start-year 2022 --end-year 2024 --diagnose
 ```
 
 `--diagnose` lit les six blocs une seule fois et signale **tous** les

@@ -54,3 +54,6 @@ Desktop.ini
 *.log
 *.bak
 ~$*
+__pycache__/
+*.py[cod]
+

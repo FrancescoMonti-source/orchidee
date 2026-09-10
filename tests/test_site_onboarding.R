@@ -284,6 +284,45 @@ wrapper_swapped_run <- run_site_wrapper(input_paths = swapped_paths)
 wrapper_dangerous_output_run <- run_site_wrapper(
   output_path = normalizePath(".", winslash = "\\", mustWork = TRUE)
 )
+wrapper_input_dir_run <- orchidee_run_cli(c(
+  "site",
+  "--input-dir", example_input_dir,
+  example_period_args,
+  "--output", file.path(test_root, "input_dir_output"),
+  "--dry-run"
+))
+wrapper_input_dir_override_run <- orchidee_run_cli(c(
+  "site",
+  "--input-dir", example_input_dir,
+  "--bacteria-mapping", template_paths[[2L]],
+  example_period_args,
+  "--output", file.path(test_root, "input_dir_override_output"),
+  "--dry-run"
+))
+incomplete_input_dir <- file.path(test_root, "incomplete_input_dir")
+dir.create(incomplete_input_dir)
+invisible(file.copy(template_paths[1:4], incomplete_input_dir))
+wrapper_input_dir_missing_run <- orchidee_run_cli(c(
+  "site",
+  "--input-dir", incomplete_input_dir,
+  example_period_args,
+  "--output", file.path(test_root, "input_dir_missing_output"),
+  "--dry-run"
+))
+wrapper_input_dir_satisfied_run <- orchidee_run_cli(c(
+  "site",
+  "--input-dir", incomplete_input_dir,
+  "--unit-mapping", template_paths[[5L]],
+  "--hospitalization-intervals", template_paths[[6L]],
+  example_period_args,
+  "--output", file.path(test_root, "input_dir_satisfied_output"),
+  "--dry-run"
+))
+wrapper_input_dir_smoke_conflict_run <- orchidee_run_cli(c(
+  "site",
+  "--run-smoke-test",
+  "--input-dir", example_input_dir
+))
 
 build_input_paths <- example_input_paths
 build_blocks <- lapply(
@@ -556,6 +595,36 @@ stopifnot(
   any(grepl(
     "not a filesystem root or an ancestor of the repository",
     wrapper_dangerous_output_run$output,
+    fixed = TRUE
+  )),
+  identical(wrapper_input_dir_run$status, 0L),
+  any(grepl(
+    "required packages and input columns are available",
+    wrapper_input_dir_run$output,
+    fixed = TRUE
+  )),
+  identical(wrapper_input_dir_override_run$status, 0L),
+  any(grepl(
+    paste0("bacteria_mapping: ", normalizePath(template_paths[[2L]], winslash = "/", mustWork = FALSE)),
+    gsub("\\\\", "/", wrapper_input_dir_override_run$output),
+    fixed = TRUE
+  )),
+  !identical(wrapper_input_dir_missing_run$status, 0L),
+  any(grepl(
+    "Missing required site inputs: --unit-mapping, --hospitalization-intervals",
+    wrapper_input_dir_missing_run$output,
+    fixed = TRUE
+  )),
+  any(grepl(
+    "neither supplied explicitly nor found in --input-dir",
+    wrapper_input_dir_missing_run$output,
+    fixed = TRUE
+  )),
+  identical(wrapper_input_dir_satisfied_run$status, 0L),
+  !identical(wrapper_input_dir_smoke_conflict_run$status, 0L),
+  any(grepl(
+    "--run-smoke-test cannot be combined with site input options",
+    wrapper_input_dir_smoke_conflict_run$output,
     fixed = TRUE
   )),
   identical(wrapper_build_run$status, 0L),
