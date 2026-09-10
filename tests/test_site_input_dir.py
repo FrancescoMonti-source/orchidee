@@ -9,11 +9,13 @@ error reporting, and mutual exclusion rules.
 from __future__ import annotations
 
 import argparse
+import io
 import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 # Add repo root to sys.path so we can import from scripts.orchidee
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -313,17 +315,16 @@ class TestSiteArgumentsAndPrecedence(unittest.TestCase):
 
 class TestResolveRscriptTolerance(unittest.TestCase):
     def test_explicit_orchidee_r_with_version_mismatch_proceeds_with_warning(self) -> None:
-        from unittest.mock import patch
         from scripts.orchidee import resolve_rscript
 
         fake_rscript = Path(__file__).resolve()
         with patch.dict(os.environ, {"ORCHIDEE_R": str(fake_rscript)}):
             with patch("scripts.orchidee.rscript_version", return_value="4.4.2"):
-                resolved = resolve_rscript()
+                with patch("sys.stderr", new_callable=io.StringIO):
+                    resolved = resolve_rscript()
                 self.assertEqual(resolved, fake_rscript)
 
     def test_allow_r_mismatch_uses_available_installation(self) -> None:
-        from unittest.mock import patch
         from scripts.orchidee import resolve_rscript
 
         fake_rscript = Path(__file__).resolve()
@@ -332,11 +333,11 @@ class TestResolveRscriptTolerance(unittest.TestCase):
                 del os.environ["ORCHIDEE_R"]
             with patch("scripts.orchidee._unique_paths", return_value=[fake_rscript]):
                 with patch("scripts.orchidee.rscript_version", return_value="4.4.2"):
-                    resolved = resolve_rscript()
+                    with patch("sys.stderr", new_callable=io.StringIO):
+                        resolved = resolve_rscript()
                     self.assertEqual(resolved, fake_rscript)
 
     def test_error_message_mentions_orchidee_r_and_allow_mismatch(self) -> None:
-        from unittest.mock import patch
         from scripts.orchidee import resolve_rscript, OrchideeError
 
         with patch.dict(os.environ, {"ORCHIDEE_ALLOW_R_MISMATCH": ""}, clear=False):
@@ -351,7 +352,6 @@ class TestResolveRscriptTolerance(unittest.TestCase):
 
 class TestSmokeTestRerunBehavior(unittest.TestCase):
     def setUp(self) -> None:
-        from unittest.mock import patch
         self.temp_dir = tempfile.TemporaryDirectory()
         self.output_dir = Path(self.temp_dir.name)
 
@@ -386,7 +386,6 @@ class TestSmokeTestRerunBehavior(unittest.TestCase):
         return bundle_v3, bundle_v2
 
     def test_normal_build_fails_if_output_exists_without_force(self) -> None:
-        from unittest.mock import patch
         from scripts.orchidee import _run_site_build
 
         self._create_bundles()
@@ -406,12 +405,12 @@ class TestSmokeTestRerunBehavior(unittest.TestCase):
             hospitalization_intervals=str(REPO_ROOT / "examples" / "site_handoff_minimal" / "hospitalization_intervals.csv"),
         )
         with patch("scripts.orchidee.resolve_rscript", return_value=Path("Rscript")):
-            with self.assertRaises(OrchideeError) as ctx:
-                _run_site_build(args)
+            with patch("sys.stdout", new_callable=io.StringIO):
+                with self.assertRaises(OrchideeError) as ctx:
+                    _run_site_build(args)
             self.assertIn("Complete site outputs already exist", str(ctx.exception))
 
     def test_smoke_test_allows_rerun_dry_run_when_output_exists(self) -> None:
-        from unittest.mock import patch
         from scripts.orchidee import _run_site_build
 
         self._create_bundles()
@@ -426,12 +425,14 @@ class TestSmokeTestRerunBehavior(unittest.TestCase):
         )
         with patch("scripts.orchidee.resolve_rscript", return_value=Path("Rscript")):
             with patch("scripts.orchidee.run_process") as mock_proc:
-                mock_proc.return_value = unittest.mock.Mock(returncode=0)
-                status = _run_site_build(args)
+                mock_proc.return_value = Mock(returncode=0)
+                with patch("sys.stdout", new_callable=io.StringIO):
+                    with patch("sys.stderr", new_callable=io.StringIO) as fake_err:
+                        status = _run_site_build(args)
                 self.assertEqual(status, 0)
+                self.assertIn("Complete site outputs already exist", fake_err.getvalue())
 
     def test_smoke_test_passes_force_to_builder_on_rerun(self) -> None:
-        from unittest.mock import patch
         from scripts.orchidee import _run_site_build
 
         self._create_bundles()
@@ -447,17 +448,19 @@ class TestSmokeTestRerunBehavior(unittest.TestCase):
         with patch("scripts.orchidee.resolve_rscript", return_value=Path("Rscript")):
             with patch("scripts.orchidee.run_site_diagnostics", return_value=0):
                 with patch("scripts.orchidee.run_process") as mock_proc:
-                    mock_proc.return_value = unittest.mock.Mock(returncode=0)
+                    mock_proc.return_value = Mock(returncode=0)
                     with patch("scripts.orchidee.valid_site_manifest", return_value=True):
                         with patch("scripts.orchidee.manifest_value", return_value="b456"):
-                            status = _run_site_build(args)
+                            with patch("sys.stdout", new_callable=io.StringIO):
+                                with patch("sys.stderr", new_callable=io.StringIO) as fake_err:
+                                    status = _run_site_build(args)
                             self.assertEqual(status, 0)
+                            self.assertIn("overwriting them for rerun", fake_err.getvalue())
                             builder_call = mock_proc.call_args_list[1]
                             command = builder_call[0][0]
                             self.assertIn("--force", command)
 
     def test_smoke_test_overwrites_incomplete_build_without_error(self) -> None:
-        from unittest.mock import patch
         from scripts.orchidee import _run_site_build
 
         bundle_v3 = self.output_dir / "bundle_v3"
@@ -473,9 +476,44 @@ class TestSmokeTestRerunBehavior(unittest.TestCase):
         )
         with patch("scripts.orchidee.resolve_rscript", return_value=Path("Rscript")):
             with patch("scripts.orchidee.run_process") as mock_proc:
-                mock_proc.return_value = unittest.mock.Mock(returncode=0)
-                status = _run_site_build(args)
+                mock_proc.return_value = Mock(returncode=0)
+                with patch("sys.stdout", new_callable=io.StringIO):
+                    with patch("sys.stderr", new_callable=io.StringIO) as fake_err:
+                        status = _run_site_build(args)
                 self.assertEqual(status, 0)
+                self.assertIn("Smoke test will overwrite it", fake_err.getvalue())
+
+    def test_smoke_test_overwrites_incomplete_build_on_real_run(self) -> None:
+        from scripts.orchidee import _run_site_build
+
+        bundle_v3 = self.output_dir / "bundle_v3"
+        bundle_v3.mkdir(parents=True)
+        args = argparse.Namespace(
+            run_smoke_test=True,
+            force=False,
+            dry_run=False,
+            output=str(self.output_dir),
+            timezone="Europe/Paris",
+            start_year=None,
+            end_year=None,
+        )
+
+        def mock_proc_side_effect(cmd, **kwargs):
+            if any("build_external_bundle_from_site_inputs.R" in str(arg) for arg in cmd):
+                self._create_bundles(build_id="b789")
+            return Mock(returncode=0)
+
+        with patch("scripts.orchidee.resolve_rscript", return_value=Path("Rscript")):
+            with patch("scripts.orchidee.run_site_diagnostics", return_value=0):
+                with patch("scripts.orchidee.run_process", side_effect=mock_proc_side_effect) as mock_proc:
+                    with patch("sys.stdout", new_callable=io.StringIO):
+                        with patch("sys.stderr", new_callable=io.StringIO) as fake_err:
+                            status = _run_site_build(args)
+                    self.assertEqual(status, 0)
+                    self.assertIn("Smoke test will overwrite it", fake_err.getvalue())
+                    builder_call = mock_proc.call_args_list[1]
+                    command = builder_call[0][0]
+                    self.assertIn("--force", command)
 
 
 class TestRunSiteHandoffStage(unittest.TestCase):
@@ -497,28 +535,33 @@ class TestRunSiteHandoffStage(unittest.TestCase):
             self.assertEqual(args.stage, stage)
 
     def test_parse_args_rejects_invalid_stage(self) -> None:
-        from unittest.mock import patch
         with self.assertRaises(SystemExit):
             with patch("sys.stderr"):
                 self.module.parse_args(["--stage", "invalid_stage"])
 
     def test_main_uses_cli_stage_override(self) -> None:
-        from unittest.mock import patch
         with patch.object(self.module, "run", return_value=0) as mock_run:
-            status = self.module.main(["--stage", "diagnostics"])
+            with patch("sys.stdout", new_callable=io.StringIO):
+                status = self.module.main(["--stage", "diagnostics"])
             self.assertEqual(status, 0)
             self.assertEqual(mock_run.call_count, 2)
             self.assertIn("1/4", mock_run.call_args_list[0][0][0])
             self.assertIn("2/4", mock_run.call_args_list[1][0][0])
 
     def test_main_falls_back_to_stage_variable_when_no_cli_arg(self) -> None:
-        from unittest.mock import patch
         with patch.object(self.module, "STAGE", "report"):
             with patch.object(self.module, "run", return_value=0) as mock_run:
-                status = self.module.main([])
+                with patch("sys.stdout", new_callable=io.StringIO):
+                    status = self.module.main([])
                 self.assertEqual(status, 0)
                 self.assertEqual(mock_run.call_count, 1)
                 self.assertIn("4/4", mock_run.call_args[0][0])
+
+    def test_main_rejects_invalid_stage_variable(self) -> None:
+        with patch.object(self.module, "STAGE", "invalid_stage"):
+            with patch("sys.stdout", new_callable=io.StringIO):
+                status = self.module.main([])
+            self.assertEqual(status, 2)
 
 
 if __name__ == "__main__":

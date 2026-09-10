@@ -105,9 +105,10 @@ python run_site_handoff.py --stage report
 
 ## Parcours Rouen (Adaptateur BACT / PMSI)
 
-L'adaptateur Rouen, ses mappings et ses références sont versionnés dans le
-dépôt (`R/rouen_native/`) : un run ordinaire ne demande de préparer ni
-configuration ni correspondance.
+L'adaptateur Rouen, ses mappings et ses références sont intégrés au dépôt
+(notamment `R/rouen_microbiology_handoff_adapter.R`,
+`R/rouen_pmsi_handoff_adapter.R`, `ref/rouen/` et `mappings/`) : un run
+ordinaire ne demande de préparer ni configuration ni correspondance.
 
 Il requiert deux chemins : l'export bactériologie (`--bact`) et l'export PMSI
 (`--pmsi`) produit par `redsan`.

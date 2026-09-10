@@ -19,7 +19,9 @@ Pour une prise en main rapide ou pour les autres établissements, voir :
 
 ## 1. Rôle de l'adaptateur Rouen
 
-L'adaptateur Rouen est versionné directement dans le dépôt (`R/rouen_native/`).
+L'adaptateur Rouen est versionné directement dans le dépôt
+(notamment `R/rouen_microbiology_handoff_adapter.R`,
+`R/rouen_pmsi_handoff_adapter.R`, `ref/rouen/` et `mappings/`).
 Ses règles de mapping et ses tables de référence locales sont intégrées :
 un run ordinaire ne demande de préparer ni fichier de configuration ni
 correspondance manuelle.
