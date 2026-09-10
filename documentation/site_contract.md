@@ -451,8 +451,8 @@ Colonnes requises :
 | --- | --- |
 | `PATID` | Identifiant patient. |
 | `EVTID` | Identifiant du séjour / de l'épisode d'hospitalisation. Le même que celui porté par `microbiology_observations`. |
-| `DATENT` | Date et heure d'entrée dans l'unité. |
-| `DATSORT` | Date et heure de sortie de l'unité. |
+| `DATENT` | Date et heure d'entrée dans l'unité. Formats acceptés : `YYYY-MM-DD`, `DD/MM/YYYY` ou `YYYY/MM/DD`, avec heure optionnelle `HH:MM` ou `HH:MM:SS`. Dans un `.rds`, un `POSIXct` ou une `Date`. |
+| `DATSORT` | Date et heure de sortie de l'unité. Mêmes formats acceptés que `DATENT`. |
 | `SEJUM` | UM d'hospitalisation. |
 | `SEJUF` | UF d'hospitalisation. Doit figurer dans `unit_mapping`. |
 

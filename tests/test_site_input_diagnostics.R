@@ -583,7 +583,7 @@ independent_interval_result <- run_case(
     hospitalization_intervals = data.frame(
       PATID = c("PDIAG001", "PDIAG002"),
       EVTID = c("SDIAG001", "SDIAG002"),
-      DATENT = c("12/03/2024", "2024-04-11 08:00"),
+      DATENT = c("not-a-date", "2024-04-11 08:00"),
       DATSORT = c("2024-03-20 12:00", "2024-04-01 12:00"),
       SEJUM = c("UMDIAG1", "UMDIAG1"),
       SEJUF = c("UFDIAG1", "UFDIAG1"),

@@ -205,8 +205,15 @@ reversed <- prepare(intervals(
 ))
 
 malformed <- prepare(intervals(
-  "05/01/2024",
+  "not-a-timestamp",
   "2024-01-07 08:00",
+  "UM_A",
+  "UF_A"
+))
+
+french_datetime <- prepare(intervals(
+  "01/01/2024 08:00",
+  "05/01/2024 08:00",
   "UM_A",
   "UF_A"
 ))
@@ -423,6 +430,10 @@ stopifnot(
     nights_by_unit(no_sample),
     c("2024/UF_A" = 2L, "2024/UF_B" = 10L)
   ),
+
+  # French datetime format (DD/MM/YYYY HH:MM) is accepted and attributed.
+  length(blocking_checks(french_datetime)) == 0L,
+  identical(nights_by_unit(french_datetime), c("2024/UF_A" = 4L)),
 
   # A patient in two different units at once has no defensible night split.
   identical(

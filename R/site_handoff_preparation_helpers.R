@@ -242,20 +242,68 @@ orchidee_site_parse_interval_datetimes <- function(
   text <- orchidee_handoff_trim_or_na(x)
   status[is.na(text)] <- "missing"
 
-  iso <- "^[0-9]{4}-[0-9]{2}-[0-9]{2}([ T][0-9]{2}:[0-9]{2}(:[0-9]{2})?)?$"
-  shaped <- !is.na(text) & grepl(iso, text)
+  time_pattern <- "([ T]([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?)?$"
+  iso_dash <- paste0("^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}", time_pattern)
+  iso_slash <- paste0("^[0-9]{4}/[0-9]{1,2}/[0-9]{1,2}", time_pattern)
+  french_slash <- paste0("^[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}", time_pattern)
+
+  is_iso_dash <- !is.na(text) & grepl(iso_dash, text)
+  is_iso_slash <- !is.na(text) & grepl(iso_slash, text)
+  is_french_slash <- !is.na(text) & grepl(french_slash, text)
+
+  shaped <- is_iso_dash | is_iso_slash | is_french_slash
   status[!is.na(text) & !shaped] <- "malformed"
 
   padded <- rep(NA_character_, n)
-  date_only <- shaped & nchar(text) == 10L
-  padded[date_only] <- paste0(text[date_only], " 00:00:00")
-  with_minutes <- shaped & nchar(text) == 16L
-  padded[with_minutes] <- paste0(
-    sub("T", " ", text[with_minutes], fixed = TRUE),
-    ":00"
-  )
-  with_seconds <- shaped & nchar(text) == 19L
-  padded[with_seconds] <- sub("T", " ", text[with_seconds], fixed = TRUE)
+  if (any(shaped)) {
+    sub_text <- text[shaped]
+    date_part <- sub("[ T].*$", "", sub_text)
+    has_time <- grepl("[ T]", sub_text)
+    time_part <- ifelse(has_time, sub("^.*?[ T]", "", sub_text), "00:00:00")
+
+    single_hour <- grepl("^[0-9]:", time_part)
+    time_part[single_hour] <- paste0("0", time_part[single_hour])
+
+    missing_seconds <- nchar(time_part) == 5L
+    time_part[missing_seconds] <- paste0(time_part[missing_seconds], ":00")
+
+    norm_date <- rep(NA_character_, length(sub_text))
+
+    match_iso_dash <- is_iso_dash[shaped]
+    if (any(match_iso_dash)) {
+      parts <- strsplit(date_part[match_iso_dash], "-")
+      norm_date[match_iso_dash] <- sprintf(
+        "%04d-%02d-%02d",
+        as.integer(vapply(parts, `[`, character(1), 1L)),
+        as.integer(vapply(parts, `[`, character(1), 2L)),
+        as.integer(vapply(parts, `[`, character(1), 3L))
+      )
+    }
+
+    match_iso_slash <- is_iso_slash[shaped]
+    if (any(match_iso_slash)) {
+      parts <- strsplit(date_part[match_iso_slash], "/")
+      norm_date[match_iso_slash] <- sprintf(
+        "%04d-%02d-%02d",
+        as.integer(vapply(parts, `[`, character(1), 1L)),
+        as.integer(vapply(parts, `[`, character(1), 2L)),
+        as.integer(vapply(parts, `[`, character(1), 3L))
+      )
+    }
+
+    match_french <- is_french_slash[shaped]
+    if (any(match_french)) {
+      parts <- strsplit(date_part[match_french], "/")
+      norm_date[match_french] <- sprintf(
+        "%04d-%02d-%02d",
+        as.integer(vapply(parts, `[`, character(1), 3L)),
+        as.integer(vapply(parts, `[`, character(1), 2L)),
+        as.integer(vapply(parts, `[`, character(1), 1L))
+      )
+    }
+
+    padded[shaped] <- paste(norm_date, time_part)
+  }
 
   parsed <- suppressWarnings(as.POSIXct(
     padded,
