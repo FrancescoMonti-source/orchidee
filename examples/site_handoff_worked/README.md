@@ -123,8 +123,10 @@ perdues, elles restent dans `v3`.
 Depuis la racine du dépôt, période 2024 :
 
 ```console
-python scripts/orchidee.py site --microbiology-observations "examples/site_handoff_worked/microbiology_observations.csv" --bacteria-mapping "examples/site_handoff_worked/bacteria_mapping.csv" --sample-type-mapping "examples/site_handoff_worked/sample_type_mapping.csv" --antibiotic-mapping "examples/site_handoff_worked/antibiotic_mapping.csv" --unit-mapping "examples/site_handoff_worked/unit_mapping.csv" --hospitalization-intervals "examples/site_handoff_worked/hospitalization_intervals.csv" --start-year 2024 --end-year 2024 --output "outputs/site_worked_example" --diagnose
+python scripts/orchidee.py site --input-dir "examples/site_handoff_worked" --start-year 2024 --end-year 2024 --output "outputs/site_worked_example" --diagnose
 ```
+
+Il est également possible de fournir chaque bloc individuellement via son option dédiée (`--microbiology-observations`, `--bacteria-mapping`, etc.).
 
 `--diagnose` n'écrit qu'un rapport. Il annonce, entre autres :
 

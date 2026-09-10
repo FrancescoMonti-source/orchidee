@@ -36,9 +36,10 @@ from pathlib import Path
 ORCHIDEE_REPO = Path(__file__).resolve().parent.parent
 
 # Extractions de microbiologie et de mouvements, et tables de correspondance.
-# Formats acceptés : .csv,
-# .tsv, .tab, .txt ou .rds. Ces chemins peuvent pointer hors du dépôt, dans
-# un espace protégé ; ne pas committer les fichiers eux-mêmes.
+# Formats acceptés : .csv, .tsv, .tab, .txt ou .rds. Ces chemins peuvent
+# pointer hors du dépôt, dans un espace protégé ; ne pas committer les fichiers.
+# (Note : si les 6 fichiers portent leurs noms canoniques dans un même dossier,
+# vous pouvez aussi lancer directement: python scripts/orchidee.py site --input-dir ...)
 SITE_INPUTS = {
     "microbiology-observations": r"D:\ORCHIDEE\entrees\microbiology_observations.csv",
     "bacteria-mapping": r"D:\ORCHIDEE\entrees\bacteria_mapping.csv",
