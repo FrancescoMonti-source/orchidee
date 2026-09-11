@@ -1155,13 +1155,32 @@ def command_render(args: argparse.Namespace) -> int:
         raise OrchideeError(f"Missing render target: {target.name}")
     quarto_command = [quarto, "render", target.name]
     print("> " + format_command(quarto_command))
-    if not args.dry_run:
+    if args.dry_run:
+        if args.output:
+            dest_path = resolve_repo_path(args.output)
+            if dest_path.is_dir() or str(args.output).endswith(("/", "\\")):
+                dest_file = dest_path / "orchidee_ratb_indicators.html"
+            else:
+                dest_file = dest_path
+            print(f"Report destination: {dest_file}")
+    else:
         render_result = run_process(quarto_command, env=environment)
         if render_result.returncode != 0:
             raise OrchideeError(
                 f"Quarto render failed for {target.name} "
                 f"(exit {render_result.returncode})."
             )
+        if args.output:
+            dest_path = resolve_repo_path(args.output)
+            source_html = REPO_ROOT / "orchidee_ratb_indicators.html"
+            if dest_path.is_dir() or str(args.output).endswith(("/", "\\")):
+                dest_path.mkdir(parents=True, exist_ok=True)
+                dest_file = dest_path / "orchidee_ratb_indicators.html"
+            else:
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                dest_file = dest_path
+            shutil.copy2(source_html, dest_file)
+            print(f"Report delivered to: {dest_file}")
     return 0
 
 
@@ -1302,6 +1321,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         metavar="YEAR",
         help="last published calendar year; defaults to config/pipeline.R",
+    )
+    render_parser.add_argument(
+        "--output",
+        metavar="PATH",
+        help="path or directory to write or copy the rendered HTML report to",
     )
     render_parser.add_argument(
         "--dry-run",

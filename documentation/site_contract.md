@@ -14,6 +14,12 @@ propres systèmes.
 Pour Rouen, ne pas suivre cette procédure : fournir uniquement les chemins BACT
 et PMSI, comme décrit dans la section Rouen du [README](../README.md).
 
+> [!TIP]
+> **Guide de démarrage rapide :** Pour un parcours opérationnel pas-à-pas en quelques
+> minutes, consultez le [Guide de démarrage rapide pour site partenaire](site_onboarding_quickstart.md).
+> Le présent document (`site_contract.md`) constitue le dictionnaire technique exhaustif
+> de référence (spécification de chaque colonne, formats de date, règles de gestion et matrice RACI).
+
 Cette procédure requiert Python 3.8 ou plus récent, sur Linux comme sur
 Windows. Les commandes emploient `python` ; utiliser `python3` si c'est le nom
 du lanceur installé.
@@ -28,7 +34,7 @@ le fonctionnement de Rouen.
 ### 1. Vérifier que les données sont disponibles
 
 Lire d'abord [l'exemple commenté](../examples/site_handoff_worked/README.md).
-Il montre quatre séjours inventés, les fichiers d'entrée et les résultats attendus.
+Il montre six séjours inventés (PAT001 à PAT006), les fichiers d'entrée et les résultats attendus.
 Vérifier dans vos sources :
 
 - des résultats de microbiologie avec date et heure du prélèvement et indication
@@ -97,15 +103,15 @@ de travail protégé et ouvrir cette copie dans votre éditeur. Dans le bloc
 `RÉGLAGES`, renseigner :
 
 - `ORCHIDEE_REPO` : chemin complet du dépôt ;
-- `SITE_INPUTS` : chemins complets des extractions et des tables de correspondance ;
+- `INPUT_DIR` : répertoire contenant les 6 fichiers de transmission (ou `SITE_INPUTS` pour les chemins individuels) ;
 - `OUTPUT_DIR` : dossier protégé où écrire les résultats ;
 - `START_YEAR` et `END_YEAR` : première et dernière année, incluses
   (par exemple 2022 et 2024, ou 2024 et 2024).
 
-Garder `STAGE = "diagnostics"`, enregistrer, puis lancer la copie :
+Lancer le stade diagnostic (par défaut dans le script, ou via l'option `--stage`) :
 
 ```console
-python "chemin/vers/run_site_handoff.py"
+python "chemin/vers/run_site_handoff.py" --stage diagnostics
 ```
 
 Le contrôle affiche les constats et écrit le détail dans `diagnostics/` sous
@@ -116,20 +122,30 @@ pas à votre place le sens des correspondances locales.
 
 ### 5. Construire, puis produire le rapport
 
-Dans la même copie, mettre `STAGE = "build"`, enregistrer et relancer la même
-commande. Le build recontrôle les données puis prépare les entrées du calcul.
-Attendre le message de réussite avant de continuer.
+Lancer ensuite le stade de construction des bundles :
 
-Mettre ensuite `STAGE = "report"` et relancer. Cette étape utilise le build
-terminé ; elle ne le reconstruit pas. Le rapport est
-`orchidee_ratb_indicators.html`, à la racine du dépôt : l'ouvrir dans un navigateur.
-Les caches et tableaux exportés sont dans `runtime/` sous votre dossier de sortie.
+```console
+python "chemin/vers/run_site_handoff.py" --stage build
+```
+
+Le build recontrôle les données puis prépare les entrées du calcul (`bundle_v3`
+et `bundle_v2_operational`). Attendre le message de réussite avant de continuer.
+
+Lancer enfin la production du rapport d'indicateurs :
+
+```console
+python "chemin/vers/run_site_handoff.py" --stage report
+```
+
+Cette étape utilise le build terminé ; elle ne le reconstruit pas. Le rapport est
+délivré sous `orchidee_ratb_indicators.html` directement dans votre dossier de sortie
+`OUTPUT_DIR`. Les caches et tableaux exportés sont dans `runtime/` sous votre dossier de sortie.
 Le rapport et ces sorties dérivent des données hospitalières : les conserver
 avec les mêmes protections.
 
 Si vous changez les données, les correspondances ou les années, reprendre au
 stade `diagnostics`, puis `build`, avec un nouveau `OUTPUT_DIR` pour conserver
-l'ancien résultat. Un simple nouveau rendu utilise `STAGE = "report"`.
+l'ancien résultat. Un simple nouveau rendu utilise `--stage report`.
 
 Les sections suivantes servent de référence pendant la préparation des fichiers.
 Les commandes CLI détaillées en fin de page sont une alternative au fichier de

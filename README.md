@@ -69,8 +69,9 @@ de la première à la dernière année incluse, la même à chaque étape.
 
 | Pour | Lire |
 |---|---|
-| Le contrat : chaque fichier, chaque colonne, chaque commande | [`site_contract.md`](documentation/site_contract.md) |
-| Un exemple travaillé : quatre séjours inventés, les chiffres attendus | [`examples/site_handoff_worked/`](examples/site_handoff_worked/README.md) |
+| Le guide de démarrage rapide : 5 étapes opérationnelles | [`site_onboarding_quickstart.md`](documentation/site_onboarding_quickstart.md) |
+| Le contrat technique complet : chaque fichier, chaque colonne, règles et RACI | [`site_contract.md`](documentation/site_contract.md) |
+| Un exemple travaillé : six séjours inventés, les chiffres attendus | [`examples/site_handoff_worked/`](examples/site_handoff_worked/README.md) |
 | Un fichier de lancement à copier et remplir | [`examples/run_site_handoff.py`](examples/run_site_handoff.py) |
 
 ### Déroulement en 3 stades

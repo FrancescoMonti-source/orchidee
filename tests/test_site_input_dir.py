@@ -563,6 +563,134 @@ class TestRunSiteHandoffStage(unittest.TestCase):
                 status = self.module.main([])
             self.assertEqual(status, 2)
 
+    def test_parse_args_accepts_input_dir(self) -> None:
+        args = self.module.parse_args(["--input-dir", "custom/dir"])
+        self.assertEqual(args.input_dir, "custom/dir")
+
+    def test_site_input_arguments_uses_input_dir_argument(self) -> None:
+        args = self.module.site_input_arguments("custom/dir")
+        self.assertEqual(args, ["--input-dir", "custom/dir"])
+
+    def test_site_input_arguments_uses_input_dir_variable_if_set(self) -> None:
+        with patch.object(self.module, "INPUT_DIR", "custom/from_var"):
+            args = self.module.site_input_arguments()
+            self.assertEqual(args, ["--input-dir", "custom/from_var"])
+
+    def test_site_input_arguments_falls_back_to_site_inputs(self) -> None:
+        with patch.object(self.module, "INPUT_DIR", None):
+            args = self.module.site_input_arguments()
+            self.assertIn("--microbiology-observations", args)
+            self.assertIn("--hospitalization-intervals", args)
+
+    def test_main_passes_input_dir_to_orchidee_command(self) -> None:
+        with patch.object(self.module, "run", return_value=0) as mock_run:
+            with patch("sys.stdout", new_callable=io.StringIO):
+                status = self.module.main(["--input-dir", "custom/dir", "--stage", "diagnostics"])
+            self.assertEqual(status, 0)
+            cmd1 = mock_run.call_args_list[0][0][1]
+            self.assertIn("--input-dir", cmd1)
+            self.assertIn("custom/dir", cmd1)
+
+    def test_main_report_stage_delivers_output_html(self) -> None:
+        with patch.object(self.module, "STAGE", "report"):
+            with patch.object(self.module, "run", return_value=0) as mock_run:
+                with patch("sys.stdout", new_callable=io.StringIO):
+                    status = self.module.main([])
+                self.assertEqual(status, 0)
+                cmd = mock_run.call_args[0][1]
+                self.assertIn("--output", cmd)
+                idx = cmd.index("--output")
+                self.assertTrue(cmd[idx + 1].endswith("orchidee_ratb_indicators.html"))
+
+    def test_parse_args_accepts_output_dir_and_years(self) -> None:
+        args = self.module.parse_args([
+            "--output-dir", "custom/out",
+            "--start-year", "2023",
+            "--end-year", "2025",
+            "--force",
+        ])
+        self.assertEqual(args.output_dir, "custom/out")
+        self.assertEqual(args.start_year, 2023)
+        self.assertEqual(args.end_year, 2025)
+        self.assertTrue(args.force)
+
+    def test_main_uses_output_dir_and_years_override(self) -> None:
+        with patch.object(self.module, "run", return_value=0) as mock_run:
+            with patch("sys.stdout", new_callable=io.StringIO):
+                status = self.module.main([
+                    "--output-dir", "custom/out",
+                    "--start-year", "2023",
+                    "--end-year", "2025",
+                    "--stage", "diagnostics",
+                ])
+            self.assertEqual(status, 0)
+            cmd1 = mock_run.call_args_list[0][0][1]
+            self.assertIn("--start-year", cmd1)
+            self.assertIn("2023", cmd1)
+            self.assertIn("--end-year", cmd1)
+            self.assertIn("2025", cmd1)
+            cmd2 = mock_run.call_args_list[1][0][1]
+            self.assertIn("--output", cmd2)
+            self.assertIn("custom/out", cmd2)
+
+
+class TestRenderOutputOption(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.output_dir = Path(self.temp_dir.name)
+
+    def tearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    def test_render_parser_has_output_argument(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["render", "--output", "custom_report.html"])
+        self.assertEqual(args.output, "custom_report.html")
+
+    def test_render_dry_run_with_output_file_prints_destination(self) -> None:
+        from scripts.orchidee import command_render
+
+        dest_file = self.output_dir / "custom_report.html"
+        args = argparse.Namespace(
+            dry_run=True,
+            output=str(dest_file),
+            rebuild=False,
+            bundle=None,
+            workspace=None,
+            start_year=None,
+            end_year=None,
+        )
+        with patch("scripts.orchidee.resolve_quarto", return_value=Path("quarto")):
+            with patch("scripts.orchidee.run_process") as mock_proc:
+                mock_proc.return_value = Mock(returncode=0, stdout="1.4.0")
+                with patch("scripts.orchidee.resolve_rscript", return_value=Path("Rscript")):
+                    with patch("sys.stdout", new_callable=io.StringIO) as fake_out:
+                        status = command_render(args)
+                    self.assertEqual(status, 0)
+                    self.assertIn(f"Report destination: {dest_file.resolve()}", fake_out.getvalue())
+
+    def test_render_dry_run_with_output_directory_appends_filename(self) -> None:
+        from scripts.orchidee import command_render
+
+        args = argparse.Namespace(
+            dry_run=True,
+            output=str(self.output_dir) + os.sep,
+            rebuild=False,
+            bundle=None,
+            workspace=None,
+            start_year=None,
+            end_year=None,
+        )
+        with patch("scripts.orchidee.resolve_quarto", return_value=Path("quarto")):
+            with patch("scripts.orchidee.run_process") as mock_proc:
+                mock_proc.return_value = Mock(returncode=0, stdout="1.4.0")
+                with patch("scripts.orchidee.resolve_rscript", return_value=Path("Rscript")):
+                    with patch("sys.stdout", new_callable=io.StringIO) as fake_out:
+                        status = command_render(args)
+                    self.assertEqual(status, 0)
+                    expected = (self.output_dir / "orchidee_ratb_indicators.html").resolve()
+                    self.assertIn(f"Report destination: {expected}", fake_out.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

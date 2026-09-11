@@ -8,19 +8,19 @@ Ce fichier ne contient aucun calcul. Il enregistre les décisions d'un
 Marche à suivre :
 
 1. copier ce fichier hors du dépôt, à côté des données protégées ;
-2. remplir le bloc RÉGLAGES ci-dessous ;
+2. remplir le bloc RÉGLAGES ci-dessous (ou utiliser les options CLI) ;
 3. le lancer tel quel. Il démarre au stade `diagnostics`, qui ne construit
    rien et ne peut rien écraser ;
 4. lire le rapport, corriger ce qui est signalé BLOCKING, relancer ;
-5. quand le diagnostic passe, mettre STAGE à `build`, puis à `report` si les
+5. quand le diagnostic passe, passer au stade `build`, puis à `report` si les
    indicateurs doivent être calculés sur cette machine.
-   Alternativement, passer l'argument CLI `--stage {diagnostics,build,report}`.
 
 Lancement :
 
     python run_site_handoff.py
-    # ou :
+    # ou via arguments CLI :
     python run_site_handoff.py --stage build
+    python run_site_handoff.py --input-dir /chemin/vers/entrees --stage diagnostics
 
 Il n'y a rien d'autre à installer que ce que `python scripts/orchidee.py
 setup` a déjà mis en place.
@@ -39,11 +39,17 @@ from pathlib import Path
 # examples/ ; sinon donner le chemin complet du clone.
 ORCHIDEE_REPO = Path(__file__).resolve().parent.parent
 
-# Extractions de microbiologie et de mouvements, et tables de correspondance.
+# Option A (recommandée) : Répertoire contenant les 6 fichiers de transmission canoniques
+# (microbiology_observations.csv, bacteria_mapping.csv, sample_type_mapping.csv,
+# antibiotic_mapping.csv, unit_mapping.csv, hospitalization_intervals.csv).
+# Si renseigné (ou passé via --input-dir en ligne de commande), ce dossier est
+# utilisé directement et SITE_INPUTS ci-dessous est ignoré.
+INPUT_DIR = None
+# Exemple : INPUT_DIR = r"D:\ORCHIDEE\entrees"
+
+# Option B : Chemins individuels pour chaque extraction ou table de correspondance.
 # Formats acceptés : .csv, .tsv, .tab, .txt ou .rds. Ces chemins peuvent
 # pointer hors du dépôt, dans un espace protégé ; ne pas committer les fichiers.
-# (Note : si les 6 fichiers portent leurs noms canoniques dans un même dossier,
-# vous pouvez aussi lancer directement: python scripts/orchidee.py site --input-dir ...)
 SITE_INPUTS = {
     "microbiology-observations": r"D:\ORCHIDEE\entrees\microbiology_observations.csv",
     "bacteria-mapping": r"D:\ORCHIDEE\entrees\bacteria_mapping.csv",
@@ -56,7 +62,8 @@ SITE_INPUTS = {
 # Répertoire de sortie dédié : bundles, diagnostics et, au stade `report`,
 # caches et exports. Son contenu dérive des données cliniques ; le placer
 # sous les mêmes règles de protection qu'elles.
-OUTPUT_DIR = r"D:\ORCHIDEE\site_current"
+OUTPUT_DIR = r"outputs/site_current"
+# Exemple externe protégé : OUTPUT_DIR = r"D:\ORCHIDEE\site_current"
 
 # Première et dernière année à analyser, bornes comprises (une seule année possible).
 # Elle sélectionne les lignes de microbiologie, découpe l'exposition et
@@ -100,19 +107,24 @@ def run(step, arguments):
     return completed.returncode
 
 
-def site_input_arguments():
+def site_input_arguments(input_dir=None):
+    effective_input_dir = input_dir if input_dir is not None else INPUT_DIR
+    if effective_input_dir:
+        return ["--input-dir", str(effective_input_dir)]
     arguments = []
     for flag, path in SITE_INPUTS.items():
         arguments.extend(["--" + flag, str(path)])
     return arguments
 
 
-def period_arguments():
+def period_arguments(start_year=None, end_year=None):
+    sy = start_year if start_year is not None else START_YEAR
+    ey = end_year if end_year is not None else END_YEAR
     return [
         "--start-year",
-        str(START_YEAR),
+        str(sy),
         "--end-year",
-        str(END_YEAR),
+        str(ey),
     ]
 
 
@@ -129,31 +141,74 @@ def parse_args(argv=None):
             "Si omis, la valeur de STAGE définie dans le script s'applique."
         ),
     )
+    parser.add_argument(
+        "--input-dir",
+        default=None,
+        help=(
+            "Répertoire contenant les six fichiers canoniques de transmission. "
+            "Si fourni, surcharge la variable INPUT_DIR et le dictionnaire SITE_INPUTS."
+        ),
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help=(
+            "Répertoire de sortie dédié. Si fourni, surcharge la variable OUTPUT_DIR."
+        ),
+    )
+    parser.add_argument(
+        "--start-year",
+        type=int,
+        default=None,
+        help="Première année de la période (surcharge START_YEAR).",
+    )
+    parser.add_argument(
+        "--end-year",
+        type=int,
+        default=None,
+        help="Dernière année de la période (surcharge END_YEAR).",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Remplacer une sortie existante (surcharge REPLACE_EXISTING_OUTPUT).",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv=None):
     parsed = parse_args(argv)
     stage = parsed.stage if parsed.stage is not None else STAGE
+    input_dir = parsed.input_dir if parsed.input_dir is not None else INPUT_DIR
+    output_dir = parsed.output_dir if parsed.output_dir is not None else OUTPUT_DIR
+    start_year = parsed.start_year if parsed.start_year is not None else START_YEAR
+    end_year = parsed.end_year if parsed.end_year is not None else END_YEAR
+    force = parsed.force or REPLACE_EXISTING_OUTPUT
 
     if stage not in STAGES:
         print(f"STAGE doit valoir l'un de {', '.join(STAGES)} ; lu : {stage!r}")
         return 2
-    if END_YEAR < START_YEAR:
-        print(f"END_YEAR ({END_YEAR}) précède START_YEAR ({START_YEAR}).")
+    if end_year < start_year:
+        print(f"END_YEAR ({end_year}) précède START_YEAR ({start_year}).")
         return 2
 
     print(f"Dépôt   : {ORCHIDEE_REPO}")
-    print(f"Sortie  : {OUTPUT_DIR}")
-    print(f"Période : {START_YEAR}-{END_YEAR}")
+    if input_dir:
+        print(f"Entrées : {input_dir} (--input-dir)")
+    print(f"Sortie  : {output_dir}")
+    print(f"Période : {start_year}-{end_year}")
     print(f"Stade   : {stage}")
+
+    input_args = site_input_arguments(input_dir)
+    period_args = period_arguments(start_year, end_year)
 
     if stage != "report":
         # Étape 1 — contrôle préalable des chemins et des colonnes. Elle lit les en-têtes CSV
         # ou désérialise les RDS et ne crée pas de répertoire de sortie.
         status = run(
             "1/4 contrôle des chemins et des colonnes",
-            ["site", *site_input_arguments(), *period_arguments(), "--dry-run"],
+            ["site", *input_args, *period_args, "--dry-run"],
         )
         if status != 0:
             print(
@@ -168,10 +223,10 @@ def main(argv=None):
             "2/4 diagnostic des données",
             [
                 "site",
-                *site_input_arguments(),
-                *period_arguments(),
+                *input_args,
+                *period_args,
                 "--output",
-                str(OUTPUT_DIR),
+                str(output_dir),
                 "--diagnose",
             ],
         )
@@ -201,12 +256,12 @@ def main(argv=None):
         # silence par le builder.
         build_arguments = [
             "site",
-            *site_input_arguments(),
-            *period_arguments(),
+            *input_args,
+            *period_args,
             "--output",
-            str(OUTPUT_DIR),
+            str(output_dir),
         ]
-        if REPLACE_EXISTING_OUTPUT:
+        if force:
             build_arguments.append("--force")
         status = run("3/4 construction des bundles", build_arguments)
         if status != 0:
@@ -222,19 +277,22 @@ def main(argv=None):
 
     # Étape 4 — indicateurs. La période est transmise au rendu pour ce
     # processus seulement ; config/pipeline.R n'est pas modifié.
+    report_output_file = Path(output_dir) / "orchidee_ratb_indicators.html"
     status = run(
         "4/4 calcul des indicateurs",
         [
             "render",
             "--rebuild",
             "--bundle",
-            str(Path(OUTPUT_DIR) / "bundle_v2_operational"),
+            str(Path(output_dir) / "bundle_v2_operational"),
             "--workspace",
-            str(Path(OUTPUT_DIR) / "runtime"),
+            str(Path(output_dir) / "runtime"),
             "--start-year",
-            str(START_YEAR),
+            str(start_year),
             "--end-year",
-            str(END_YEAR),
+            str(end_year),
+            "--output",
+            str(report_output_file),
         ],
     )
     if status != 0:
@@ -242,8 +300,7 @@ def main(argv=None):
         return status
 
     print(
-        "\nTerminé. Le rapport est écrit à la racine du dépôt, "
-        "orchidee_ratb_indicators.html."
+        f"\nTerminé. Le rapport est disponible sous : {report_output_file}"
     )
     return 0
 
