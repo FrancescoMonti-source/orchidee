@@ -736,6 +736,69 @@ Si un laboratoire rapporte plusieurs isolats de la même espèce dans un même
 prélèvement, fournir `souche_id` ou `isolate_local_id` pour qu'ORCHIDEE
 puisse les garder distincts.
 
+## Recommandations pratiques pour l'ETL hospitalier
+
+Pour faciliter le travail de l'équipe entrepôt de données de santé (EDS) ou
+informatique décisionnelle de l'établissement lors de la constitution des 6 blocs,
+les retours d'expérience conduisent aux recommandations suivantes :
+
+### 1. Périmètre des antibiotiques et intégrité épidémiologique SPARES
+
+* **Règle contractuelle :** Le bloc `microbiology_observations.csv` doit contenir
+  uniquement des résultats pour les molécules supportées (listées dans
+  `mapping_reference/supported_atb_norm.csv`). Le builder et les diagnostics
+  refusent toute molécule hors liste ou non mappée (`BLOCKING`).
+* **Pourquoi :** Dans le protocole national SPARES, la déduplication par isolat
+  compare l'ensemble des résultats S/I/R sur ce panel fermé de 35 molécules
+  pour détecter d'éventuelles divergences $S \leftrightarrow R$. Si des molécules
+  accessoires hors panel étaient admises, toute divergence sur l'une d'elles
+  scinderait artificiellement les souches en isolats distincts supplémentaires,
+  gonflant le dénominateur des testés et détruisant la comparabilité nationale
+  des taux d'incidence.
+* **Conseil ETL :** Dans votre requête SQL d'extraction ou votre script de
+  préparation amont, appliquez un filtre restreignant l'export aux seules molécules
+  du catalogue (`WHERE code_antibiotique IN (...)`).
+
+### 2. Horodatage du prélèvement (`HEUREPRELEV`) en cas d'absence au lit du patient
+
+* **Règle contractuelle :** ORCHIDEE utilise `DATEPRELEV` et `HEUREPRELEV` pour
+  situer le prélèvement dans l'unité d'hébergement active à la minute près. Un
+  prélèvement non situable reçoit `NA` et sort du périmètre d'analyse.
+* **Conseil ETL :** Si l'heure exacte de ponction clinique n'est pas tracée au lit
+  du patient dans votre système de laboratoire, l'équipe locale peut pragmatiquement
+  renseigner `HEUREPRELEV` avec l'heure d'enregistrement ou de réception au
+  laboratoire plutôt que de laisser le champ vide ou forcé à minuit (ce qui
+  risquerait de faire sortir le prélèvement d'un séjour ayant débuté après minuit).
+
+### 3. Résolution des micro-chevauchements de mouvements (`hospitalization_intervals`)
+
+* **Règle contractuelle :** ORCHIDEE refuse strictement tout chevauchement de durée
+  strictement positive entre deux unités différentes pour un même séjour
+  (`BLOCKING`), car il n'existe pas de partage objectif des nuits entre deux
+  unités actives simultanément.
+* **Conseil ETL :** Si vos tables de mouvements administratives comportent de légers
+  chevauchements liés à des délais de validation lors des transferts (ex. sortie
+  enregistrée à 14h30 alors que l'admission dans l'unité suivante est horodatée à
+  14h15), harmonisez les bornes dans votre requête d'extraction (par exemple en
+  calant la fin de la première unité sur le début de la seconde) afin de produire
+  des intervalles adjacents `[DATENT, DATSORT)`.
+
+### 4. Qualification du dépistage (`ratb_diagnostic_scope`)
+
+* **Règle contractuelle :** Une valeur `FALSE` écarte l'ensemble de l'occurrence
+  de document (`PATID + EVTID + ELTID`) des indicateurs diagnostiques.
+* **Conseil ETL :** Il appartient à l'établissement d'établir ses propres règles
+  de classification (selon le libellé de l'analyse, la nature du prélèvement ou le
+  service demandeur) pour renseigner ce booléen.
+
+### 5. Correspondance des unités (`unit_mapping.csv`)
+
+* **Règle contractuelle :** Chaque `SEJUF` présent dans `hospitalization_intervals`
+  doit être associé aux nomenclatures PMSI nationales (`CODE_TA` 03/20, `CODE_DE`
+  et `de_domain_ref`).
+* **Conseil ETL :** Ces correspondances s'appuient sur les nomenclatures
+  réglementaires ATIH du champ MCO utilisées pour la chaîne PMSI.
+
 ## Qui est responsable de quoi ?
 
 L'hôpital possède :

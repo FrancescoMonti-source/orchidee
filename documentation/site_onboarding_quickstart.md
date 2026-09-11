@@ -95,6 +95,13 @@ Renseignez les fichiers dans votre dossier `data/mon_etablissement/` :
 > Un exemple clinique complet et documenté est disponible dans
 > [`examples/site_handoff_worked/`](../examples/site_handoff_worked/README.md).
 
+> [!NOTE]
+> **Recommandations pratiques pour l'extraction :** Pour les solutions concrètes aux
+> situations fréquentes en entrepôt hospitalier (filtrage des molécules hors catalogue
+> pour préserver la déduplication SPARES, heure de prélèvement au laboratoire,
+> micro-chevauchements de transferts), consultez les
+> [Recommandations pratiques pour l'ETL hospitalier](site_contract.md#recommandations-pratiques-pour-letl-hospitalier).
+
 ### Étape 3 — Configurer le lanceur
 
 Copiez le script modèle `examples/run_site_handoff.py` :
