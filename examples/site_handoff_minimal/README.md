@@ -28,13 +28,13 @@ single in-perimeter row makes each of those a no-op.
 
 Do not enlarge it to imitate a real site. Extra rows would make the self-test
 slower and no more conclusive. A worked example already exists for that purpose
-and is kept separate on purpose: `examples/site_handoff_worked/`, four invented
-stays with a transfer, a return to a unit, an out-of-perimeter unit and the
-expected numbers spelled out.
+and is kept separate on purpose: `examples/site_handoff_worked/`, six invented
+stays with a transfer, a return to a unit, an out-of-perimeter unit, co-infection,
+calendar boundaries and the expected numbers spelled out.
 
 The commands that serve onboarding are:
 
-- `python scripts/orchidee.py site --emit-templates` for the canonical headers and the
+- `python scripts/orchidee.py site --emit-templates "data/mon_etablissement"` for the canonical headers and the
   ORCHIDEE mapping-reference kit;
 - `python scripts/orchidee.py site --diagnose` for an aggregated report of contract problems in
   the site's own six blocks.
@@ -45,4 +45,4 @@ The contract itself is documented in
 `tests/test_site_onboarding.R` consumes these same files, so the fixture cannot
 drift from the known-good build path. Do not replace them with local clinical
 data; generate private working templates with
-`python scripts/orchidee.py site --emit-templates`.
+`python scripts/orchidee.py site --emit-templates "data/mon_etablissement"`.

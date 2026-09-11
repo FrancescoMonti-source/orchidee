@@ -905,6 +905,8 @@ def _run_site_build(args: argparse.Namespace) -> int:
                 str(period[0]),
                 "--end-year",
                 str(period[1]),
+                "--output",
+                str(output_root / "orchidee_ratb_indicators.html"),
             ]
         )
     )

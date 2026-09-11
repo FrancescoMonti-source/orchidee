@@ -35,9 +35,13 @@ from pathlib import Path
 # RÉGLAGES — la seule partie à modifier
 # ===========================================================================
 
-# Racine du clone ORCHIDEE. Laisser tel quel si ce fichier est resté dans
-# examples/ ; sinon donner le chemin complet du clone.
-ORCHIDEE_REPO = Path(__file__).resolve().parent.parent
+# Racine du clone ORCHIDEE. Détecte automatiquement si ce fichier est resté
+# dans examples/ ou s'il a été copié à la racine du dépôt.
+_candidate = Path(__file__).resolve().parent
+if (_candidate / "scripts" / "orchidee.py").is_file():
+    ORCHIDEE_REPO = _candidate
+else:
+    ORCHIDEE_REPO = _candidate.parent
 
 # Option A (recommandée) : Répertoire contenant les 6 fichiers de transmission canoniques
 # (microbiology_observations.csv, bacteria_mapping.csv, sample_type_mapping.csv,

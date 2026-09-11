@@ -26,15 +26,15 @@ Une ligne par visite ininterrompue dans une unité. Les bornes se lisent
 
 | Patient | Séjour | Unité | Entrée | Sortie | Nuits 2024 |
 |---|---|---|---|---|---|
-| PAT001 | SEJ001 | UF_MED1 | 05/02 14:00 | 08/02 09:00 | 3 |
-| PAT001 | SEJ001 | UF_REA1 | 08/02 09:00 | 15/02 11:00 | 7 |
-| PAT002 | SEJ002 | UF_MED1 | 01/03 08:00 | 04/03 10:00 | 3 |
-| PAT002 | SEJ002 | UF_REA1 | 04/03 10:00 | 06/03 09:00 | 2 |
-| PAT002 | SEJ002 | UF_MED1 | 06/03 09:00 | 11/03 12:00 | 5 |
-| PAT003 | SEJ003 | UF_MED1 | 02/04 07:00 | 12/04 16:00 | 10 |
-| PAT004 | SEJ004 | UF_URG1 | 10/05 22:00 | 13/05 06:00 | 3 |
-| PAT005 | SEJ005 | UF_CHIR1 | 01/06 10:00 | 08/06 14:00 | 7 |
-| PAT006 | SEJ006 | UF_MED_SEM | 28/12/2023 14:00 | 05/01/2024 10:00 | 4 (8 au total) |
+| PAT001 | SEJ001 | UF_MED1 | 2024-02-05 14:00 | 2024-02-08 09:00 | 3 |
+| PAT001 | SEJ001 | UF_REA1 | 2024-02-08 09:00 | 2024-02-15 11:00 | 7 |
+| PAT002 | SEJ002 | UF_MED1 | 2024-03-01 08:00 | 2024-03-04 10:00 | 3 |
+| PAT002 | SEJ002 | UF_REA1 | 2024-03-04 10:00 | 2024-03-06 09:00 | 2 |
+| PAT002 | SEJ002 | UF_MED1 | 2024-03-06 09:00 | 2024-03-11 12:00 | 5 |
+| PAT003 | SEJ003 | UF_MED1 | 2024-04-02 07:00 | 2024-04-12 16:00 | 10 |
+| PAT004 | SEJ004 | UF_URG1 | 2024-05-10 22:00 | 2024-05-13 06:00 | 3 |
+| PAT005 | SEJ005 | UF_CHIR1 | 2024-06-01 10:00 | 2024-06-08 14:00 | 7 |
+| PAT006 | SEJ006 | UF_MED_SEM | 2023-12-28 14:00 | 2024-01-05 10:00 | 4 (8 au total) |
 
 Plusieurs mécaniques s'y jouent :
 
@@ -61,7 +61,7 @@ Plusieurs mécaniques s'y jouent :
 
 ### `unit_mapping.csv` — cinq unités
 
-| SEJUF | CODE_TA | CODE_DE | Domaine | Dans le périmètre publié ? |
+| SEJUF | CODE_TA | CODE_DE | de_domain_ref (Domaine) | Dans le périmètre publié ? |
 |---|---|---|---|---|
 | UF_MED1 | 03 | 102 | MÉDECINE | oui |
 | UF_REA1 | 03 | 105 | RÉANIMATION | oui |
@@ -78,13 +78,13 @@ applique.
 
 | Prélèvement | Patient | Date, heure | Souche | Bactérie | Type | Observations |
 |---|---|---|---|---|---|---|
-| MIC001 | PAT001 | 10/02 06:30 | ISO001 | E. coli | hémoculture | 3 ATB (cefotaxime R, BLSE positive) |
-| MIC002 | PAT002 | 02/03 10:15 | ISO002 | K. pneumoniae | ECBU | 2 ATB (cefotaxime R, BLSE positive) |
-| MIC003 | PAT002 | 09/03 08:00 | ISO003 | K. pneumoniae | écouvillon rectal | 1 ATB, `ratb_diagnostic_scope = FALSE` |
-| MIC004 | PAT004 | 11/05 23:00 | ISO004 | S. aureus | hémoculture | 1 ATB (oxacilline R, SARM) |
-| MIC005 | PAT005 | 03/06 11:00 | ISO_PSEAUR | P. aeruginosa | hémoculture | 4 ATB (ciprofloxacine R, BLSE no_signal) |
-| MIC005 | PAT005 | 03/06 11:00 | ISO_ECOLI | E. coli | hémoculture | 4 ATB (profil sensible, BLSE négative) |
-| MIC006 | PAT006 | 02/01 09:30 | ISO_EFAEC | E. faecium | hémoculture | 1 ATB (vancomycine R, ERV) |
+| MIC001 | PAT001 | 2024-02-10 06:30 | ISO001 | E. coli | hémoculture | 3 ATB (cefotaxime R, BLSE positive) |
+| MIC002 | PAT002 | 2024-03-02 10:15 | ISO002 | K. pneumoniae | ECBU | 2 ATB (cefotaxime R, BLSE positive) |
+| MIC003 | PAT002 | 2024-03-09 08:00 | ISO003 | K. pneumoniae | écouvillon rectal | 1 ATB, `ratb_diagnostic_scope = FALSE` |
+| MIC004 | PAT004 | 2024-05-11 23:00 | ISO004 | S. aureus | hémoculture | 1 ATB (oxacilline R, SARM) |
+| MIC005 | PAT005 | 2024-06-03 11:00 | ISO_PSEAUR | P. aeruginosa | hémoculture | 4 ATB (ciprofloxacine R, BLSE no_signal) |
+| MIC005 | PAT005 | 2024-06-03 11:00 | ISO_ECOLI | E. coli | hémoculture | 4 ATB (profil sensible, BLSE négative) |
+| MIC006 | PAT006 | 2024-01-02 09:30 | ISO_EFAEC | E. faecium | hémoculture | 1 ATB (vancomycine R, ERV) |
 
 Points clés de microbiologie :
 
@@ -125,11 +125,11 @@ du prélèvement :
 
 | Prélèvement | Instant | Unité active | Attribué à | Domaine |
 |---|---|---|---|---|
-| MIC001 | 10/02 06:30 | réanimation depuis le 08/02 09:00 | **UF_REA1** | RÉANIMATION |
-| MIC002 | 02/03 10:15 | premier passage en médecine | **UF_MED1** | MÉDECINE |
-| MIC004 | 11/05 23:00 | urgences | **UF_URG1** | URGENCES |
-| MIC005 | 03/06 11:00 | chirurgie | **UF_CHIR1** | CHIRURGIE |
-| MIC006 | 02/01 09:30 | hôpital de semaine | **UF_MED_SEM** | MÉDECINE |
+| MIC001 | 2024-02-10 06:30 | réanimation depuis le 2024-02-08 09:00 | **UF_REA1** | RÉANIMATION |
+| MIC002 | 2024-03-02 10:15 | premier passage en médecine | **UF_MED1** | MÉDECINE |
+| MIC004 | 2024-05-11 23:00 | urgences | **UF_URG1** | URGENCES |
+| MIC005 | 2024-06-03 11:00 | chirurgie | **UF_CHIR1** | CHIRURGIE |
+| MIC006 | 2024-01-02 09:30 | hôpital de semaine | **UF_MED_SEM** | MÉDECINE |
 
 `MIC001` est le cas typique : le séjour a commencé en médecine, mais le patient
 était en réanimation lors du prélèvement. Un rapprochement grossier au séjour

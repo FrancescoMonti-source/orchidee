@@ -4,7 +4,7 @@ editor_options:
     wrap: 72
 ---
 
-# Données à préparer dans un autre établissement
+# Parcours standard : données à préparer pour un site partenaire
 
 Cette procédure concerne Rennes et tout établissement qui n'a pas d'adaptateur
 ORCHIDEE versionné. Elle décrit ce qu'ORCHIDEE attend en entrée. Chaque
@@ -173,7 +173,7 @@ prélèvements aux unités, le comptage des nuits et le périmètre : ce sont de
 décisions d'analyse, et elles doivent être les mêmes d'un établissement à
 l'autre pour que les chiffres se comparent.
 
-Un exemple travaillé, quatre séjours inventés commentés ligne à ligne avec les
+Un exemple travaillé, six séjours inventés commentés ligne à ligne avec les
 chiffres attendus, est dans
 [`examples/site_handoff_worked/README.md`](../examples/site_handoff_worked/README.md).
 
@@ -280,7 +280,7 @@ Colonnes optionnelles :
 | Colonne | Signification |
 | --- | --- |
 | `souche_id` ou `isolate_local_id` | Identifiant local de souche quand le laboratoire distingue plusieurs isolats pour un même prélèvement. |
-| `blse_status_row` ou `blse_status` | Statut BLSE optionnel : `positive`, `negative`, `unknown`, `no_signal`. |
+| `blse_status_row` ou `blse_status` | Statut BLSE optionnel : `positive`, `negative`, `no_signal`. |
 | `carbapenemase_status_row` ou `carbapenemase_status` | Statut carbapénémase optionnel : `positive`, `negative`, `unknown`, `no_signal`. |
 
 Valeurs acceptées pour `sir_result` :
@@ -528,18 +528,23 @@ une sortie et l'entrée suivante au même instant ne se chevauchent pas.
 ### Représentation des horodatages
 
 Stricte, et volontairement plus stricte que `DATEPRELEV`. Les formes acceptées
-dans un fichier texte sont :
+dans un fichier texte sont les formats ISO (recommandés) et le format français à
+quatre chiffres pour l'année :
 
 ```text
-YYYY-MM-DD
+YYYY-MM-DD (ou YYYY/MM/DD)
 YYYY-MM-DD HH:MM
 YYYY-MM-DD HH:MM:SS
+DD/MM/YYYY
+DD/MM/YYYY HH:MM
+DD/MM/YYYY HH:MM:SS
 ```
 
-`T` est accepté à la place de l'espace. Une date seule vaut minuit. Toute
-autre écriture est refusée plutôt qu'interprétée : `12/03/2024` désigne deux
-jours différents selon la convention, et une borne d'hospitalisation ne se
-devine pas. Dans un `.rds`, un `POSIXct` ou une `Date` sont lus directement.
+`T` est accepté à la place de l'espace. Une date seule vaut minuit. Le format ISO
+(`YYYY-MM-DD`) est vivement recommandé pour écarter toute ambiguïté. Les formats
+avec année sur deux chiffres (ex. `12/03/24`) ou les horodatages mal formés sont
+refusés plutôt qu'interprétés. Dans un `.rds`, un `POSIXct` ou une `Date` sont
+lus directement.
 
 Les valeurs sont lues dans le fuseau donné par `--timezone`, `Europe/Paris`
 par défaut.
@@ -691,7 +696,7 @@ le bundle complet validé. Pour calculer les indicateurs à partir du bundle
 v2 produit par ce même build :
 
 ```console
-python scripts/orchidee.py render --rebuild --bundle "outputs/site_current/bundle_v2_operational" --workspace "outputs/site_current/runtime" --start-year 2022 --end-year 2024
+python scripts/orchidee.py render --rebuild --bundle "outputs/site_current/bundle_v2_operational" --workspace "outputs/site_current/runtime" --start-year 2022 --end-year 2024 --output "outputs/site_current/orchidee_ratb_indicators.html"
 ```
 
 `--start-year` et `--end-year` doivent répéter la période du build : ce sont

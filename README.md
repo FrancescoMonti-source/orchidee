@@ -77,15 +77,15 @@ de la première à la dernière année incluse, la même à chaque étape.
 ### Déroulement en 3 stades
 
 Le traitement s'exécute en 3 stades successifs via [`examples/run_site_handoff.py`](examples/run_site_handoff.py)
-(ou directement avec la commande `orchidee.py site`) :
+(ou directement avec les commandes de la CLI `scripts/orchidee.py`) :
 
-1. **Diagnostics (`diagnostics`)** : contrôle la conformité des six fichiers avec
-   le contrat d'entrée, sans rien construire. Corriger les éventuels constats
-   `BLOCKING` signalés dans le rapport avant de continuer.
-2. **Build (`build`)** : relance les contrôles, réconcilie les séjours, effectue
-   l'attribution des prélèvements et construit les bundles d'entrée internes.
-3. **Rapport (`report`)** : calcule les indicateurs RATB à partir du build validé
-   et produit le rapport HTML autonome `orchidee_ratb_indicators.html`.
+1. **Diagnostics (`diagnostics`)** (`orchidee.py site --diagnose`) : contrôle la conformité
+   des six fichiers avec le contrat d'entrée, sans rien construire. Corriger les éventuels
+   constats `BLOCKING` signalés dans le rapport avant de continuer.
+2. **Build (`build`)** (`orchidee.py site`) : relance les contrôles, réconcilie les séjours,
+   effectue l'attribution des prélèvements et construit les bundles d'entrée internes.
+3. **Rapport (`report`)** (`orchidee.py render`) : calcule les indicateurs RATB à partir
+   du bundle opérationnel validé et produit le rapport HTML autonome `orchidee_ratb_indicators.html`.
 
 Pour générer des modèles CSV vierges et le dictionnaire des cibles reconnues
 dans un dossier dédié :

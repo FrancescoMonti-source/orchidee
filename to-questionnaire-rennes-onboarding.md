@@ -58,6 +58,12 @@ _Pourquoi c'est important : ORCHIDEE dispose d'un champ optionnel pour ces statu
 
 >
 
+### Périmètre des antibiotiques testés : appliquez-vous le filtre sur la nomenclature standard lors de la préparation du fichier ?
+
+_Pourquoi c'est important : Au point de jonction (seam) contractuel, le fichier `microbiology_observations.csv` transmis à ORCHIDEE doit contenir uniquement les résultats pour les molécules supportées par le catalogue national RATB (référencées dans `mapping_reference/supported_atb_norm.csv`). Tout antibiotique hors nomenclature doit être filtré avant transmission. Peu importe si votre extraction amont depuis le datamart extrait un périmètre plus large : l'essentiel est de savoir si ce filtre est appliqué de votre côté lors de la constitution du bloc standardisé (ce qui est le comportement attendu par le contrat)._
+
+>
+
 ---
 
 ## 2. Mouvements et séjours d'hospitalisation

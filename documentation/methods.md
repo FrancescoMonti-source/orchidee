@@ -27,7 +27,7 @@ séparer, soit une duplication dans le code.
 |------------------------|------------------------|------------------------|
 | `I` et `ZIT` forment une seule classe de valeur | `R/external_handoff_helpers.R` → `orchidee_handoff_normalize_sir()` | Les deux voies d'entrée, Rouen et site |
 | `S`, `R`, `ZIT` est le seul alphabet accepté | `R/external_bundle_validation_helpers.R` → `orchidee_external_contract_v2()` | Définition unique ; les autres couches la lisent, la frontière refuse le reste |
-| `NC`, `NA`, `N/A` et le vide deviennent absents, et non `ZIT` | `orchidee_handoff_normalize_sir()` | Aucun effet sur les comptes : les deux restent hors dénominateur. La distinction sert l'audit |
+| `NC`, `NA` et le vide deviennent absents, et non `ZIT` | `orchidee_handoff_normalize_sir()` | Aucun effet sur les comptes : les deux restent hors dénominateur. La distinction sert l'audit |
 
 ## Population analytique
 
@@ -88,7 +88,7 @@ Ce document ne consigne que la mécanique commune.
 | L'union des intervalles a une seule implémentation, partagée par Rouen et par le parcours site : triée par entrée, une ligne ouvre un nouveau séjour d'unité seulement si son entrée dépasse la borne de sortie maximale déjà vue | `R/ratb_hospital_days_helpers.R` → `ratb_assign_unit_stay_intervals()` | Les nuits de toutes les voies d'entrée |
 | Pour un site, l'exposition profilée est dérivée de ses intervalles d'hospitalisation, pas fournie par lui. Les bornes sont `[entrée, sortie)` : un transfert adjacent ne compte pas deux fois, des lignes dupliquées ou recouvrantes d'une même unité fusionnent, un retour après une autre unité reste une seconde visite | `R/site_handoff_preparation_helpers.R` → `orchidee_site_prepare_hospitalization_intervals()` | Le dénominateur de tout établissement sans adaptateur |
 | Pour un site, une double occupation de durée strictement positive entre deux unités d'un même séjour arrête le workflow au lieu d'être répartie | `R/site_handoff_preparation_helpers.R` → `orchidee_site_prepare_hospitalization_intervals()` | Aucune nuit n'est attribuée par défaut à l'une des deux unités |
-| Les horodatages d'intervalle sont lus dans un fuseau déclaré, `Europe/Paris` par défaut, en ISO strict. Une écriture ambiguë, une heure inexistante et une heure répétée au changement d'heure sont refusées plutôt que résolues | `R/site_handoff_preparation_helpers.R` → `orchidee_site_parse_interval_datetimes()` | Les bornes de séjour, donc les nuits et l'attribution |
+| Les horodatages d'intervalle sont lus dans un fuseau déclaré, `Europe/Paris` par défaut, aux formats ISO et français à quatre chiffres (ISO recommandé). Une écriture ambiguë, une heure inexistante et une heure répétée au changement d'heure sont refusées plutôt que résolues | `R/site_handoff_preparation_helpers.R` → `orchidee_site_parse_interval_datetimes()` | Les bornes de séjour, donc les nuits et l'attribution |
 
 ## Publication et affichage
 
