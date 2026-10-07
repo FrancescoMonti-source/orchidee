@@ -680,7 +680,7 @@ orchidee_site_prepare_hospitalization_intervals <- function(
     return(list(unit_stays = unit_stays, exposure = NULL, findings = findings))
   }
 
-  ## Nights, split by calendar year and clipped to the period -------------------
+  ## Nights, clipped to the period before splitting by calendar year ------------
   ##
   ## The bounds handed to the shared splitter are local calendar dates, computed
   ## in the declared zone. Letting it convert the instants itself would read a
@@ -702,36 +702,48 @@ orchidee_site_prepare_hospitalization_intervals <- function(
       datent_min, datsort_max, cross_year
     )
 
+  # Bound only the denominator copy: the original unit stays still host samples,
+  # including intervals with no night in the period. Count excluded nights
+  # directly so an outlying date cannot expand even the diagnostic's work.
+  period_start <- as.Date(sprintf("%04d-01-01", period$start_year))
+  period_end <- as.Date(sprintf("%04d-01-01", period$end_year + 1L))
+  total_nights <- as.integer(
+    stays_for_split$datsort_max - stays_for_split$datent_min
+  )
+  stays_for_split <- stays_for_split %>%
+    mutate(
+      datent_min = pmax(datent_min, period_start),
+      datsort_max = pmin(datsort_max, period_end)
+    )
+  nights_outside <- total_nights - pmax(
+    as.integer(stays_for_split$datsort_max - stays_for_split$datent_min),
+    0L
+  )
+  if (sum(nights_outside) > 0L) {
+    add(
+      "INFO",
+      block,
+      "nights_outside_period",
+      paste0(
+        sum(nights_outside),
+        " nights from ",
+        sum(nights_outside > 0L),
+        " unit stays fall outside ",
+        period$label,
+        " and are clipped out of the denominator. A stay crossing a period ",
+        "bound keeps only the nights inside it."
+      ),
+      n_rows = sum(nights_outside > 0L)
+    )
+  }
+  stays_for_split <- stays_for_split %>%
+    filter(datsort_max > datent_min)
   year_split <- ratb_split_stays_nights_by_year(
     stays_for_split,
     id_cols = c(
       "PATID", "EVTID", "SEJUM", "SEJUF", "CODE_TA", "CODE_DE", "de_domain_ref"
     )
   )
-
-  in_period <- year_split$calendar_year %in% period$years
-  nights_outside <- sum(year_split$overlap_nights[!in_period])
-  if (nights_outside > 0L) {
-    add(
-      "INFO",
-      block,
-      "nights_outside_period",
-      paste0(
-        nights_outside,
-        " nights fall in calendar years outside ",
-        period$label,
-        " (",
-        paste(
-          sort(unique(year_split$calendar_year[!in_period])),
-          collapse = ", "
-        ),
-        ") and are clipped out of the denominator. A stay crossing a period ",
-        "bound keeps only the nights inside it."
-      ),
-      n_rows = sum(!in_period)
-    )
-  }
-  year_split <- year_split[in_period, , drop = FALSE]
 
   if (nrow(year_split) == 0L) {
     add(

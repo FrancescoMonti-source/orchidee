@@ -161,6 +161,67 @@ cross_year <- prepare(
   microbiology_observations = observation(DATEPRELEV = "2024-01-02")
 )
 
+## Outlying dates must not expand every stay across their full year range ------
+##
+## Measure the intermediate table at the real site call, rather than imposing a
+## timing threshold. The 2010 admission and 2042 exit must not multiply the
+## work for the other stays. Capture only while preparing this fixture.
+measure_year_crossing <- function(...) {
+  sizes <- new.env(parent = emptyenv())
+  sizes$rows <- integer()
+  sizes$patients <- character()
+  suppressMessages(invisible(trace(
+    "crossing",
+    where = asNamespace("tidyr"),
+    exit = substitute({
+      assign("rows", c(get("rows", envir = capture), nrow(returnValue())),
+             envir = capture)
+      assign("patients", unique(c(
+        get("patients", envir = capture), returnValue()$PATID
+      )), envir = capture)
+    }, list(capture = sizes)),
+    print = FALSE
+  )))
+  on.exit(suppressMessages(invisible(untrace(
+    "crossing", where = asNamespace("tidyr")
+  ))), add = TRUE)
+  list(result = prepare(...), sizes = sizes)
+}
+
+outlying_intervals <- intervals(
+  c(
+    "2024-01-01 08:00", "2010-01-01 08:00", "2024-01-01 08:00",
+    "2010-01-01 08:00", "2025-01-01 08:00"
+  ),
+  c(
+    "2024-01-05 08:00", "2024-01-03 08:00", "2042-01-05 08:00",
+    "2024-01-01 08:00", "2025-01-05 08:00"
+  ),
+  c("UM_A", "UM_B", "UM_B", "UM_A", "UM_A"),
+  c("UF_A", "UF_B", "UF_B", "UF_A", "UF_A"),
+  PATID = paste0("P", 1:5),
+  EVTID = paste0("E", 1:5)
+)
+boundary_observations <- rbind(
+  observation(),
+  # P4 has no night in 2024, but still hosts this sample before its exit.
+  observation(
+    PATID = "P4", EVTID = "E4", ELTID = "L4",
+    DATEPRELEV = "2024-01-01", HEUREPRELEV = "07:00"
+  )
+)
+outlying_year <- measure_year_crossing(
+  outlying_intervals, microbiology_observations = boundary_observations
+)
+outlying_two_years <- measure_year_crossing(
+  outlying_intervals, microbiology_observations = boundary_observations,
+  start_year = 2023L, end_year = 2024L
+)
+outlying_nights_finding <- Filter(
+  function(finding) identical(finding$check, "nights_outside_period"),
+  outlying_year$result$findings
+)[[1L]]
+
 ## A hospitalization with no microbiology -------------------------------------
 ##
 ## The denominator is computed independently of the microbiology: an episode
@@ -423,6 +484,35 @@ stopifnot(
   length(blocking_checks(cross_year)) == 0L,
   identical(nights_by_unit(cross_year), c("2024/UF_A" = 2L)),
   has_check(cross_year, "INFO", "nights_outside_period"),
+
+  # The work is bounded by the declared years, plus the exclusive end year's
+  # empty boundary, and excludes stays with no night in the period.
+  length(outlying_year$sizes$rows) == 1L,
+  outlying_year$sizes$rows <= 3L * 2L,
+  identical(sort(outlying_year$sizes$patients), paste0("P", 1:3)),
+  length(blocking_checks(outlying_year$result)) == 0L,
+  identical(
+    nights_by_unit(outlying_year$result),
+    c("2024/UF_A" = 4L, "2024/UF_B" = 368L)
+  ),
+  has_check(outlying_year$result, "INFO", "nights_outside_period"),
+  identical(outlying_nights_finding$n_rows, 4L),
+  startsWith(outlying_nights_finding$detail, "16443 nights"),
+  identical(
+    outlying_year$result$site_inputs$microbiology_observations$SEJUF,
+    c("UF_A", "UF_A")
+  ),
+  length(outlying_two_years$sizes$rows) == 1L,
+  outlying_two_years$sizes$rows <= 4L * 3L,
+  identical(sort(outlying_two_years$sizes$patients), paste0("P", 1:4)),
+  length(blocking_checks(outlying_two_years$result)) == 0L,
+  identical(
+    nights_by_unit(outlying_two_years$result),
+    c(
+      "2023/UF_A" = 365L, "2023/UF_B" = 365L,
+      "2024/UF_A" = 4L, "2024/UF_B" = 368L
+    )
+  ),
 
   # An episode with no microbiology contributes its nights.
   length(blocking_checks(no_sample)) == 0L,
